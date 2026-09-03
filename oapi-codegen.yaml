@@ -1,0 +1,10 @@
+# Reads spec/openapi.yaml, the PINNED copy, never a URL: a build has to be
+# reproducible and work offline, and the diff has to show which spec version
+# produced the client. Refresh with scripts/download-spec.sh.
+package: api
+output: internal/api/api_gen.go
+generate:
+  models: true
+  client: true
+output-options:
+  name-normalizer: ToCamelCaseWithInitialisms

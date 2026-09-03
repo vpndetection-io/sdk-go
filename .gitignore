@@ -1,0 +1,8 @@
+# Go build and test output.
+*.exe
+*.test
+*.out
+/coverage.out
+
+# A local vendor tree is never committed; the module graph is go.mod + go.sum.
+/vendor/
