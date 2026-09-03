@@ -409,6 +409,19 @@
       }
     },
     {
+      "name": "not-found-is-not-retryable",
+      "why": "A 404 is a CLIENT error. Falling through to the server_error default makes it retryable, so a bad dataset id is retried before it fails. Only 5xx and transport failures are retryable.",
+      "status": 404,
+      "headers": {},
+      "body": {
+        "rc": "NOT_FOUND"
+      },
+      "expect": {
+        "kind": "bad_request",
+        "retryable": false
+      }
+    },
+    {
       "name": "rate-limited-is-retryable",
       "why": "Retry-After present. This is the API protecting itself and retrying WILL succeed.",
       "status": 429,
