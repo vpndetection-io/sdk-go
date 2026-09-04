@@ -200,6 +200,12 @@ type DatasetMetadata struct {
 	// Sample A few real rows, keyed by format
 	Sample *map[string][]map[string]interface{} `json:"sample,omitempty"`
 
+	// SampleEntries Row count in the evaluation sample
+	SampleEntries *int `json:"sample_entries,omitempty"`
+
+	// SampleSize Bytes per format of the evaluation sample, where one is published
+	SampleSize *map[string]int `json:"sample_size,omitempty"`
+
 	// Schema Columns, keyed by format
 	Schema map[string][]DatasetMetadataColumn `json:"schema"`
 
@@ -218,13 +224,26 @@ type DatasetMetadataColumn struct {
 	Type        string  `json:"type"`
 }
 
-// Download defines model for Download.
+// Download One download ATTEMPT, refusals included - a denial is what answers "it
+// stopped working", so they are listed rather than dropped.
 type Download struct {
-	Bytes     *int            `json:"bytes,omitempty"`
-	Created   time.Time       `json:"created"`
-	DatasetID string          `json:"dataset_id"`
-	Format    string          `json:"format"`
-	Outcome   DownloadOutcome `json:"outcome"`
+	// ApikeyID The key that made the request. Null when the org acted through the
+	// console rather than through a key.
+	ApikeyID *string `json:"apikey_id"`
+
+	// Bytes Object size at redirect time, NOT bytes delivered: the transfer is a
+	// presigned redirect straight to object storage, so we never observe it.
+	Bytes      *int            `json:"bytes"`
+	ClientIP   *string         `json:"client_ip"`
+	Created    time.Time       `json:"created"`
+	DatasetID  string          `json:"dataset_id"`
+	Format     string          `json:"format"`
+	HTTPStatus *int            `json:"http_status"`
+	Outcome    DownloadOutcome `json:"outcome"`
+
+	// Sample The evaluation sample rather than the database itself.
+	Sample    bool    `json:"sample"`
+	UserAgent *string `json:"user_agent"`
 }
 
 // DownloadOutcome defines model for Download.Outcome.
