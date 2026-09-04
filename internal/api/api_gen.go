@@ -86,6 +86,45 @@ func (e LicensedDatasetRedistribution) Valid() bool {
 	}
 }
 
+// Defines values for LicensedDatasetStanding.
+const (
+	LicensedDatasetStandingExpired    LicensedDatasetStanding = "expired"
+	LicensedDatasetStandingLicensed   LicensedDatasetStanding = "licensed"
+	LicensedDatasetStandingUnlicensed LicensedDatasetStanding = "unlicensed"
+)
+
+// Valid indicates whether the value is a known member of the LicensedDatasetStanding enum.
+func (e LicensedDatasetStanding) Valid() bool {
+	switch e {
+	case LicensedDatasetStandingExpired:
+		return true
+	case LicensedDatasetStandingLicensed:
+		return true
+	case LicensedDatasetStandingUnlicensed:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for LicensedVersionSampleFormats.
+const (
+	LicensedVersionSampleFormatsCsvgz LicensedVersionSampleFormats = "csvgz"
+	LicensedVersionSampleFormatsMmdb  LicensedVersionSampleFormats = "mmdb"
+)
+
+// Valid indicates whether the value is a known member of the LicensedVersionSampleFormats enum.
+func (e LicensedVersionSampleFormats) Valid() bool {
+	switch e {
+	case LicensedVersionSampleFormatsCsvgz:
+		return true
+	case LicensedVersionSampleFormatsMmdb:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for DatabaseChecksumParamsFormat.
 const (
 	DatabaseChecksumParamsFormatCsvgz DatabaseChecksumParamsFormat = "csvgz"
@@ -196,27 +235,64 @@ type Error struct {
 	Rc string `json:"rc"`
 }
 
-// LicensedDataset defines model for LicensedDataset.
+// LicensedDataset One dataset FAMILY your organization is licensed for. A license covers
+// the family, while a download names a specific version, so the ids you
+// pass to the download and checksum endpoints come from `versions`.
 type LicensedDataset struct {
-	Expires *time.Time          `json:"expires,omitempty"`
-	Formats []DatasetFormatSize `json:"formats"`
-	ID      string              `json:"id"`
+	// Base The dataset family, e.g. `vpn_ip`. What the license is held against.
+	//
+	// Example: vpn_ip
+	Base string `json:"base"`
 
-	// InTerm False when the license has lapsed; downloads are refused
-	InTerm bool   `json:"in_term"`
-	Name   string `json:"name"`
+	// Expires Null when the license does not expire.
+	Expires *time.Time `json:"expires,omitempty"`
 
-	// Redistribution What your license permits you to do with the data
+	// InTerm False when the license has lapsed; downloads are refused.
+	InTerm bool `json:"in_term"`
+
+	// Name Example: VPN IP
+	Name string `json:"name"`
+
+	// Redistribution What your license permits you to do with the data.
 	Redistribution LicensedDatasetRedistribution `json:"redistribution"`
 
-	// Retired Licensed but no longer published. Talk to us.
-	Retired *bool      `json:"retired,omitempty"`
-	Starts  *time.Time `json:"starts,omitempty"`
-	Summary *string    `json:"summary,omitempty"`
+	// Standing `licensed` is a live grant, `expired` one whose term has ended, and
+	// `unlicensed` a dataset published but never bought.
+	Standing LicensedDatasetStanding `json:"standing"`
+	Starts   *time.Time              `json:"starts,omitempty"`
+	Summary  *string                 `json:"summary,omitempty"`
+
+	// Versions Every published version of this family. The `id` here is what the
+	// download and checksum endpoints take.
+	Versions []LicensedVersion `json:"versions"`
 }
 
-// LicensedDatasetRedistribution What your license permits you to do with the data
+// LicensedDatasetRedistribution What your license permits you to do with the data.
 type LicensedDatasetRedistribution string
+
+// LicensedDatasetStanding `licensed` is a live grant, `expired` one whose term has ended, and
+// `unlicensed` a dataset published but never bought.
+type LicensedDatasetStanding string
+
+// LicensedVersion defines model for LicensedVersion.
+type LicensedVersion struct {
+	Formats []DatasetFormatSize `json:"formats"`
+
+	// ID The versioned dataset id, e.g. `vpn_ip_v1`. Pass this to download.
+	//
+	// Example: vpn_ip_v1
+	ID string `json:"id"`
+
+	// SampleFormats The formats an evaluation sample is published in, if any.
+	SampleFormats *[]LicensedVersionSampleFormats `json:"sampleFormats,omitempty"`
+	Summary       *string                         `json:"summary,omitempty"`
+
+	// Version Example: 1
+	Version int `json:"version"`
+}
+
+// LicensedVersionSampleFormats defines model for LicensedVersion.SampleFormats.
+type LicensedVersionSampleFormats string
 
 // LookupError Every non-2xx response carries this shape.
 type LookupError struct {
