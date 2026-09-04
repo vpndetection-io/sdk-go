@@ -146,9 +146,9 @@ func TestIsBogonIsOnTheClientAndAgreesWithTheStandaloneFunction(t *testing.T) {
 
 // Go has no `??`, so these readers are the only ergonomic way to ask "flagged
 // or not" without losing the absent-versus-false distinction elsewhere.
-func TestOrFalseReadersCoalesceAnAbsentFlag(t *testing.T) {
+func TestBoolValueCoalescesAnAbsentFlag(t *testing.T) {
 	absent := &Result{}
-	if absent.IsHostingOrFalse() || absent.IsDcproxyOrFalse() {
+	if BoolValue(absent.IsHosting) || BoolValue(absent.IsDcproxy) {
 		t.Error("an absent flag should read as false")
 	}
 	if absent.IsHosting != nil {
@@ -156,10 +156,10 @@ func TestOrFalseReadersCoalesceAnAbsentFlag(t *testing.T) {
 	}
 
 	present := &Result{LookupResponse: LookupResponse{IsHosting: ptr(true), IsTor: ptr(false)}}
-	if !present.IsHostingOrFalse() {
+	if !BoolValue(present.IsHosting) {
 		t.Error("a present true flag should read as true")
 	}
-	if present.IsTorOrFalse() {
+	if BoolValue(present.IsTor) {
 		t.Error("a present false flag should read as false")
 	}
 }

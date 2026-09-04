@@ -45,7 +45,7 @@ client, err := vpndetection.New(vpndetection.WithAPIKey(os.Getenv("VPNDETECTION_
 
 result, err := client.Lookup(ctx, "45.83.91.1")
 fmt.Println(result.IsVpn)               // true
-fmt.Println(result.IsHostingOrFalse())  // true
+fmt.Println(vpndetection.BoolValue(result.IsHosting))  // true
 
 if vpn := result.Vpn; vpn != nil && vpn.Provider != nil {
     fmt.Println(*vpn.Provider)          // mullvad
@@ -63,7 +63,7 @@ case *result.IsHosting:
 }
 ```
 
-When you only care whether an address is flagged, the `OrFalse` readers collapse the two for you: `result.IsHostingOrFalse()`, `IsRelayOrFalse()`, `IsTorOrFalse()`, `IsCdnOrFalse()`, `IsResproxyOrFalse()`, `IsDcproxyOrFalse()` and `IsMobproxyOrFalse()`.
+When you only care whether an address is flagged, `vpndetection.BoolValue` collapses the two for you: `vpndetection.BoolValue(result.IsHosting)` is `false` for both a plan that does not include the field and an address that is not hosting. It is the same helper, by the same name, that `stripe-go` provides.
 
 ### Batch lookup
 
