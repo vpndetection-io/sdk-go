@@ -52,19 +52,6 @@ if vpn := result.Vpn; vpn != nil && vpn.Provider != nil {
 }
 ```
 
-Every field beyond `IP` and `IsVpn` is a pointer, because your plan decides which of them the API sends. A `nil` pointer means "not in your plan", which is a different answer from `false`, so check for `nil` whenever the two matter:
-
-```go
-switch {
-case result.IsHosting == nil:
-    fmt.Println("hosting detection is not on this plan")
-case *result.IsHosting:
-    fmt.Println("hosting")
-}
-```
-
-When you only care whether an address is flagged, `vpndetection.BoolValue` collapses the two for you: `vpndetection.BoolValue(result.IsHosting)` is `false` for both a plan that does not include the field and an address that is not hosting. It is the same helper, by the same name, that `stripe-go` provides.
-
 ### Batch lookup
 
 You can do batch lookups with a list, which parallelizes requests for you efficiently:
@@ -173,6 +160,15 @@ raw, err := client.Database.DownloadBytes(ctx, "cdn_ip_v1", vpndetection.FormatC
 ```
 
 `DownloadBytes` holds the whole file in memory, and the catalog runs from `cdn_ip_v1` at 10 KB to `resproxy_ip_90d_v1` at 1.79 GB, so use `DownloadFile` for anything you have not measured.
+
+### Absent is not false
+
+Every field beyond `IP` and `IsVpn` is a pointer, because your plan decides which of them the API sends. A `nil` pointer means "not in your plan", not "checked, and no".
+
+```go
+vpndetection.BoolValue(result.IsHosting)  // when you only want the flag
+result.IsHosting == nil                   // not in your plan
+```
 
 ## Other Libraries
 
