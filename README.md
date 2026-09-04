@@ -154,14 +154,25 @@ Note that `rate_limited` and `quota_exceeded` both arrive as HTTP 429 and are no
 
 ### Database downloads
 
-If your key carries the `db.download` scope, the licensed datasets are available through `client.Database`:
+If your key carries the `db.download` scope, the licensed datasets are available through `client.Database`. `DownloadFile` fetches one to a path, streaming it straight to disk so that nothing bigger than a chunk is ever held in memory:
 
 ```go
 datasets, err := client.Database.List(ctx)
-url, err := client.Database.DownloadURL(ctx, "vpn_ip_extended_v1", vpndetection.FormatMMDB)
+
+written, err := client.Database.DownloadFile(ctx,
+    "vpn_ip_extended_v1", vpndetection.FormatMMDB, "./vpn_ip_extended_v1.mmdb")
+fmt.Printf("%d bytes\n", written)
 ```
 
-`DownloadURL` returns a time-limited link rather than the bytes, so you choose how to transfer a file that can run to gigabytes.
+Or stream it into a writer of your own, take the time-limited link and run the transfer yourself, or take a small dataset as bytes:
+
+```go
+written, err := client.Database.Download(ctx, "vpn_ip_extended_v1", vpndetection.FormatMMDB, w)
+url, err := client.Database.DownloadURL(ctx, "vpn_ip_extended_v1", vpndetection.FormatMMDB)
+raw, err := client.Database.DownloadBytes(ctx, "cdn_ip_v1", vpndetection.FormatCSVGZ)
+```
+
+`DownloadBytes` holds the whole file in memory, and the catalog runs from `cdn_ip_v1` at 10 KB to `resproxy_ip_90d_v1` at 1.79 GB, so use `DownloadFile` for anything you have not measured.
 
 ## Other Libraries
 

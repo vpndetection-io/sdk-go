@@ -65,7 +65,8 @@ func New(opts ...Option) (*Client, error) {
 		}
 	}
 
-	apiOpts := []api.ClientOption{api.WithHTTPClient(redirectControlled(cfg.httpClient))}
+	httpClient := redirectControlled(cfg.httpClient)
+	apiOpts := []api.ClientOption{api.WithHTTPClient(httpClient)}
 	if cfg.apiKey != "" {
 		apiOpts = append(apiOpts, api.WithRequestEditorFn(bearer(cfg.apiKey)))
 	}
@@ -75,7 +76,7 @@ func New(opts ...Option) (*Client, error) {
 	}
 
 	client := &Client{
-		Database:    &Database{api: inner, retries: cfg.retries},
+		Database:    &Database{api: inner, transfer: untimed(httpClient), retries: cfg.retries},
 		api:         inner,
 		concurrency: cfg.concurrency,
 		retries:     cfg.retries,
@@ -257,7 +258,8 @@ func WithRetries(n int) Option {
 // proxy or timeout. Without it the SDK uses a client with a 30 second timeout.
 //
 // The client is copied rather than mutated, and the copy adds a CheckRedirect
-// that defers to yours (see Database.DownloadURL).
+// that defers to yours (see Database.DownloadURL). A dataset transfer runs on a
+// second copy with Timeout cleared, and is bounded by its context instead.
 func WithHTTPClient(client *http.Client) Option {
 	return func(c *config) error {
 		if client == nil {
@@ -355,6 +357,15 @@ func redirectControlled(client *http.Client) *http.Client {
 		return nil
 	}
 	return &controlled
+}
+
+// A dataset transfer runs on the same transport but no whole-request Timeout,
+// since one that bounds a lookup sensibly would kill a gigabyte download part
+// way through. Its deadline is the context the caller passed.
+func untimed(client *http.Client) *http.Client {
+	transfer := *client
+	transfer.Timeout = 0
+	return &transfer
 }
 
 // Backs off exponentially, except that a server-supplied Retry-After wins over
