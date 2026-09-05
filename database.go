@@ -264,8 +264,8 @@ type (
 	// LicensedVersion is one published version of a licensed family. Its ID is
 	// what the download and checksum calls take.
 	LicensedVersion = api.LicensedVersion
-	// Redistribution is what a license permits you to do with the data.
-	Redistribution = api.LicensedDatasetRedistribution
+	// LicenseType is what a license permits you to do with the data.
+	LicenseType = api.LicensedDatasetLicenseType
 	// Standing is where a license stands: live, lapsed, or never bought.
 	Standing = api.LicensedDatasetStanding
 	// SampleFormat is a format an evaluation sample is published in.
@@ -275,9 +275,9 @@ type (
 )
 
 const (
-	RedistributionEvaluation   = api.Evaluation
-	RedistributionInternal     = api.Internal
-	RedistributionRedistribute = api.Redistribute
+	LicenseTypeEvaluation   = api.Evaluation
+	LicenseTypeStandard     = api.Standard
+	LicenseTypeRedistribute = api.Redistribute
 )
 
 const (

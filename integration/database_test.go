@@ -26,7 +26,7 @@ import (
 )
 
 const (
-	// The max organization licenses cdn_ip for redistribution, and at ~10 KB it
+	// The max organization licenses cdn_ip for license_type, and at ~10 KB it
 	// is the only dataset small enough to move in CI.
 	datasetID = "cdn_ip_v1"
 	format    = vpndetection.FormatCSVGZ
@@ -68,9 +68,9 @@ func TestTheLicensedCatalogueAnswersTheSchemaTheClientWasGeneratedFrom(t *testin
 	standings := []vpndetection.Standing{
 		vpndetection.StandingExpired, vpndetection.StandingLicensed, vpndetection.StandingUnlicensed,
 	}
-	rights := []vpndetection.Redistribution{
-		vpndetection.RedistributionEvaluation, vpndetection.RedistributionInternal,
-		vpndetection.RedistributionRedistribute,
+	rights := []vpndetection.LicenseType{
+		vpndetection.LicenseTypeEvaluation, vpndetection.LicenseTypeStandard,
+		vpndetection.LicenseTypeRedistribute,
 	}
 	var ids []string
 	for _, d := range datasets {
@@ -80,8 +80,8 @@ func TestTheLicensedCatalogueAnswersTheSchemaTheClientWasGeneratedFrom(t *testin
 		if !slices.Contains(standings, d.Standing) {
 			t.Errorf("%s carries an undocumented standing %q", d.Base, d.Standing)
 		}
-		if !slices.Contains(rights, d.Redistribution) {
-			t.Errorf("%s carries an undocumented right %q", d.Base, d.Redistribution)
+		if !slices.Contains(rights, d.LicenseType) {
+			t.Errorf("%s carries an undocumented right %q", d.Base, d.LicenseType)
 		}
 		// The point of the family shape: a license covers the family, and these
 		// are the ids the download and checksum calls take. Before the spec was

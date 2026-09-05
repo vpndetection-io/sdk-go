@@ -65,21 +65,21 @@ func (e DownloadOutcome) Valid() bool {
 	}
 }
 
-// Defines values for LicensedDatasetRedistribution.
+// Defines values for LicensedDatasetLicenseType.
 const (
-	Evaluation   LicensedDatasetRedistribution = "evaluation"
-	Internal     LicensedDatasetRedistribution = "internal"
-	Redistribute LicensedDatasetRedistribution = "redistribute"
+	Evaluation   LicensedDatasetLicenseType = "evaluation"
+	Redistribute LicensedDatasetLicenseType = "redistribute"
+	Standard     LicensedDatasetLicenseType = "standard"
 )
 
-// Valid indicates whether the value is a known member of the LicensedDatasetRedistribution enum.
-func (e LicensedDatasetRedistribution) Valid() bool {
+// Valid indicates whether the value is a known member of the LicensedDatasetLicenseType enum.
+func (e LicensedDatasetLicenseType) Valid() bool {
 	switch e {
 	case Evaluation:
 		return true
-	case Internal:
-		return true
 	case Redistribute:
+		return true
+	case Standard:
 		return true
 	default:
 		return false
@@ -269,11 +269,11 @@ type LicensedDataset struct {
 	// InTerm False when the license has lapsed; downloads are refused.
 	InTerm bool `json:"in_term"`
 
+	// LicenseType What your license permits you to do with the data.
+	LicenseType LicensedDatasetLicenseType `json:"license_type"`
+
 	// Name Example: VPN IP
 	Name string `json:"name"`
-
-	// Redistribution What your license permits you to do with the data.
-	Redistribution LicensedDatasetRedistribution `json:"redistribution"`
 
 	// Standing `licensed` is a live grant, `expired` one whose term has ended, and
 	// `unlicensed` a dataset published but never bought.
@@ -286,8 +286,8 @@ type LicensedDataset struct {
 	Versions []LicensedVersion `json:"versions"`
 }
 
-// LicensedDatasetRedistribution What your license permits you to do with the data.
-type LicensedDatasetRedistribution string
+// LicensedDatasetLicenseType What your license permits you to do with the data.
+type LicensedDatasetLicenseType string
 
 // LicensedDatasetStanding `licensed` is a live grant, `expired` one whose term has ended, and
 // `unlicensed` a dataset published but never bought.
@@ -566,27 +566,35 @@ func WithRequestEditorFn(fn RequestEditorFn) ClientOption {
 // The interface specification for the client above.
 type ClientInterface interface {
 
-	// DatabaseChecksum Checksums for one published file, to verify a download
+	// DatabaseChecksum Checksums
+	//
+	// Checksums for one published file, so a download can be verified after it lands.
 	//
 	// Corresponds with GET /api/v1/database/checksum (the `DatabaseChecksum` operationId).
 	DatabaseChecksum(ctx context.Context, params *DatabaseChecksumParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// DownloadDatabase Redirect to a time-limited download URL for one dataset
+	// DownloadDatabase Download
+	//
+	// Answers `302` with a time-limited URL pointing straight at object storage. Follow the redirect; the link authorizes the START of a transfer, so one already running is not interrupted when it lapses.
 	//
 	// Corresponds with GET /api/v1/database/download (the `DownloadDatabase` operationId).
 	DownloadDatabase(ctx context.Context, params *DownloadDatabaseParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// ListDownloads Your organization's recent download attempts, newest first
+	// ListDownloads History
+	//
+	// Recent download attempts for this organization, newest first. Refusals are listed too, so a failed transfer can be accounted for.
 	//
 	// Corresponds with GET /api/v1/database/downloads (the `ListDownloads` operationId).
 	ListDownloads(ctx context.Context, params *ListDownloadsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// ListDatabases The datasets your organization is licensed to download
+	// ListDatabases List
+	//
+	// Every dataset this organization holds a licence for, with the term and the license_type right beside each one.
 	//
 	// Corresponds with GET /api/v1/database/list (the `ListDatabases` operationId).
 	ListDatabases(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// DatabaseMetadata What is inside one dataset - schema, samples, row count, sizes
+	// DatabaseMetadata Metadata
 	//
 	// Poll this to decide whether today's build is worth fetching: it carries
 	// `updated` and `entries` without downloading anything.
@@ -597,7 +605,7 @@ type ClientInterface interface {
 	// Corresponds with GET /api/v1/database/metadata (the `DatabaseMetadata` operationId).
 	DatabaseMetadata(ctx context.Context, params *DatabaseMetadataParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// LookupIP Classify one IP address
+	// LookupIP Lookup
 	//
 	// Answers what is known about a single IPv4 or IPv6 address. Which fields
 	// come back is decided by the plan behind the presented key; with no key
@@ -607,7 +615,9 @@ type ClientInterface interface {
 	LookupIP(ctx context.Context, ip string, reqEditors ...RequestEditorFn) (*http.Response, error)
 }
 
-// DatabaseChecksum Checksums for one published file, to verify a download
+// DatabaseChecksum Checksums
+//
+// Checksums for one published file, so a download can be verified after it lands.
 //
 // Corresponds with GET /api/v1/database/checksum (the `DatabaseChecksum` operationId).
 func (c *Client) DatabaseChecksum(ctx context.Context, params *DatabaseChecksumParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
@@ -622,7 +632,9 @@ func (c *Client) DatabaseChecksum(ctx context.Context, params *DatabaseChecksumP
 	return c.Client.Do(req)
 }
 
-// DownloadDatabase Redirect to a time-limited download URL for one dataset
+// DownloadDatabase Download
+//
+// Answers `302` with a time-limited URL pointing straight at object storage. Follow the redirect; the link authorizes the START of a transfer, so one already running is not interrupted when it lapses.
 //
 // Corresponds with GET /api/v1/database/download (the `DownloadDatabase` operationId).
 func (c *Client) DownloadDatabase(ctx context.Context, params *DownloadDatabaseParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
@@ -637,7 +649,9 @@ func (c *Client) DownloadDatabase(ctx context.Context, params *DownloadDatabaseP
 	return c.Client.Do(req)
 }
 
-// ListDownloads Your organization's recent download attempts, newest first
+// ListDownloads History
+//
+// Recent download attempts for this organization, newest first. Refusals are listed too, so a failed transfer can be accounted for.
 //
 // Corresponds with GET /api/v1/database/downloads (the `ListDownloads` operationId).
 func (c *Client) ListDownloads(ctx context.Context, params *ListDownloadsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
@@ -652,7 +666,9 @@ func (c *Client) ListDownloads(ctx context.Context, params *ListDownloadsParams,
 	return c.Client.Do(req)
 }
 
-// ListDatabases The datasets your organization is licensed to download
+// ListDatabases List
+//
+// Every dataset this organization holds a licence for, with the term and the license_type right beside each one.
 //
 // Corresponds with GET /api/v1/database/list (the `ListDatabases` operationId).
 func (c *Client) ListDatabases(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
@@ -667,7 +683,7 @@ func (c *Client) ListDatabases(ctx context.Context, reqEditors ...RequestEditorF
 	return c.Client.Do(req)
 }
 
-// DatabaseMetadata What is inside one dataset - schema, samples, row count, sizes
+// DatabaseMetadata Metadata
 //
 // Poll this to decide whether today's build is worth fetching: it carries
 // `updated` and `entries` without downloading anything.
@@ -688,7 +704,7 @@ func (c *Client) DatabaseMetadata(ctx context.Context, params *DatabaseMetadataP
 	return c.Client.Do(req)
 }
 
-// LookupIP Classify one IP address
+// LookupIP Lookup
 //
 // Answers what is known about a single IPv4 or IPv6 address. Which fields
 // come back is decided by the plan behind the presented key; with no key
@@ -1032,35 +1048,43 @@ func WithBaseURL(baseURL string) ClientOption {
 // ClientWithResponsesInterface is the interface specification for the client with responses above.
 type ClientWithResponsesInterface interface {
 
-	// DatabaseChecksumWithResponse Checksums for one published file, to verify a download
+	// DatabaseChecksumWithResponse Checksums
+	//
+	// Checksums for one published file, so a download can be verified after it lands.
 	//
 	// Returns a wrapper object for the known response body format(s).
 	//
 	// Corresponds with GET /api/v1/database/checksum (the `DatabaseChecksum` operationId).
 	DatabaseChecksumWithResponse(ctx context.Context, params *DatabaseChecksumParams, reqEditors ...RequestEditorFn) (*DatabaseChecksumResponse, error)
 
-	// DownloadDatabaseWithResponse Redirect to a time-limited download URL for one dataset
+	// DownloadDatabaseWithResponse Download
+	//
+	// Answers `302` with a time-limited URL pointing straight at object storage. Follow the redirect; the link authorizes the START of a transfer, so one already running is not interrupted when it lapses.
 	//
 	// Returns a wrapper object for the known response body format(s).
 	//
 	// Corresponds with GET /api/v1/database/download (the `DownloadDatabase` operationId).
 	DownloadDatabaseWithResponse(ctx context.Context, params *DownloadDatabaseParams, reqEditors ...RequestEditorFn) (*DownloadDatabaseResponse, error)
 
-	// ListDownloadsWithResponse Your organization's recent download attempts, newest first
+	// ListDownloadsWithResponse History
+	//
+	// Recent download attempts for this organization, newest first. Refusals are listed too, so a failed transfer can be accounted for.
 	//
 	// Returns a wrapper object for the known response body format(s).
 	//
 	// Corresponds with GET /api/v1/database/downloads (the `ListDownloads` operationId).
 	ListDownloadsWithResponse(ctx context.Context, params *ListDownloadsParams, reqEditors ...RequestEditorFn) (*ListDownloadsResponse, error)
 
-	// ListDatabasesWithResponse The datasets your organization is licensed to download
+	// ListDatabasesWithResponse List
+	//
+	// Every dataset this organization holds a licence for, with the term and the license_type right beside each one.
 	//
 	// Returns a wrapper object for the known response body format(s).
 	//
 	// Corresponds with GET /api/v1/database/list (the `ListDatabases` operationId).
 	ListDatabasesWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListDatabasesResponse, error)
 
-	// DatabaseMetadataWithResponse What is inside one dataset - schema, samples, row count, sizes
+	// DatabaseMetadataWithResponse Metadata
 	//
 	// Poll this to decide whether today's build is worth fetching: it carries
 	// `updated` and `entries` without downloading anything.
@@ -1073,7 +1097,7 @@ type ClientWithResponsesInterface interface {
 	// Corresponds with GET /api/v1/database/metadata (the `DatabaseMetadata` operationId).
 	DatabaseMetadataWithResponse(ctx context.Context, params *DatabaseMetadataParams, reqEditors ...RequestEditorFn) (*DatabaseMetadataResponse, error)
 
-	// LookupIPWithResponse Classify one IP address
+	// LookupIPWithResponse Lookup
 	//
 	// Answers what is known about a single IPv4 or IPv6 address. Which fields
 	// come back is decided by the plan behind the presented key; with no key
@@ -1511,7 +1535,9 @@ func (r LookupIPResponse) ContentType() string {
 	return ""
 }
 
-// DatabaseChecksumWithResponse Checksums for one published file, to verify a download
+// DatabaseChecksumWithResponse Checksums
+//
+// Checksums for one published file, so a download can be verified after it lands.
 //
 // Returns a wrapper object for the known response body format(s).
 //
@@ -1524,7 +1550,9 @@ func (c *ClientWithResponses) DatabaseChecksumWithResponse(ctx context.Context, 
 	return ParseDatabaseChecksumResponse(rsp)
 }
 
-// DownloadDatabaseWithResponse Redirect to a time-limited download URL for one dataset
+// DownloadDatabaseWithResponse Download
+//
+// Answers `302` with a time-limited URL pointing straight at object storage. Follow the redirect; the link authorizes the START of a transfer, so one already running is not interrupted when it lapses.
 //
 // Returns a wrapper object for the known response body format(s).
 //
@@ -1537,7 +1565,9 @@ func (c *ClientWithResponses) DownloadDatabaseWithResponse(ctx context.Context, 
 	return ParseDownloadDatabaseResponse(rsp)
 }
 
-// ListDownloadsWithResponse Your organization's recent download attempts, newest first
+// ListDownloadsWithResponse History
+//
+// Recent download attempts for this organization, newest first. Refusals are listed too, so a failed transfer can be accounted for.
 //
 // Returns a wrapper object for the known response body format(s).
 //
@@ -1550,7 +1580,9 @@ func (c *ClientWithResponses) ListDownloadsWithResponse(ctx context.Context, par
 	return ParseListDownloadsResponse(rsp)
 }
 
-// ListDatabasesWithResponse The datasets your organization is licensed to download
+// ListDatabasesWithResponse List
+//
+// Every dataset this organization holds a licence for, with the term and the license_type right beside each one.
 //
 // Returns a wrapper object for the known response body format(s).
 //
@@ -1563,7 +1595,7 @@ func (c *ClientWithResponses) ListDatabasesWithResponse(ctx context.Context, req
 	return ParseListDatabasesResponse(rsp)
 }
 
-// DatabaseMetadataWithResponse What is inside one dataset - schema, samples, row count, sizes
+// DatabaseMetadataWithResponse Metadata
 //
 // Poll this to decide whether today's build is worth fetching: it carries
 // `updated` and `entries` without downloading anything.
@@ -1582,7 +1614,7 @@ func (c *ClientWithResponses) DatabaseMetadataWithResponse(ctx context.Context, 
 	return ParseDatabaseMetadataResponse(rsp)
 }
 
-// LookupIPWithResponse Classify one IP address
+// LookupIPWithResponse Lookup
 //
 // Answers what is known about a single IPv4 or IPv6 address. Which fields
 // come back is decided by the plan behind the presented key; with no key
