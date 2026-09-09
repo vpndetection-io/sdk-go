@@ -263,8 +263,8 @@ type LicensedDataset struct {
 	// Example: vpn_ip
 	Base string `json:"base"`
 
-	// Expires Null when the license does not expire.
-	Expires *time.Time `json:"expires,omitempty"`
+	// Expires A hard stop. Null when the license has no end date, which is the normal case for a rolling agreement, and when there is no license. A rolling license reports its turnover date in renews_at instead.
+	Expires *time.Time `json:"expires"`
 
 	// InTerm False when the license has lapsed; downloads are refused.
 	InTerm bool `json:"in_term"`
@@ -275,11 +275,17 @@ type LicensedDataset struct {
 	// Name Example: VPN IP
 	Name string `json:"name"`
 
+	// NoticeDueAt The last day notice of non-renewal can be given for the term ending at renews_at. Null whenever renews_at is, and when the agreement records no notice period.
+	NoticeDueAt *time.Time `json:"notice_due_at"`
+
+	// RenewsAt When a rolling license next renews. Null when the license has no defined term, when expires sets a hard stop instead, and when there is no license.
+	RenewsAt *time.Time `json:"renews_at"`
+
 	// Standing `licensed` is a live grant, `expired` one whose term has ended, and
 	// `unlicensed` a dataset published but never bought.
 	Standing LicensedDatasetStanding `json:"standing"`
-	Starts   *time.Time              `json:"starts,omitempty"`
-	Summary  *string                 `json:"summary,omitempty"`
+	Starts   *time.Time              `json:"starts"`
+	Summary  string                  `json:"summary"`
 
 	// Versions Every published version of this family. The `id` here is what the
 	// download and checksum endpoints take.
@@ -343,19 +349,19 @@ type LookupResponse struct {
 	// IsCdn Whether the address belongs to a CDN. Starter and above.
 	IsCdn *bool `json:"is_cdn,omitempty"`
 
-	// IsDcproxy Whether the address was seen in a datacenter proxy pool. Max only.
+	// IsDcproxy Whether the address was seen in a datacenter proxy pool. Scale and above.
 	IsDcproxy *bool `json:"is_dcproxy,omitempty"`
 
 	// IsHosting Whether the address belongs to a hosting or cloud provider. Starter and above.
 	IsHosting *bool `json:"is_hosting,omitempty"`
 
-	// IsMobproxy Whether the address was seen in a mobile proxy pool. Max only.
+	// IsMobproxy Whether the address was seen in a mobile proxy pool. Scale and above.
 	IsMobproxy *bool `json:"is_mobproxy,omitempty"`
 
 	// IsRelay Whether the address is a privacy relay egress. Starter and above.
 	IsRelay *bool `json:"is_relay,omitempty"`
 
-	// IsResproxy Whether the address was seen in a residential proxy pool. Max only.
+	// IsResproxy Whether the address was seen in a residential proxy pool. Scale and above.
 	IsResproxy *bool `json:"is_resproxy,omitempty"`
 
 	// IsTor Whether the address is a Tor node. Starter and above.
