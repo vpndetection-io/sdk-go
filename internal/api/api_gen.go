@@ -177,7 +177,7 @@ type ClassDetail struct {
 
 	// Provider The provider, or an empty string where the dataset has none.
 	//
-	// Example: M247
+	// Example: m247
 	Provider *string `json:"provider,omitempty"`
 }
 
@@ -442,9 +442,18 @@ type VpnDetail struct {
 	// Example: 2026-09-02
 	LastSeen *openapi_types.Date `json:"last_seen,omitempty"`
 
-	// Method How the address was attributed to the provider. Max only.
+	// Method The class of evidence the attribution rests on, one of four values.
+	// Max only.
 	//
-	// Example: openvpn_cert
+	// `scan` - we spoke the VPN protocol to the address ourselves and got a
+	// valid server response. `scrape` - the operator published the address
+	// through its own API, client or configuration. `registry` - public
+	// registration or naming records attribute it to the operator.
+	// `infer` - the address was extrapolated from confirmed neighbours in
+	// the same block.
+	//
+	//
+	// Example: scan
 	Method *string `json:"method,omitempty"`
 
 	// Provider The VPN provider, or an empty string for an unattributed range.
