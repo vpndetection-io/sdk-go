@@ -8,7 +8,7 @@ module github.com/vpndetection-io/sdk-go/v3/integration
 
 go 1.24.0
 
-require github.com/vpndetection-io/sdk-go/v3 v3.0.1
+require github.com/vpndetection-io/sdk-go/v3 v3.1.0
 
 require (
 	github.com/apapsch/go-jsonmerge/v2 v2.0.0 // indirect
