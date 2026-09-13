@@ -72,16 +72,28 @@ func TestTheLicensedCatalogueAnswersTheSchemaTheClientWasGeneratedFrom(t *testin
 		vpndetection.LicenseTypeEvaluation, vpndetection.LicenseTypeStandard,
 		vpndetection.LicenseTypeRedistribute,
 	}
-	var ids []string
+	var licensed []string
 	for _, d := range datasets {
 		if d.Base == "" || d.Name == "" {
-			t.Errorf("a licensed family carries no base or name: %+v", d)
+			t.Errorf("a family carries no base or name: %+v", d)
 		}
 		if !slices.Contains(standings, d.Standing) {
 			t.Errorf("%s carries an undocumented standing %q", d.Base, d.Standing)
 		}
-		if !slices.Contains(rights, d.LicenseType) {
-			t.Errorf("%s carries an undocumented right %q", d.Base, d.LicenseType)
+		// List answers the WHOLE catalogue, so an unlicensed family is a normal
+		// row with a nil licence type. Asserting one either way is what tells a
+		// nil apart from a value this client cannot read.
+		switch {
+		case d.Standing == vpndetection.StandingUnlicensed:
+			if d.LicenseType != nil {
+				t.Errorf("%s is unlicensed and carries %q", d.Base, *d.LicenseType)
+			}
+		case d.LicenseType == nil:
+			t.Errorf("%s is %q and carries no right", d.Base, d.Standing)
+		case !slices.Contains(rights, *d.LicenseType):
+			t.Errorf("%s carries an undocumented right %q", d.Base, *d.LicenseType)
+		default:
+			licensed = append(licensed, d.Base)
 		}
 		// The point of the family shape: a license covers the family, and these
 		// are the ids the download and checksum calls take. Before the spec was
@@ -97,10 +109,14 @@ func TestTheLicensedCatalogueAnswersTheSchemaTheClientWasGeneratedFrom(t *testin
 			if len(v.Formats) == 0 {
 				t.Errorf("%s carries no formats", v.ID)
 			}
-			ids = append(ids, v.ID)
 		}
 	}
-	t.Logf("licensed: %s", strings.Join(ids, ", "))
+	// The max org holds grants in staging, so an empty list here is the catalogue
+	// arriving without any of them rather than a plan that buys nothing.
+	if len(licensed) == 0 {
+		t.Error("the max organization licenses nothing")
+	}
+	t.Logf("catalogue: %d, licensed: %s", len(datasets), strings.Join(licensed, ", "))
 }
 
 func TestADatasetTheOrganizationDoesNotLicenseIsRefusedCleanly(t *testing.T) {
