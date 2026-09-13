@@ -40,7 +40,7 @@ const (
 type Client struct {
 	// Database is the licensed dataset downloads, for keys that carry the
 	// db.download scope.
-	Database *Database
+	Database *DatabaseAPI
 
 	api         *api.ClientWithResponses
 	cache       *expirable.LRU[string, Result]
@@ -76,7 +76,7 @@ func New(opts ...Option) (*Client, error) {
 	}
 
 	client := &Client{
-		Database:    &Database{api: inner, transfer: untimed(httpClient), retries: cfg.retries},
+		Database:    &DatabaseAPI{api: inner, transfer: untimed(httpClient), retries: cfg.retries},
 		api:         inner,
 		concurrency: cfg.concurrency,
 		retries:     cfg.retries,

@@ -141,17 +141,17 @@ Note that `rate_limited` and `quota_exceeded` both arrive as HTTP 429 and are no
 
 ### Database downloads
 
-If your key carries the `db.download` scope, the licensed datasets are available through `client.Database`. `DownloadFile` fetches one to a path, streaming it straight to disk so that nothing bigger than a chunk is ever held in memory:
+If your key carries the `db.download` scope, the licensed databases are available through `client.Database`. `DownloadFile` fetches one to a path, streaming it straight to disk so that nothing bigger than a chunk is ever held in memory:
 
 ```go
-datasets, err := client.Database.List(ctx)
+databases, err := client.Database.List(ctx)
 
 written, err := client.Database.DownloadFile(ctx,
     "vpn_ip_extended_v1", vpndetection.FormatMMDB, "./vpn_ip_extended_v1.mmdb")
 fmt.Printf("%d bytes\n", written)
 ```
 
-Or stream it into a writer of your own, take the time-limited link and run the transfer yourself, or take a small dataset as bytes:
+Or stream it into a writer of your own, take the time-limited link and run the transfer yourself, or take a small database as bytes:
 
 ```go
 written, err := client.Database.Download(ctx, "vpn_ip_extended_v1", vpndetection.FormatMMDB, w)

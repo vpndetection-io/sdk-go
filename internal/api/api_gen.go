@@ -17,18 +17,78 @@ import (
 	openapi_types "github.com/oapi-codegen/runtime/types"
 )
 
-// Defines values for DatasetFormatSizeFormat.
+// Defines values for DatabaseLicenseType.
 const (
-	DatasetFormatSizeFormatCsvgz DatasetFormatSizeFormat = "csvgz"
-	DatasetFormatSizeFormatMmdb  DatasetFormatSizeFormat = "mmdb"
+	Evaluation   DatabaseLicenseType = "evaluation"
+	Redistribute DatabaseLicenseType = "redistribute"
+	Standard     DatabaseLicenseType = "standard"
 )
 
-// Valid indicates whether the value is a known member of the DatasetFormatSizeFormat enum.
-func (e DatasetFormatSizeFormat) Valid() bool {
+// Valid indicates whether the value is a known member of the DatabaseLicenseType enum.
+func (e DatabaseLicenseType) Valid() bool {
 	switch e {
-	case DatasetFormatSizeFormatCsvgz:
+	case Evaluation:
 		return true
-	case DatasetFormatSizeFormatMmdb:
+	case Redistribute:
+		return true
+	case Standard:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for DatabaseStanding.
+const (
+	DatabaseStandingExpired    DatabaseStanding = "expired"
+	DatabaseStandingLicensed   DatabaseStanding = "licensed"
+	DatabaseStandingUnlicensed DatabaseStanding = "unlicensed"
+)
+
+// Valid indicates whether the value is a known member of the DatabaseStanding enum.
+func (e DatabaseStanding) Valid() bool {
+	switch e {
+	case DatabaseStandingExpired:
+		return true
+	case DatabaseStandingLicensed:
+		return true
+	case DatabaseStandingUnlicensed:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for DatabaseFormatSizeFormat.
+const (
+	DatabaseFormatSizeFormatCsvgz DatabaseFormatSizeFormat = "csvgz"
+	DatabaseFormatSizeFormatMmdb  DatabaseFormatSizeFormat = "mmdb"
+)
+
+// Valid indicates whether the value is a known member of the DatabaseFormatSizeFormat enum.
+func (e DatabaseFormatSizeFormat) Valid() bool {
+	switch e {
+	case DatabaseFormatSizeFormatCsvgz:
+		return true
+	case DatabaseFormatSizeFormatMmdb:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for DatabaseVersionSampleFormats.
+const (
+	DatabaseVersionSampleFormatsCsvgz DatabaseVersionSampleFormats = "csvgz"
+	DatabaseVersionSampleFormatsMmdb  DatabaseVersionSampleFormats = "mmdb"
+)
+
+// Valid indicates whether the value is a known member of the DatabaseVersionSampleFormats enum.
+func (e DatabaseVersionSampleFormats) Valid() bool {
+	switch e {
+	case DatabaseVersionSampleFormatsCsvgz:
+		return true
+	case DatabaseVersionSampleFormatsMmdb:
 		return true
 	default:
 		return false
@@ -59,66 +119,6 @@ func (e DownloadOutcome) Valid() bool {
 	case DownloadOutcomeUnavailable:
 		return true
 	case DownloadOutcomeUnknown:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for LicensedDatasetLicenseType.
-const (
-	Evaluation   LicensedDatasetLicenseType = "evaluation"
-	Redistribute LicensedDatasetLicenseType = "redistribute"
-	Standard     LicensedDatasetLicenseType = "standard"
-)
-
-// Valid indicates whether the value is a known member of the LicensedDatasetLicenseType enum.
-func (e LicensedDatasetLicenseType) Valid() bool {
-	switch e {
-	case Evaluation:
-		return true
-	case Redistribute:
-		return true
-	case Standard:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for LicensedDatasetStanding.
-const (
-	LicensedDatasetStandingExpired    LicensedDatasetStanding = "expired"
-	LicensedDatasetStandingLicensed   LicensedDatasetStanding = "licensed"
-	LicensedDatasetStandingUnlicensed LicensedDatasetStanding = "unlicensed"
-)
-
-// Valid indicates whether the value is a known member of the LicensedDatasetStanding enum.
-func (e LicensedDatasetStanding) Valid() bool {
-	switch e {
-	case LicensedDatasetStandingExpired:
-		return true
-	case LicensedDatasetStandingLicensed:
-		return true
-	case LicensedDatasetStandingUnlicensed:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for LicensedVersionSampleFormats.
-const (
-	LicensedVersionSampleFormatsCsvgz LicensedVersionSampleFormats = "csvgz"
-	LicensedVersionSampleFormatsMmdb  LicensedVersionSampleFormats = "mmdb"
-)
-
-// Valid indicates whether the value is a known member of the LicensedVersionSampleFormats enum.
-func (e LicensedVersionSampleFormats) Valid() bool {
-	switch e {
-	case LicensedVersionSampleFormatsCsvgz:
-		return true
-	case LicensedVersionSampleFormatsMmdb:
 		return true
 	default:
 		return false
@@ -181,18 +181,63 @@ type ClassDetail struct {
 	Provider *string `json:"provider,omitempty"`
 }
 
-// DatasetFormatSize defines model for DatasetFormatSize.
-type DatasetFormatSize struct {
-	// Bytes Size of the published file, or null when it has not been published yet
-	Bytes  *int                    `json:"bytes"`
-	Format DatasetFormatSizeFormat `json:"format"`
+// Database One dataset FAMILY your organization is licensed for. A license covers
+// the family, while a download names a specific version, so the ids you
+// pass to the download and checksum endpoints come from `versions`.
+type Database struct {
+	// Base The dataset family, e.g. `vpn_ip`. What the license is held against.
+	//
+	// Example: vpn_ip
+	Base string `json:"base"`
+
+	// Expires A hard stop. Null when the license has no end date, which is the normal case for a rolling agreement, and when there is no license. A rolling license reports its turnover date in renews_at instead.
+	Expires *time.Time `json:"expires"`
+
+	// InTerm False when the license has lapsed; downloads are refused.
+	InTerm bool `json:"in_term"`
+
+	// LicenseType What your license permits you to do with the data.
+	LicenseType DatabaseLicenseType `json:"license_type"`
+
+	// Name Example: VPN IP
+	Name string `json:"name"`
+
+	// NoticeDueAt The last day notice of non-renewal can be given for the term ending at renews_at. Null whenever renews_at is, and when the agreement records no notice period.
+	NoticeDueAt *time.Time `json:"notice_due_at"`
+
+	// RenewsAt When a rolling license next renews. Null when the license has no defined term, when expires sets a hard stop instead, and when there is no license.
+	RenewsAt *time.Time `json:"renews_at"`
+
+	// Standing `licensed` is a live grant, `expired` one whose term has ended, and
+	// `unlicensed` a dataset published but never bought.
+	Standing DatabaseStanding `json:"standing"`
+	Starts   *time.Time       `json:"starts"`
+	Summary  string           `json:"summary"`
+
+	// Versions Every published version of this family. The `id` here is what the
+	// download and checksum endpoints take.
+	Versions []DatabaseVersion `json:"versions"`
 }
 
-// DatasetFormatSizeFormat defines model for DatasetFormatSize.Format.
-type DatasetFormatSizeFormat string
+// DatabaseLicenseType What your license permits you to do with the data.
+type DatabaseLicenseType string
 
-// DatasetMetadata defines model for DatasetMetadata.
-type DatasetMetadata struct {
+// DatabaseStanding `licensed` is a live grant, `expired` one whose term has ended, and
+// `unlicensed` a dataset published but never bought.
+type DatabaseStanding string
+
+// DatabaseFormatSize defines model for DatabaseFormatSize.
+type DatabaseFormatSize struct {
+	// Bytes Size of the published file, or null when it has not been published yet
+	Bytes  *int                     `json:"bytes"`
+	Format DatabaseFormatSizeFormat `json:"format"`
+}
+
+// DatabaseFormatSizeFormat defines model for DatabaseFormatSize.Format.
+type DatabaseFormatSizeFormat string
+
+// DatabaseMetadata defines model for DatabaseMetadata.
+type DatabaseMetadata struct {
 	// Entries Row count in the current build
 	Entries int    `json:"entries"`
 	ID      string `json:"id"`
@@ -207,7 +252,7 @@ type DatasetMetadata struct {
 	SampleSize *map[string]int `json:"sample_size,omitempty"`
 
 	// Schema Columns, keyed by format
-	Schema map[string][]DatasetMetadataColumn `json:"schema"`
+	Schema map[string][]DatabaseMetadataColumn `json:"schema"`
 
 	// Size Bytes per format
 	Size *map[string]int `json:"size,omitempty"`
@@ -217,11 +262,39 @@ type DatasetMetadata struct {
 	Updated    openapi_types.Date `json:"updated"`
 }
 
-// DatasetMetadataColumn defines model for DatasetMetadataColumn.
-type DatasetMetadataColumn struct {
+// DatabaseMetadataColumn defines model for DatabaseMetadataColumn.
+type DatabaseMetadataColumn struct {
 	Description *string `json:"description,omitempty"`
 	Name        string  `json:"name"`
 	Type        string  `json:"type"`
+}
+
+// DatabaseVersion defines model for DatabaseVersion.
+type DatabaseVersion struct {
+	Formats []DatabaseFormatSize `json:"formats"`
+
+	// ID The versioned dataset id, e.g. `vpn_ip_v1`. Pass this to download.
+	//
+	// Example: vpn_ip_v1
+	ID string `json:"id"`
+
+	// SampleFormats The formats an evaluation sample is published in, if any.
+	SampleFormats *[]DatabaseVersionSampleFormats `json:"sample_formats,omitempty"`
+	Summary       *string                         `json:"summary,omitempty"`
+
+	// Version Example: 1
+	Version int `json:"version"`
+}
+
+// DatabaseVersionSampleFormats defines model for DatabaseVersion.SampleFormats.
+type DatabaseVersionSampleFormats string
+
+// DBChecksums The published digests for one database file.
+type DBChecksums struct {
+	Md5    string `json:"md5"`
+	Sha1   string `json:"sha1"`
+	Sha256 string `json:"sha256"`
+	Sha512 string `json:"sha512"`
 }
 
 // Download One download ATTEMPT, refusals included - a denial is what answers "it
@@ -253,71 +326,6 @@ type DownloadOutcome string
 type Error struct {
 	Rc string `json:"rc"`
 }
-
-// LicensedDataset One dataset FAMILY your organization is licensed for. A license covers
-// the family, while a download names a specific version, so the ids you
-// pass to the download and checksum endpoints come from `versions`.
-type LicensedDataset struct {
-	// Base The dataset family, e.g. `vpn_ip`. What the license is held against.
-	//
-	// Example: vpn_ip
-	Base string `json:"base"`
-
-	// Expires A hard stop. Null when the license has no end date, which is the normal case for a rolling agreement, and when there is no license. A rolling license reports its turnover date in renews_at instead.
-	Expires *time.Time `json:"expires"`
-
-	// InTerm False when the license has lapsed; downloads are refused.
-	InTerm bool `json:"in_term"`
-
-	// LicenseType What your license permits you to do with the data.
-	LicenseType LicensedDatasetLicenseType `json:"license_type"`
-
-	// Name Example: VPN IP
-	Name string `json:"name"`
-
-	// NoticeDueAt The last day notice of non-renewal can be given for the term ending at renews_at. Null whenever renews_at is, and when the agreement records no notice period.
-	NoticeDueAt *time.Time `json:"notice_due_at"`
-
-	// RenewsAt When a rolling license next renews. Null when the license has no defined term, when expires sets a hard stop instead, and when there is no license.
-	RenewsAt *time.Time `json:"renews_at"`
-
-	// Standing `licensed` is a live grant, `expired` one whose term has ended, and
-	// `unlicensed` a dataset published but never bought.
-	Standing LicensedDatasetStanding `json:"standing"`
-	Starts   *time.Time              `json:"starts"`
-	Summary  string                  `json:"summary"`
-
-	// Versions Every published version of this family. The `id` here is what the
-	// download and checksum endpoints take.
-	Versions []LicensedVersion `json:"versions"`
-}
-
-// LicensedDatasetLicenseType What your license permits you to do with the data.
-type LicensedDatasetLicenseType string
-
-// LicensedDatasetStanding `licensed` is a live grant, `expired` one whose term has ended, and
-// `unlicensed` a dataset published but never bought.
-type LicensedDatasetStanding string
-
-// LicensedVersion defines model for LicensedVersion.
-type LicensedVersion struct {
-	Formats []DatasetFormatSize `json:"formats"`
-
-	// ID The versioned dataset id, e.g. `vpn_ip_v1`. Pass this to download.
-	//
-	// Example: vpn_ip_v1
-	ID string `json:"id"`
-
-	// SampleFormats The formats an evaluation sample is published in, if any.
-	SampleFormats *[]LicensedVersionSampleFormats `json:"sampleFormats,omitempty"`
-	Summary       *string                         `json:"summary,omitempty"`
-
-	// Version Example: 1
-	Version int `json:"version"`
-}
-
-// LicensedVersionSampleFormats defines model for LicensedVersion.SampleFormats.
-type LicensedVersionSampleFormats string
 
 // LookupError Every non-2xx response carries this shape.
 type LookupError struct {
@@ -1129,14 +1137,10 @@ type DatabaseChecksumResponse struct {
 	HTTPResponse *http.Response
 	// JSON200 the response for an HTTP 200 `application/json` response
 	JSON200 *struct {
-		Checksums struct {
-			Md5    *string `json:"md5,omitempty"`
-			Sha1   *string `json:"sha1,omitempty"`
-			Sha256 *string `json:"sha256,omitempty"`
-			Sha512 *string `json:"sha512,omitempty"`
-		} `json:"checksums"`
-		Format string `json:"format"`
-		ID     string `json:"id"`
+		// Checksums The published digests for one database file.
+		Checksums DBChecksums `json:"checksums"`
+		Format    string      `json:"format"`
+		ID        string      `json:"id"`
 	}
 	// JSON400 the response for an HTTP 400 `application/json` response
 	JSON400 *Error
@@ -1152,14 +1156,10 @@ type DatabaseChecksumResponse struct {
 
 // GetJSON200 returns the response for an HTTP 200 `application/json` response
 func (r DatabaseChecksumResponse) GetJSON200() *struct {
-	Checksums struct {
-		Md5    *string `json:"md5,omitempty"`
-		Sha1   *string `json:"sha1,omitempty"`
-		Sha256 *string `json:"sha256,omitempty"`
-		Sha512 *string `json:"sha512,omitempty"`
-	} `json:"checksums"`
-	Format string `json:"format"`
-	ID     string `json:"id"`
+	// Checksums The published digests for one database file.
+	Checksums DBChecksums `json:"checksums"`
+	Format    string      `json:"format"`
+	ID        string      `json:"id"`
 } {
 	return r.JSON200
 }
@@ -1351,7 +1351,7 @@ type ListDatabasesResponse struct {
 	HTTPResponse *http.Response
 	// JSON200 the response for an HTTP 200 `application/json` response
 	JSON200 *struct {
-		Datasets []LicensedDataset `json:"datasets"`
+		Databases []Database `json:"databases"`
 	}
 	// JSON401 the response for an HTTP 401 `application/json` response
 	JSON401 *Unauthorized
@@ -1359,7 +1359,7 @@ type ListDatabasesResponse struct {
 
 // GetJSON200 returns the response for an HTTP 200 `application/json` response
 func (r ListDatabasesResponse) GetJSON200() *struct {
-	Datasets []LicensedDataset `json:"datasets"`
+	Databases []Database `json:"databases"`
 } {
 	return r.JSON200
 }
@@ -1402,7 +1402,7 @@ type DatabaseMetadataResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	// JSON200 the response for an HTTP 200 `application/json` response
-	JSON200 *DatasetMetadata
+	JSON200 *DatabaseMetadata
 	// JSON401 the response for an HTTP 401 `application/json` response
 	JSON401 *Unauthorized
 	// JSON403 the response for an HTTP 403 `application/json` response
@@ -1414,7 +1414,7 @@ type DatabaseMetadataResponse struct {
 }
 
 // GetJSON200 returns the response for an HTTP 200 `application/json` response
-func (r DatabaseMetadataResponse) GetJSON200() *DatasetMetadata {
+func (r DatabaseMetadataResponse) GetJSON200() *DatabaseMetadata {
 	return r.JSON200
 }
 
@@ -1662,14 +1662,10 @@ func ParseDatabaseChecksumResponse(rsp *http.Response) (*DatabaseChecksumRespons
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
 		var dest struct {
-			Checksums struct {
-				Md5    *string `json:"md5,omitempty"`
-				Sha1   *string `json:"sha1,omitempty"`
-				Sha256 *string `json:"sha256,omitempty"`
-				Sha512 *string `json:"sha512,omitempty"`
-			} `json:"checksums"`
-			Format string `json:"format"`
-			ID     string `json:"id"`
+			// Checksums The published digests for one database file.
+			Checksums DBChecksums `json:"checksums"`
+			Format    string      `json:"format"`
+			ID        string      `json:"id"`
 		}
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
@@ -1837,7 +1833,7 @@ func ParseListDatabasesResponse(rsp *http.Response) (*ListDatabasesResponse, err
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
 		var dest struct {
-			Datasets []LicensedDataset `json:"datasets"`
+			Databases []Database `json:"databases"`
 		}
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
@@ -1871,7 +1867,7 @@ func ParseDatabaseMetadataResponse(rsp *http.Response) (*DatabaseMetadataRespons
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest DatasetMetadata
+		var dest DatabaseMetadata
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}

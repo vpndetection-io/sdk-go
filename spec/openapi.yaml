@@ -12,7 +12,7 @@ info:
     email: support@vpndetection.io
     url: https://vpndetection.io
   termsOfService: https://vpndetection.io/terms
-  version: 2026.09.10
+  version: 2026.09.13
 servers:
   - url: https://api.vpndetection.io
     description: Production
@@ -237,12 +237,12 @@ paths:
               schema:
                 type: object
                 properties:
-                  datasets:
+                  databases:
                     type: array
                     items:
-                      $ref: '#/components/schemas/LicensedDataset'
+                      $ref: '#/components/schemas/Database'
                 required:
-                  - datasets
+                  - databases
         '401':
           $ref: '#/components/responses/Unauthorized'
       security:
@@ -339,7 +339,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/DatasetMetadata'
+                $ref: '#/components/schemas/DatabaseMetadata'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
@@ -387,16 +387,7 @@ paths:
                   format:
                     type: string
                   checksums:
-                    type: object
-                    properties:
-                      md5:
-                        type: string
-                      sha1:
-                        type: string
-                      sha256:
-                        type: string
-                      sha512:
-                        type: string
+                    $ref: '#/components/schemas/DbChecksums'
                 required:
                   - id
                   - format
@@ -656,7 +647,7 @@ components:
           type: string
       required:
         - rc
-    DatasetFormatSize:
+    DatabaseFormatSize:
       type: object
       properties:
         format:
@@ -671,7 +662,7 @@ components:
       required:
         - format
         - bytes
-    LicensedDataset:
+    Database:
       type: object
       description: |
         One dataset FAMILY your organization is licensed for. A license covers
@@ -738,7 +729,7 @@ components:
             Every published version of this family. The `id` here is what the
             download and checksum endpoints take.
           items:
-            $ref: '#/components/schemas/LicensedVersion'
+            $ref: '#/components/schemas/DatabaseVersion'
       required:
         - base
         - name
@@ -751,7 +742,7 @@ components:
         - in_term
         - standing
         - versions
-    LicensedVersion:
+    DatabaseVersion:
       type: object
       properties:
         id:
@@ -766,8 +757,8 @@ components:
         formats:
           type: array
           items:
-            $ref: '#/components/schemas/DatasetFormatSize'
-        sampleFormats:
+            $ref: '#/components/schemas/DatabaseFormatSize'
+        sample_formats:
           type: array
           description: The formats an evaluation sample is published in, if any.
           items:
@@ -836,7 +827,24 @@ components:
         - client_ip
         - user_agent
         - created
-    DatasetMetadataColumn:
+    DbChecksums:
+      type: object
+      description: The published digests for one database file.
+      properties:
+        md5:
+          type: string
+        sha1:
+          type: string
+        sha256:
+          type: string
+        sha512:
+          type: string
+      required:
+        - md5
+        - sha1
+        - sha256
+        - sha512
+    DatabaseMetadataColumn:
       type: object
       properties:
         name:
@@ -848,7 +856,7 @@ components:
       required:
         - name
         - type
-    DatasetMetadata:
+    DatabaseMetadata:
       type: object
       properties:
         id:
@@ -867,7 +875,7 @@ components:
           additionalProperties:
             type: array
             items:
-              $ref: '#/components/schemas/DatasetMetadataColumn'
+              $ref: '#/components/schemas/DatabaseMetadataColumn'
           description: Columns, keyed by format
         sample:
           type: object

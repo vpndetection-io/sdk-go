@@ -10,9 +10,9 @@ import (
 	"github.com/vpndetection-io/sdk-go/internal/api"
 )
 
-// Database is the licensed dataset downloads. Access is granted by contract
+// DatabaseAPI is the licensed database downloads. Access is granted by contract
 // rather than self-serve, and needs a key carrying the db.download scope.
-type Database struct {
+type DatabaseAPI struct {
 	api      *api.ClientWithResponses
 	transfer *http.Client
 	retries  int
@@ -20,9 +20,9 @@ type Database struct {
 
 // List is the dataset families your organization is licensed to download. A
 // license covers a family, while a download names one of its versions, so the
-// ids Download and Checksums take come from LicensedDataset.Versions.
-func (d *Database) List(ctx context.Context) ([]LicensedDataset, error) {
-	return withRetry(ctx, d.retries, func() ([]LicensedDataset, error) {
+// ids Download and Checksums take come from Database.Versions.
+func (d *DatabaseAPI) List(ctx context.Context) ([]Database, error) {
+	return withRetry(ctx, d.retries, func() ([]Database, error) {
 		res, err := d.api.ListDatabasesWithResponse(ctx)
 		if err != nil {
 			return nil, errorFromTransport(err)
@@ -30,15 +30,15 @@ func (d *Database) List(ctx context.Context) ([]LicensedDataset, error) {
 		if res.StatusCode() != http.StatusOK || res.JSON200 == nil {
 			return nil, errorFromResponse(res.StatusCode(), res.HTTPResponse.Header, res.Body)
 		}
-		return res.JSON200.Datasets, nil
+		return res.JSON200.Databases, nil
 	})
 }
 
 // Metadata is what is inside one dataset: schema, samples, row count and sizes.
 // It carries `updated` and `entries` without downloading anything, so poll it
 // to decide whether today's build is worth fetching.
-func (d *Database) Metadata(ctx context.Context, id string) (*DatasetMetadata, error) {
-	return withRetry(ctx, d.retries, func() (*DatasetMetadata, error) {
+func (d *DatabaseAPI) Metadata(ctx context.Context, id string) (*DatabaseMetadata, error) {
+	return withRetry(ctx, d.retries, func() (*DatabaseMetadata, error) {
 		res, err := d.api.DatabaseMetadataWithResponse(ctx, &api.DatabaseMetadataParams{ID: id})
 		if err != nil {
 			return nil, errorFromTransport(err)
@@ -51,7 +51,7 @@ func (d *Database) Metadata(ctx context.Context, id string) (*DatasetMetadata, e
 }
 
 // Checksums are the digests of one published file, for verifying a download.
-func (d *Database) Checksums(ctx context.Context, id string, format Format) (*Checksums, error) {
+func (d *DatabaseAPI) Checksums(ctx context.Context, id string, format Format) (*Checksums, error) {
 	return withRetry(ctx, d.retries, func() (*Checksums, error) {
 		res, err := d.api.DatabaseChecksumWithResponse(ctx, &api.DatabaseChecksumParams{
 			ID:     id,
@@ -65,17 +65,17 @@ func (d *Database) Checksums(ctx context.Context, id string, format Format) (*Ch
 		}
 		sums := res.JSON200.Checksums
 		return &Checksums{
-			MD5:    deref(sums.Md5),
-			SHA1:   deref(sums.Sha1),
-			SHA256: deref(sums.Sha256),
-			SHA512: deref(sums.Sha512),
+			MD5:    sums.Md5,
+			SHA1:   sums.Sha1,
+			SHA256: sums.Sha256,
+			SHA512: sums.Sha512,
 		}, nil
 	})
 }
 
 // Downloads is your organization's recent download attempts, newest first. A
 // limit of zero or less takes the API's own default.
-func (d *Database) Downloads(ctx context.Context, limit int) ([]Download, error) {
+func (d *DatabaseAPI) Downloads(ctx context.Context, limit int) ([]Download, error) {
 	return withRetry(ctx, d.retries, func() ([]Download, error) {
 		params := &api.ListDownloadsParams{}
 		if limit > 0 {
@@ -98,7 +98,7 @@ func (d *Database) Downloads(ctx context.Context, limit int) ([]Download, error)
 // bytes so the caller decides how to transfer a file that routinely runs to
 // gigabytes; the link authorizes the START of a transfer, so one already
 // running is not interrupted when it lapses.
-func (d *Database) DownloadURL(ctx context.Context, id string, format Format) (string, error) {
+func (d *DatabaseAPI) DownloadURL(ctx context.Context, id string, format Format) (string, error) {
 	ctx = withoutRedirects(ctx)
 	return withRetry(ctx, d.retries, func() (string, error) {
 		res, err := d.api.DownloadDatabaseWithResponse(ctx, &api.DownloadDatabaseParams{
@@ -132,7 +132,7 @@ func (d *Database) DownloadURL(ctx context.Context, id string, format Format) (s
 // A failure DURING the transfer is returned as it happened rather than wrapped
 // in an *Error: a reset socket and a full disk are different problems, and only
 // one of them is ours.
-func (d *Database) Download(
+func (d *DatabaseAPI) Download(
 	ctx context.Context, id string, format Format, dst io.Writer,
 ) (int64, error) {
 	res, err := d.fetchFile(ctx, id, format)
@@ -148,7 +148,7 @@ func (d *Database) Download(
 // The bytes land in a neighboring .part file that is renamed on completion, so
 // a transfer that dies half way leaves no truncated file that reads as a whole
 // dataset. Otherwise identical to Download.
-func (d *Database) DownloadFile(
+func (d *DatabaseAPI) DownloadFile(
 	ctx context.Context, id string, format Format, path string,
 ) (int64, error) {
 	res, err := d.fetchFile(ctx, id, format)
@@ -182,7 +182,7 @@ func (d *Database) DownloadFile(
 // magnitude, from cdn_ip_v1 at 10 KB to resproxy_ip_90d_v1 at 1.79 GB, so reach
 // for it at the small end and use Download or DownloadFile for anything you
 // have not measured.
-func (d *Database) DownloadBytes(ctx context.Context, id string, format Format) ([]byte, error) {
+func (d *DatabaseAPI) DownloadBytes(ctx context.Context, id string, format Format) ([]byte, error) {
 	res, err := d.fetchFile(ctx, id, format)
 	if err != nil {
 		return nil, err
@@ -205,7 +205,7 @@ func (d *Database) DownloadBytes(ctx context.Context, id string, format Format) 
 // forwarding the API key would hand a credential to a host with no business
 // holding it. The key rides a request editor on the generated client, which
 // this request does not go through.
-func (d *Database) fetchFile(
+func (d *DatabaseAPI) fetchFile(
 	ctx context.Context, id string, format Format,
 ) (*http.Response, error) {
 	url, err := d.DownloadURL(ctx, id, format)
@@ -256,20 +256,20 @@ type Checksums struct {
 // The dataset shapes, re-exported so a consumer never has to name an internal
 // package.
 type (
-	LicensedDataset       = api.LicensedDataset
-	DatasetFormatSize     = api.DatasetFormatSize
-	DatasetMetadata       = api.DatasetMetadata
-	DatasetMetadataColumn = api.DatasetMetadataColumn
+	Database       = api.Database
+	DatabaseFormatSize     = api.DatabaseFormatSize
+	DatabaseMetadata       = api.DatabaseMetadata
+	DatabaseMetadataColumn = api.DatabaseMetadataColumn
 	Download              = api.Download
-	// LicensedVersion is one published version of a licensed family. Its ID is
+	// DatabaseVersion is one published version of a licensed family. Its ID is
 	// what the download and checksum calls take.
-	LicensedVersion = api.LicensedVersion
+	DatabaseVersion = api.DatabaseVersion
 	// LicenseType is what a license permits you to do with the data.
-	LicenseType = api.LicensedDatasetLicenseType
+	LicenseType = api.DatabaseLicenseType
 	// Standing is where a license stands: live, lapsed, or never bought.
-	Standing = api.LicensedDatasetStanding
+	Standing = api.DatabaseStanding
 	// SampleFormat is a format an evaluation sample is published in.
-	SampleFormat = api.LicensedVersionSampleFormats
+	SampleFormat = api.DatabaseVersionSampleFormats
 	// DownloadOutcome is how one download attempt ended.
 	DownloadOutcome = api.DownloadOutcome
 )
@@ -281,9 +281,9 @@ const (
 )
 
 const (
-	StandingExpired    = api.LicensedDatasetStandingExpired
-	StandingLicensed   = api.LicensedDatasetStandingLicensed
-	StandingUnlicensed = api.LicensedDatasetStandingUnlicensed
+	StandingExpired    = api.DatabaseStandingExpired
+	StandingLicensed   = api.DatabaseStandingLicensed
+	StandingUnlicensed = api.DatabaseStandingUnlicensed
 )
 
 const (
