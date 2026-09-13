@@ -61,6 +61,17 @@ fmt.Println(result.IP)   // the address we saw this call come from
 
 Same answer `Lookup` would give for that address, and the same cost against your allowance. It is deliberately not cached: which address you are is the whole question, and a machine that moves between networks would otherwise be told where it used to be.
 
+### Your plan and usage
+
+```go
+acct, err := client.Me(ctx)
+fmt.Println(acct.Plan.Key)         // max
+fmt.Println(acct.Usage.Requests)   // 580
+fmt.Println(acct.Usage.WindowEnd)  // when the allowance resets
+```
+
+Usage is counted against the anniversary of your subscription, not the calendar month and not the billing period, and it is the same number a lookup is gated on. `HardLimit` is nil on an uncapped plan, which is not the same as zero.
+
 ### Batch lookup
 
 You can do batch lookups with a list, which parallelizes requests for you efficiently:

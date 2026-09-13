@@ -17,6 +17,30 @@ import (
 	openapi_types "github.com/oapi-codegen/runtime/types"
 )
 
+// Defines values for AccountPlanTier.
+const (
+	Free    AccountPlanTier = "free"
+	Max     AccountPlanTier = "max"
+	Scale   AccountPlanTier = "scale"
+	Starter AccountPlanTier = "starter"
+)
+
+// Valid indicates whether the value is a known member of the AccountPlanTier enum.
+func (e AccountPlanTier) Valid() bool {
+	switch e {
+	case Free:
+		return true
+	case Max:
+		return true
+	case Scale:
+		return true
+	case Starter:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for DatabaseFormat.
 const (
 	Csvgz DatabaseFormat = "csvgz"
@@ -107,6 +131,74 @@ func (e Standing) Valid() bool {
 	}
 }
 
+// AccountApikey The credential itself. The key is never echoed - only its id, which is
+// what the console shows and what you can act on.
+type AccountApikey struct {
+	// AllowedCidrs The source addresses this key may be used from. EMPTY means
+	// unrestricted, never "deny all".
+	AllowedCidrs []string `json:"allowed_cidrs"`
+
+	// Expires Null for a key with no end date, which is the normal case.
+	Expires *time.Time         `json:"expires"`
+	ID      openapi_types.UUID `json:"id"`
+}
+
+// AccountError defines model for AccountError.
+type AccountError struct {
+	Error string `json:"error"`
+}
+
+// AccountMe defines model for AccountMe.
+type AccountMe struct {
+	// Apikey The credential itself. The key is never echoed - only its id, which is
+	// what the console shows and what you can act on.
+	Apikey AccountApikey `json:"apikey"`
+
+	// OrgID The organization the key belongs to.
+	OrgID openapi_types.UUID `json:"org_id"`
+	Plan  AccountPlan        `json:"plan"`
+	Usage AccountUsage       `json:"usage"`
+}
+
+// AccountPlan defines model for AccountPlan.
+type AccountPlan struct {
+	// Key The plan the organization is on.
+	//
+	// Example: max
+	Key string `json:"key"`
+
+	// Tier The field tier, which decides how much of a lookup answer comes
+	// back. What each tier includes is documented on the lookup endpoint
+	// rather than repeated here, so there is one place it can be wrong.
+	Tier AccountPlanTier `json:"tier"`
+}
+
+// AccountPlanTier The field tier, which decides how much of a lookup answer comes
+// back. What each tier includes is documented on the lookup endpoint
+// rather than repeated here, so there is one place it can be wrong.
+type AccountPlanTier string
+
+// AccountUsage defines model for AccountUsage.
+type AccountUsage struct {
+	// HardLimit Where we stop serving. NULL means never, which is the normal state
+	// of an uncapped paid plan and is not the same as zero. Above the
+	// quota and below this, requests are served and billed as overage.
+	HardLimit *int64 `json:"hard_limit"`
+
+	// Quota What the plan includes. Zero on a plan that includes none.
+	Quota int64 `json:"quota"`
+
+	// Requests Requests counted in the current window. The same number the lookup
+	// API gates on, and it can lag by a few seconds.
+	Requests int64 `json:"requests"`
+
+	// WindowEnd When the allowance next resets.
+	WindowEnd time.Time `json:"window_end"`
+
+	// WindowStart When the current allowance period began.
+	WindowStart time.Time `json:"window_start"`
+}
+
 // ClassDetail The shared detail shape for the hosting, relay, tor and cdn datasets.
 // Every key is present when the object is populated; the object is `{}`
 // when its flag is false.
@@ -142,7 +234,8 @@ type Database struct {
 	// InTerm False when the license has lapsed; downloads are refused.
 	InTerm bool `json:"in_term"`
 
-	// LicenseType What a license permits you to do with the data.
+	// LicenseType What a license permits you to do with the data. Always present on this
+	// endpoint: it lists families you hold a license for and nothing else.
 	LicenseType LicenseType `json:"license_type"`
 
 	// Name Example: VPN IP
@@ -266,7 +359,8 @@ type Error struct {
 	Rc string `json:"rc"`
 }
 
-// LicenseType What a license permits you to do with the data.
+// LicenseType What a license permits you to do with the data. Always present on this
+// endpoint: it lists families you hold a license for and nothing else.
 type LicenseType string
 
 // LookupError Every non-2xx response carries this shape.
@@ -530,6 +624,14 @@ func WithRequestEditorFn(fn RequestEditorFn) ClientOption {
 // The interface specification for the client above.
 type ClientInterface interface {
 
+	// AccountMe Your key, plan and usage
+	//
+	// Answers what the presented key is, what plan is behind it, and what has
+	// been spent against that plan's allowance in the current window.
+	//
+	// Corresponds with GET /api/v1/account/me (the `AccountMe` operationId).
+	AccountMe(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// DatabaseChecksum Checksums
 	//
 	// Checksums for one published file, so a download can be verified after it lands.
@@ -591,6 +693,24 @@ type ClientInterface interface {
 	//
 	// Corresponds with GET /{ip} (the `LookupIP` operationId).
 	LookupIP(ctx context.Context, ip string, reqEditors ...RequestEditorFn) (*http.Response, error)
+}
+
+// AccountMe Your key, plan and usage
+//
+// Answers what the presented key is, what plan is behind it, and what has
+// been spent against that plan's allowance in the current window.
+//
+// Corresponds with GET /api/v1/account/me (the `AccountMe` operationId).
+func (c *Client) AccountMe(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewAccountMeRequest(c.Server)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
 }
 
 // DatabaseChecksum Checksums
@@ -723,6 +843,33 @@ func (c *Client) LookupIP(ctx context.Context, ip string, reqEditors ...RequestE
 		return nil, err
 	}
 	return c.Client.Do(req)
+}
+
+// NewAccountMeRequest constructs an http.Request for the AccountMe method
+func NewAccountMeRequest(server string) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/account/me")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
 }
 
 // NewDatabaseChecksumRequest constructs an http.Request for the DatabaseChecksum method
@@ -1077,6 +1224,16 @@ func WithBaseURL(baseURL string) ClientOption {
 // ClientWithResponsesInterface is the interface specification for the client with responses above.
 type ClientWithResponsesInterface interface {
 
+	// AccountMeWithResponse Your key, plan and usage
+	//
+	// Answers what the presented key is, what plan is behind it, and what has
+	// been spent against that plan's allowance in the current window.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /api/v1/account/me (the `AccountMe` operationId).
+	AccountMeWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*AccountMeResponse, error)
+
 	// DatabaseChecksumWithResponse Checksums
 	//
 	// Checksums for one published file, so a download can be verified after it lands.
@@ -1152,6 +1309,68 @@ type ClientWithResponsesInterface interface {
 	//
 	// Corresponds with GET /{ip} (the `LookupIP` operationId).
 	LookupIPWithResponse(ctx context.Context, ip string, reqEditors ...RequestEditorFn) (*LookupIPResponse, error)
+}
+
+type AccountMeResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *AccountMe
+	// JSON401 the response for an HTTP 401 `application/json` response
+	JSON401 *AccountError
+	// JSON403 the response for an HTTP 403 `application/json` response
+	JSON403 *AccountError
+	// JSON503 the response for an HTTP 503 `application/json` response
+	JSON503 *AccountError
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r AccountMeResponse) GetJSON200() *AccountMe {
+	return r.JSON200
+}
+
+// GetJSON401 returns the response for an HTTP 401 `application/json` response
+func (r AccountMeResponse) GetJSON401() *AccountError {
+	return r.JSON401
+}
+
+// GetJSON403 returns the response for an HTTP 403 `application/json` response
+func (r AccountMeResponse) GetJSON403() *AccountError {
+	return r.JSON403
+}
+
+// GetJSON503 returns the response for an HTTP 503 `application/json` response
+func (r AccountMeResponse) GetJSON503() *AccountError {
+	return r.JSON503
+}
+
+// GetBody returns the raw response body bytes
+func (r AccountMeResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r AccountMeResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r AccountMeResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r AccountMeResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
 }
 
 type DatabaseChecksumResponse struct {
@@ -1641,6 +1860,22 @@ func (r LookupIPResponse) ContentType() string {
 	return ""
 }
 
+// AccountMeWithResponse Your key, plan and usage
+//
+// Answers what the presented key is, what plan is behind it, and what has
+// been spent against that plan's allowance in the current window.
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /api/v1/account/me (the `AccountMe` operationId).
+func (c *ClientWithResponses) AccountMeWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*AccountMeResponse, error) {
+	rsp, err := c.AccountMe(ctx, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseAccountMeResponse(rsp)
+}
+
 // DatabaseChecksumWithResponse Checksums
 //
 // Checksums for one published file, so a download can be verified after it lands.
@@ -1757,6 +1992,53 @@ func (c *ClientWithResponses) LookupIPWithResponse(ctx context.Context, ip strin
 		return nil, err
 	}
 	return ParseLookupIPResponse(rsp)
+}
+
+// ParseAccountMeResponse parses an HTTP response from a AccountMeWithResponse call
+func ParseAccountMeResponse(rsp *http.Response) (*AccountMeResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &AccountMeResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest AccountMe
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest AccountError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest AccountError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 503:
+		var dest AccountError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON503 = &dest
+
+	}
+
+	return response, nil
 }
 
 // ParseDatabaseChecksumResponse parses an HTTP response from a DatabaseChecksumWithResponse call
