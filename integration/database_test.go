@@ -274,7 +274,7 @@ func publishedSize(t *testing.T, meta *vpndetection.DatabaseMetadata) int {
 func servedKeys(t *testing.T, rec *recorder, path string) []string {
 	t.Helper()
 	var envelope struct {
-		Datasets []map[string]json.RawMessage `json:"datasets"`
+		Databases []map[string]json.RawMessage `json:"databases"`
 	}
 	rec.mu.Lock()
 	raw := rec.bodies[path]
@@ -286,8 +286,8 @@ func servedKeys(t *testing.T, rec *recorder, path string) []string {
 		t.Fatalf("parsing the answer to %s: %v", path, err)
 	}
 	keys := map[string]bool{}
-	for _, dataset := range envelope.Datasets {
-		for key := range dataset {
+	for _, database := range envelope.Databases {
+		for key := range database {
 			keys[key] = true
 		}
 	}
