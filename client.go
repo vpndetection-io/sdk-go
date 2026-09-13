@@ -126,6 +126,33 @@ func (c *Client) Lookup(ctx context.Context, ip string, opts ...LookupOption) (*
 	return result, nil
 }
 
+// MyIP classifies the address this client is calling from.
+//
+// The answer is the one Lookup would give for that address, and it costs the
+// same against your allowance. The address is the one our edge observed, so a
+// call made through a proxy or a VPN reports the exit it left through rather
+// than the machine that made it - usually the point of asking.
+//
+// Deliberately NOT cached. The cache is keyed by address, and the whole question
+// here is which address that is: a laptop that moves between networks would
+// otherwise be told where it used to be.
+func (c *Client) MyIP(ctx context.Context, opts ...LookupOption) (*Result, error) {
+	call := c.callConfig()
+	for _, opt := range opts {
+		opt.applyLookup(&call)
+	}
+	return withRetry(ctx, call.retries, func() (*Result, error) {
+		res, err := c.api.LookupMyIPWithResponse(ctx)
+		if err != nil {
+			return nil, errorFromTransport(err)
+		}
+		if res.StatusCode() != http.StatusOK || res.JSON200 == nil {
+			return nil, errorFromResponse(res.StatusCode(), res.HTTPResponse.Header, res.Body)
+		}
+		return &Result{LookupResponse: *res.JSON200}, nil
+	})
+}
+
 // LookupBatch classifies many addresses concurrently.
 //
 // The answers are keyed by address rather than positional, so duplicates in the

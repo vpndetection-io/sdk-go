@@ -206,3 +206,53 @@ func TestNewRejectsUnusableOptions(t *testing.T) {
 		})
 	}
 }
+
+func TestMyIPAsksTheServerWhichAddressYouAre(t *testing.T) {
+	stub := newStub(map[string]stubRoute{
+		"myip": {body: map[string]any{"ip": "203.0.113.9", "is_vpn": true}},
+	})
+	client := newTestClient(t, stub)
+
+	result, err := client.MyIP(t.Context())
+	if err != nil {
+		t.Fatalf("MyIP: %v", err)
+	}
+	if result.IP != "203.0.113.9" {
+		t.Errorf("got %q, want 203.0.113.9", result.IP)
+	}
+	if !result.IsVpn {
+		t.Error("is_vpn did not survive")
+	}
+}
+
+// The cache is keyed by ADDRESS, and which address this is IS the question, so
+// a second call has to ask again. A laptop that moved networks would otherwise
+// be told where it used to be.
+func TestMyIPIsNotCached(t *testing.T) {
+	stub := newStub(map[string]stubRoute{
+		"myip": {body: map[string]any{"ip": "203.0.113.9", "is_vpn": false}},
+	})
+	client := newTestClient(t, stub)
+
+	for i := 0; i < 3; i++ {
+		if _, err := client.MyIP(t.Context()); err != nil {
+			t.Fatalf("MyIP: %v", err)
+		}
+	}
+	if stub.count() != 3 {
+		t.Errorf("issued %d request(s), want 3 - the answer was cached", stub.count())
+	}
+}
+
+func TestMyIPSurfacesAnError(t *testing.T) {
+	stub := newStub(map[string]stubRoute{
+		"myip": {status: 401, body: map[string]string{"error": "invalid API key"}},
+	})
+	client := newTestClient(t, stub)
+
+	_, err := client.MyIP(t.Context())
+	var apiErr *Error
+	if !errors.As(err, &apiErr) || apiErr.Kind != KindUnauthorized {
+		t.Fatalf("got %v, want an unauthorized *Error", err)
+	}
+}

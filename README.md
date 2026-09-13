@@ -52,6 +52,15 @@ if vpn := result.Vpn; vpn != nil && vpn.Provider != nil {
 }
 ```
 
+### Your own address
+
+```go
+result, err := client.MyIP(ctx)
+fmt.Println(result.IP)   // the address we saw this call come from
+```
+
+Same answer `Lookup` would give for that address, and the same cost against your allowance. It is deliberately not cached: which address you are is the whole question, and a machine that moves between networks would otherwise be told where it used to be.
+
 ### Batch lookup
 
 You can do batch lookups with a list, which parallelizes requests for you efficiently:
