@@ -55,7 +55,7 @@ func (d *DatabaseAPI) Checksums(ctx context.Context, id string, format Format) (
 	return withRetry(ctx, d.retries, func() (*Checksums, error) {
 		res, err := d.api.DatabaseChecksumWithResponse(ctx, &api.DatabaseChecksumParams{
 			ID:     id,
-			Format: api.DatabaseChecksumParamsFormat(format),
+			Format: api.DatabaseFormat(format),
 		})
 		if err != nil {
 			return nil, errorFromTransport(err)
@@ -103,7 +103,7 @@ func (d *DatabaseAPI) DownloadURL(ctx context.Context, id string, format Format)
 	return withRetry(ctx, d.retries, func() (string, error) {
 		res, err := d.api.DownloadDatabaseWithResponse(ctx, &api.DownloadDatabaseParams{
 			ID:     id,
-			Format: api.DownloadDatabaseParamsFormat(format),
+			Format: api.DatabaseFormat(format),
 		})
 		if err != nil {
 			return "", errorFromTransport(err)
@@ -265,11 +265,11 @@ type (
 	// what the download and checksum calls take.
 	DatabaseVersion = api.DatabaseVersion
 	// LicenseType is what a license permits you to do with the data.
-	LicenseType = api.DatabaseLicenseType
+	LicenseType = api.LicenseType
 	// Standing is where a license stands: live, lapsed, or never bought.
-	Standing = api.DatabaseStanding
+	Standing = api.Standing
 	// SampleFormat is a format an evaluation sample is published in.
-	SampleFormat = api.DatabaseVersionSampleFormats
+	SampleFormat = api.DatabaseFormat
 	// DownloadOutcome is how one download attempt ended.
 	DownloadOutcome = api.DownloadOutcome
 )
@@ -281,9 +281,9 @@ const (
 )
 
 const (
-	StandingExpired    = api.DatabaseStandingExpired
-	StandingLicensed   = api.DatabaseStandingLicensed
-	StandingUnlicensed = api.DatabaseStandingUnlicensed
+	StandingExpired    = api.StandingExpired
+	StandingLicensed   = api.StandingLicensed
+	StandingUnlicensed = api.StandingUnlicensed
 )
 
 const (

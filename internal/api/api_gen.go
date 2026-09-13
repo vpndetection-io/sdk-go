@@ -17,78 +17,18 @@ import (
 	openapi_types "github.com/oapi-codegen/runtime/types"
 )
 
-// Defines values for DatabaseLicenseType.
+// Defines values for DatabaseFormat.
 const (
-	Evaluation   DatabaseLicenseType = "evaluation"
-	Redistribute DatabaseLicenseType = "redistribute"
-	Standard     DatabaseLicenseType = "standard"
+	Csvgz DatabaseFormat = "csvgz"
+	Mmdb  DatabaseFormat = "mmdb"
 )
 
-// Valid indicates whether the value is a known member of the DatabaseLicenseType enum.
-func (e DatabaseLicenseType) Valid() bool {
+// Valid indicates whether the value is a known member of the DatabaseFormat enum.
+func (e DatabaseFormat) Valid() bool {
 	switch e {
-	case Evaluation:
+	case Csvgz:
 		return true
-	case Redistribute:
-		return true
-	case Standard:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for DatabaseStanding.
-const (
-	DatabaseStandingExpired    DatabaseStanding = "expired"
-	DatabaseStandingLicensed   DatabaseStanding = "licensed"
-	DatabaseStandingUnlicensed DatabaseStanding = "unlicensed"
-)
-
-// Valid indicates whether the value is a known member of the DatabaseStanding enum.
-func (e DatabaseStanding) Valid() bool {
-	switch e {
-	case DatabaseStandingExpired:
-		return true
-	case DatabaseStandingLicensed:
-		return true
-	case DatabaseStandingUnlicensed:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for DatabaseFormatSizeFormat.
-const (
-	DatabaseFormatSizeFormatCsvgz DatabaseFormatSizeFormat = "csvgz"
-	DatabaseFormatSizeFormatMmdb  DatabaseFormatSizeFormat = "mmdb"
-)
-
-// Valid indicates whether the value is a known member of the DatabaseFormatSizeFormat enum.
-func (e DatabaseFormatSizeFormat) Valid() bool {
-	switch e {
-	case DatabaseFormatSizeFormatCsvgz:
-		return true
-	case DatabaseFormatSizeFormatMmdb:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for DatabaseVersionSampleFormats.
-const (
-	DatabaseVersionSampleFormatsCsvgz DatabaseVersionSampleFormats = "csvgz"
-	DatabaseVersionSampleFormatsMmdb  DatabaseVersionSampleFormats = "mmdb"
-)
-
-// Valid indicates whether the value is a known member of the DatabaseVersionSampleFormats enum.
-func (e DatabaseVersionSampleFormats) Valid() bool {
-	switch e {
-	case DatabaseVersionSampleFormatsCsvgz:
-		return true
-	case DatabaseVersionSampleFormatsMmdb:
+	case Mmdb:
 		return true
 	default:
 		return false
@@ -125,36 +65,42 @@ func (e DownloadOutcome) Valid() bool {
 	}
 }
 
-// Defines values for DatabaseChecksumParamsFormat.
+// Defines values for LicenseType.
 const (
-	DatabaseChecksumParamsFormatCsvgz DatabaseChecksumParamsFormat = "csvgz"
-	DatabaseChecksumParamsFormatMmdb  DatabaseChecksumParamsFormat = "mmdb"
+	Evaluation   LicenseType = "evaluation"
+	Redistribute LicenseType = "redistribute"
+	Standard     LicenseType = "standard"
 )
 
-// Valid indicates whether the value is a known member of the DatabaseChecksumParamsFormat enum.
-func (e DatabaseChecksumParamsFormat) Valid() bool {
+// Valid indicates whether the value is a known member of the LicenseType enum.
+func (e LicenseType) Valid() bool {
 	switch e {
-	case DatabaseChecksumParamsFormatCsvgz:
+	case Evaluation:
 		return true
-	case DatabaseChecksumParamsFormatMmdb:
+	case Redistribute:
+		return true
+	case Standard:
 		return true
 	default:
 		return false
 	}
 }
 
-// Defines values for DownloadDatabaseParamsFormat.
+// Defines values for Standing.
 const (
-	DownloadDatabaseParamsFormatCsvgz DownloadDatabaseParamsFormat = "csvgz"
-	DownloadDatabaseParamsFormatMmdb  DownloadDatabaseParamsFormat = "mmdb"
+	StandingExpired    Standing = "expired"
+	StandingLicensed   Standing = "licensed"
+	StandingUnlicensed Standing = "unlicensed"
 )
 
-// Valid indicates whether the value is a known member of the DownloadDatabaseParamsFormat enum.
-func (e DownloadDatabaseParamsFormat) Valid() bool {
+// Valid indicates whether the value is a known member of the Standing enum.
+func (e Standing) Valid() bool {
 	switch e {
-	case DownloadDatabaseParamsFormatCsvgz:
+	case StandingExpired:
 		return true
-	case DownloadDatabaseParamsFormatMmdb:
+	case StandingLicensed:
+		return true
+	case StandingUnlicensed:
 		return true
 	default:
 		return false
@@ -181,11 +127,11 @@ type ClassDetail struct {
 	Provider *string `json:"provider,omitempty"`
 }
 
-// Database One dataset FAMILY your organization is licensed for. A license covers
+// Database One database FAMILY your organization is licensed for. A license covers
 // the family, while a download names a specific version, so the ids you
 // pass to the download and checksum endpoints come from `versions`.
 type Database struct {
-	// Base The dataset family, e.g. `vpn_ip`. What the license is held against.
+	// Base The database family, e.g. `vpn_ip`. What the license is held against.
 	//
 	// Example: vpn_ip
 	Base string `json:"base"`
@@ -196,8 +142,8 @@ type Database struct {
 	// InTerm False when the license has lapsed; downloads are refused.
 	InTerm bool `json:"in_term"`
 
-	// LicenseType What your license permits you to do with the data.
-	LicenseType DatabaseLicenseType `json:"license_type"`
+	// LicenseType What a license permits you to do with the data.
+	LicenseType LicenseType `json:"license_type"`
 
 	// Name Example: VPN IP
 	Name string `json:"name"`
@@ -208,33 +154,29 @@ type Database struct {
 	// RenewsAt When a rolling license next renews. Null when the license has no defined term, when expires sets a hard stop instead, and when there is no license.
 	RenewsAt *time.Time `json:"renews_at"`
 
-	// Standing `licensed` is a live grant, `expired` one whose term has ended, and
-	// `unlicensed` a dataset published but never bought.
-	Standing DatabaseStanding `json:"standing"`
-	Starts   *time.Time       `json:"starts"`
-	Summary  string           `json:"summary"`
+	// Standing Where your license for a database family stands today. `licensed` is a
+	// live grant, `expired` one whose term has ended, and `unlicensed` a
+	// database published but never bought.
+	Standing Standing   `json:"standing"`
+	Starts   *time.Time `json:"starts"`
+	Summary  string     `json:"summary"`
 
 	// Versions Every published version of this family. The `id` here is what the
 	// download and checksum endpoints take.
 	Versions []DatabaseVersion `json:"versions"`
 }
 
-// DatabaseLicenseType What your license permits you to do with the data.
-type DatabaseLicenseType string
-
-// DatabaseStanding `licensed` is a live grant, `expired` one whose term has ended, and
-// `unlicensed` a dataset published but never bought.
-type DatabaseStanding string
+// DatabaseFormat A file format a database version is published in.
+type DatabaseFormat string
 
 // DatabaseFormatSize defines model for DatabaseFormatSize.
 type DatabaseFormatSize struct {
 	// Bytes Size of the published file, or null when it has not been published yet
-	Bytes  *int                     `json:"bytes"`
-	Format DatabaseFormatSizeFormat `json:"format"`
-}
+	Bytes *int `json:"bytes"`
 
-// DatabaseFormatSizeFormat defines model for DatabaseFormatSize.Format.
-type DatabaseFormatSizeFormat string
+	// Format A file format a database version is published in.
+	Format DatabaseFormat `json:"format"`
+}
 
 // DatabaseMetadata defines model for DatabaseMetadata.
 type DatabaseMetadata struct {
@@ -273,21 +215,18 @@ type DatabaseMetadataColumn struct {
 type DatabaseVersion struct {
 	Formats []DatabaseFormatSize `json:"formats"`
 
-	// ID The versioned dataset id, e.g. `vpn_ip_v1`. Pass this to download.
+	// ID The versioned database id, e.g. `vpn_ip_v1`. Pass this to download.
 	//
 	// Example: vpn_ip_v1
 	ID string `json:"id"`
 
 	// SampleFormats The formats an evaluation sample is published in, if any.
-	SampleFormats *[]DatabaseVersionSampleFormats `json:"sample_formats,omitempty"`
-	Summary       *string                         `json:"summary,omitempty"`
+	SampleFormats *[]DatabaseFormat `json:"sample_formats,omitempty"`
+	Summary       *string           `json:"summary,omitempty"`
 
 	// Version Example: 1
 	Version int `json:"version"`
 }
-
-// DatabaseVersionSampleFormats defines model for DatabaseVersion.SampleFormats.
-type DatabaseVersionSampleFormats string
 
 // DBChecksums The published digests for one database file.
 type DBChecksums struct {
@@ -326,6 +265,9 @@ type DownloadOutcome string
 type Error struct {
 	Rc string `json:"rc"`
 }
+
+// LicenseType What a license permits you to do with the data.
+type LicenseType string
 
 // LookupError Every non-2xx response carries this shape.
 type LookupError struct {
@@ -435,6 +377,11 @@ type ProxyDetail struct {
 	ProvidersNum *int `json:"providers_num,omitempty"`
 }
 
+// Standing Where your license for a database family stands today. `licensed` is a
+// live grant, `expired` one whose term has ended, and `unlicensed` a
+// database published but never bought.
+type Standing string
+
 // VpnDetail What is known about the VPN attribution. Every key is present when the
 // object is populated, empty values included; the object is `{}` when
 // `is_vpn` is false. `confidence` and `method` are max only, so on a lower
@@ -484,26 +431,20 @@ type UnknownDataset = Error
 
 // DatabaseChecksumParams defines parameters for DatabaseChecksum.
 type DatabaseChecksumParams struct {
-	ID     string                       `form:"id" json:"id"`
-	Format DatabaseChecksumParamsFormat `form:"format" json:"format"`
+	ID     string         `form:"id" json:"id"`
+	Format DatabaseFormat `form:"format" json:"format"`
 }
-
-// DatabaseChecksumParamsFormat defines parameters for DatabaseChecksum.
-type DatabaseChecksumParamsFormat string
 
 // DownloadDatabaseParams defines parameters for DownloadDatabase.
 type DownloadDatabaseParams struct {
 	// ID Dataset id, e.g. vpn_ip_extended_v1
 	ID string `form:"id" json:"id"`
 
-	// Format Not every dataset is built in every format. The `_provider`
+	// Format Not every database is built in every format. The `_provider`
 	// catalogues are keyed by provider id rather than by IP range, so no
 	// MMDB exists for them.
-	Format DownloadDatabaseParamsFormat `form:"format" json:"format"`
+	Format DatabaseFormat `form:"format" json:"format"`
 }
-
-// DownloadDatabaseParamsFormat defines parameters for DownloadDatabase.
-type DownloadDatabaseParamsFormat string
 
 // ListDownloadsParams defines parameters for ListDownloads.
 type ListDownloadsParams struct {
@@ -612,7 +553,7 @@ type ClientInterface interface {
 
 	// ListDatabases List
 	//
-	// Every dataset this organization holds a licence for, with the term and the license_type right beside each one.
+	// Every database this organization holds a licence for, with the term and the license_type right beside each one.
 	//
 	// Corresponds with GET /api/v1/database/list (the `ListDatabases` operationId).
 	ListDatabases(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -622,11 +563,25 @@ type ClientInterface interface {
 	// Poll this to decide whether today's build is worth fetching: it carries
 	// `updated` and `entries` without downloading anything.
 	//
-	// No `format` parameter - one document describes every format the dataset
+	// No `format` parameter - one document describes every format the database
 	// is built in.
 	//
 	// Corresponds with GET /api/v1/database/metadata (the `DatabaseMetadata` operationId).
 	DatabaseMetadata(ctx context.Context, params *DatabaseMetadataParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// LookupMyIP Lookup your own address
+	//
+	// Answers what is known about the address this request came from, which is
+	// the same answer `GET /{ip}` gives for that address: the plan behind the
+	// presented key decides which fields come back, and the request counts
+	// against the same allowance.
+	//
+	// The address is the one our edge observed, so a request through a proxy
+	// or a VPN reports the exit it left through rather than the machine that
+	// made it. That is usually the point of asking.
+	//
+	// Corresponds with GET /myip (the `LookupMyIP` operationId).
+	LookupMyIP(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// LookupIP Lookup
 	//
@@ -691,7 +646,7 @@ func (c *Client) ListDownloads(ctx context.Context, params *ListDownloadsParams,
 
 // ListDatabases List
 //
-// Every dataset this organization holds a licence for, with the term and the license_type right beside each one.
+// Every database this organization holds a licence for, with the term and the license_type right beside each one.
 //
 // Corresponds with GET /api/v1/database/list (the `ListDatabases` operationId).
 func (c *Client) ListDatabases(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
@@ -711,12 +666,36 @@ func (c *Client) ListDatabases(ctx context.Context, reqEditors ...RequestEditorF
 // Poll this to decide whether today's build is worth fetching: it carries
 // `updated` and `entries` without downloading anything.
 //
-// No `format` parameter - one document describes every format the dataset
+// No `format` parameter - one document describes every format the database
 // is built in.
 //
 // Corresponds with GET /api/v1/database/metadata (the `DatabaseMetadata` operationId).
 func (c *Client) DatabaseMetadata(ctx context.Context, params *DatabaseMetadataParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewDatabaseMetadataRequest(c.Server, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// LookupMyIP Lookup your own address
+//
+// Answers what is known about the address this request came from, which is
+// the same answer `GET /{ip}` gives for that address: the plan behind the
+// presented key decides which fields come back, and the request counts
+// against the same allowance.
+//
+// The address is the one our edge observed, so a request through a proxy
+// or a VPN reports the exit it left through rather than the machine that
+// made it. That is usually the point of asking.
+//
+// Corresponds with GET /myip (the `LookupMyIP` operationId).
+func (c *Client) LookupMyIP(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewLookupMyIPRequest(c.Server)
 	if err != nil {
 		return nil, err
 	}
@@ -993,6 +972,33 @@ func NewDatabaseMetadataRequest(server string, params *DatabaseMetadataParams) (
 	return req, nil
 }
 
+// NewLookupMyIPRequest constructs an http.Request for the LookupMyIP method
+func NewLookupMyIPRequest(server string) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/myip")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewLookupIPRequest constructs an http.Request for the LookupIP method
 func NewLookupIPRequest(server string, ip string) (*http.Request, error) {
 	var err error
@@ -1100,7 +1106,7 @@ type ClientWithResponsesInterface interface {
 
 	// ListDatabasesWithResponse List
 	//
-	// Every dataset this organization holds a licence for, with the term and the license_type right beside each one.
+	// Every database this organization holds a licence for, with the term and the license_type right beside each one.
 	//
 	// Returns a wrapper object for the known response body format(s).
 	//
@@ -1112,13 +1118,29 @@ type ClientWithResponsesInterface interface {
 	// Poll this to decide whether today's build is worth fetching: it carries
 	// `updated` and `entries` without downloading anything.
 	//
-	// No `format` parameter - one document describes every format the dataset
+	// No `format` parameter - one document describes every format the database
 	// is built in.
 	//
 	// Returns a wrapper object for the known response body format(s).
 	//
 	// Corresponds with GET /api/v1/database/metadata (the `DatabaseMetadata` operationId).
 	DatabaseMetadataWithResponse(ctx context.Context, params *DatabaseMetadataParams, reqEditors ...RequestEditorFn) (*DatabaseMetadataResponse, error)
+
+	// LookupMyIPWithResponse Lookup your own address
+	//
+	// Answers what is known about the address this request came from, which is
+	// the same answer `GET /{ip}` gives for that address: the plan behind the
+	// presented key decides which fields come back, and the request counts
+	// against the same allowance.
+	//
+	// The address is the one our edge observed, so a request through a proxy
+	// or a VPN reports the exit it left through rather than the machine that
+	// made it. That is usually the point of asking.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /myip (the `LookupMyIP` operationId).
+	LookupMyIPWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*LookupMyIPResponse, error)
 
 	// LookupIPWithResponse Lookup
 	//
@@ -1467,6 +1489,75 @@ func (r DatabaseMetadataResponse) ContentType() string {
 	return ""
 }
 
+type LookupMyIPResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *LookupResponse
+	// JSON401 the response for an HTTP 401 `application/json` response
+	JSON401 *LookupError
+	// JSON403 the response for an HTTP 403 `application/json` response
+	JSON403 *LookupError
+	// JSON429 the response for an HTTP 429 `application/json` response
+	JSON429 *LookupError
+	// JSON500 the response for an HTTP 500 `application/json` response
+	JSON500 *LookupError
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r LookupMyIPResponse) GetJSON200() *LookupResponse {
+	return r.JSON200
+}
+
+// GetJSON401 returns the response for an HTTP 401 `application/json` response
+func (r LookupMyIPResponse) GetJSON401() *LookupError {
+	return r.JSON401
+}
+
+// GetJSON403 returns the response for an HTTP 403 `application/json` response
+func (r LookupMyIPResponse) GetJSON403() *LookupError {
+	return r.JSON403
+}
+
+// GetJSON429 returns the response for an HTTP 429 `application/json` response
+func (r LookupMyIPResponse) GetJSON429() *LookupError {
+	return r.JSON429
+}
+
+// GetJSON500 returns the response for an HTTP 500 `application/json` response
+func (r LookupMyIPResponse) GetJSON500() *LookupError {
+	return r.JSON500
+}
+
+// GetBody returns the raw response body bytes
+func (r LookupMyIPResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r LookupMyIPResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r LookupMyIPResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r LookupMyIPResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 // LookupIPResponse429Headers the declared response headers of an HTTP 429 response for LookupIP
 type LookupIPResponse429Headers struct {
 	RetryAfter *int
@@ -1597,7 +1688,7 @@ func (c *ClientWithResponses) ListDownloadsWithResponse(ctx context.Context, par
 
 // ListDatabasesWithResponse List
 //
-// Every dataset this organization holds a licence for, with the term and the license_type right beside each one.
+// Every database this organization holds a licence for, with the term and the license_type right beside each one.
 //
 // Returns a wrapper object for the known response body format(s).
 //
@@ -1615,7 +1706,7 @@ func (c *ClientWithResponses) ListDatabasesWithResponse(ctx context.Context, req
 // Poll this to decide whether today's build is worth fetching: it carries
 // `updated` and `entries` without downloading anything.
 //
-// No `format` parameter - one document describes every format the dataset
+// No `format` parameter - one document describes every format the database
 // is built in.
 //
 // Returns a wrapper object for the known response body format(s).
@@ -1627,6 +1718,28 @@ func (c *ClientWithResponses) DatabaseMetadataWithResponse(ctx context.Context, 
 		return nil, err
 	}
 	return ParseDatabaseMetadataResponse(rsp)
+}
+
+// LookupMyIPWithResponse Lookup your own address
+//
+// Answers what is known about the address this request came from, which is
+// the same answer `GET /{ip}` gives for that address: the plan behind the
+// presented key decides which fields come back, and the request counts
+// against the same allowance.
+//
+// The address is the one our edge observed, so a request through a proxy
+// or a VPN reports the exit it left through rather than the machine that
+// made it. That is usually the point of asking.
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /myip (the `LookupMyIP` operationId).
+func (c *ClientWithResponses) LookupMyIPWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*LookupMyIPResponse, error) {
+	rsp, err := c.LookupMyIP(ctx, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseLookupMyIPResponse(rsp)
 }
 
 // LookupIPWithResponse Lookup
@@ -1900,6 +2013,60 @@ func ParseDatabaseMetadataResponse(rsp *http.Response) (*DatabaseMetadataRespons
 			return nil, err
 		}
 		response.JSON503 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseLookupMyIPResponse parses an HTTP response from a LookupMyIPWithResponse call
+func ParseLookupMyIPResponse(rsp *http.Response) (*LookupMyIPResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &LookupMyIPResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest LookupResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest LookupError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest LookupError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 429:
+		var dest LookupError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON429 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest LookupError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
 
 	}
 
