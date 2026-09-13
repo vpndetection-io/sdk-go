@@ -17,7 +17,7 @@ import (
 	"github.com/hashicorp/golang-lru/v2/expirable"
 	"golang.org/x/sync/errgroup"
 
-	"github.com/vpndetection-io/sdk-go/internal/api"
+	"github.com/vpndetection-io/sdk-go/v3/internal/api"
 )
 
 // DefaultBaseURL is the production API. Override it with WithBaseURL.

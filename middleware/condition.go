@@ -11,7 +11,7 @@ import (
 	"reflect"
 	"strings"
 
-	vpndetection "github.com/vpndetection-io/sdk-go"
+	vpndetection "github.com/vpndetection-io/sdk-go/v3"
 )
 
 // BlockCondition is what makes a request worth blocking, written in the shape

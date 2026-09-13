@@ -3,7 +3,7 @@ package vpndetection
 import (
 	"github.com/oapi-codegen/runtime/types"
 
-	"github.com/vpndetection-io/sdk-go/internal/api"
+	"github.com/vpndetection-io/sdk-go/v3/internal/api"
 )
 
 // The wire shapes a lookup answers with, re-exported so a consumer never has to

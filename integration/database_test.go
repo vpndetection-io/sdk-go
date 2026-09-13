@@ -22,7 +22,7 @@ import (
 	"strings"
 	"testing"
 
-	vpndetection "github.com/vpndetection-io/sdk-go"
+	vpndetection "github.com/vpndetection-io/sdk-go/v3"
 )
 
 const (
@@ -57,7 +57,7 @@ func TestTheLicensedCatalogueAnswersTheSchemaTheClientWasGeneratedFrom(t *testin
 	served := servedKeys(t, rec, "/api/v1/database/list")
 	for _, want := range []string{"base", "versions"} {
 		if !slices.Contains(served, want) {
-			t.Fatalf("the payload carries %s, and LicensedDataset declares %s",
+			t.Fatalf("the payload carries %s, and Database declares %s",
 				strings.Join(served, ", "), want)
 		}
 	}
@@ -257,7 +257,7 @@ func transferred(t *testing.T) *transfer {
 	return shared
 }
 
-func publishedSize(t *testing.T, meta *vpndetection.DatasetMetadata) int {
+func publishedSize(t *testing.T, meta *vpndetection.DatabaseMetadata) int {
 	t.Helper()
 	if meta.Size == nil {
 		t.Fatalf("%s publishes no size to check a transfer against", datasetID)

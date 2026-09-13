@@ -7,7 +7,7 @@ import (
 	"net/http"
 	"os"
 
-	"github.com/vpndetection-io/sdk-go/internal/api"
+	"github.com/vpndetection-io/sdk-go/v3/internal/api"
 )
 
 // DatabaseAPI is the licensed database downloads. Access is granted by contract
@@ -256,11 +256,11 @@ type Checksums struct {
 // The dataset shapes, re-exported so a consumer never has to name an internal
 // package.
 type (
-	Database       = api.Database
+	Database               = api.Database
 	DatabaseFormatSize     = api.DatabaseFormatSize
 	DatabaseMetadata       = api.DatabaseMetadata
 	DatabaseMetadataColumn = api.DatabaseMetadataColumn
-	Download              = api.Download
+	Download               = api.Download
 	// DatabaseVersion is one published version of a licensed family. Its ID is
 	// what the download and checksum calls take.
 	DatabaseVersion = api.DatabaseVersion
