@@ -316,9 +316,12 @@ paths:
       tags:
         - Database
       summary: List
-      description: >
-        Every database this organization holds a licence for, with the term and the license_type
-        right beside each one.
+      description: |
+        Every database this organization may SEE, with where its licence stands.
+        Not just the ones you hold: a customer with one grant should be able to
+        tell what else is published without asking. `standing` is the
+        difference - `licensed`, `expired`, or `unlicensed` for one never
+        bought.
       responses:
         '200':
           description: OK
@@ -828,15 +831,6 @@ components:
           type: string
       required:
         - rc
-    LicenseType:
-      type: string
-      description: |
-        What a license permits you to do with the data. Always present on this
-        endpoint: it lists families you hold a license for and nothing else.
-      enum:
-        - evaluation
-        - standard
-        - redistribute
     Standing:
       type: string
       description: |
@@ -882,7 +876,17 @@ components:
         summary:
           type: string
         license_type:
-          $ref: '#/components/schemas/LicenseType'
+          type: string
+          nullable: true
+          enum:
+            - evaluation
+            - standard
+            - redistribute
+            - null
+          description: |
+            What a license permits you to do with the data. Null for a family
+            you hold no license for, which is every one with standing
+            `unlicensed`.
         starts:
           type: string
           format: date-time

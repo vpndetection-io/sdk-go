@@ -11,8 +11,8 @@ import (
 	"slices"
 	"testing"
 
-	vpndetection "github.com/vpndetection-io/sdk-go/v3"
-	"github.com/vpndetection-io/sdk-go/v3/middleware"
+	vpndetection "github.com/vpndetection-io/sdk-go/v4"
+	"github.com/vpndetection-io/sdk-go/v4/middleware"
 )
 
 type corpusData struct {

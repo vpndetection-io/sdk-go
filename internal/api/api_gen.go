@@ -41,6 +41,30 @@ func (e AccountPlanTier) Valid() bool {
 	}
 }
 
+// Defines values for DatabaseLicenseType.
+const (
+	Evaluation   DatabaseLicenseType = "evaluation"
+	LessThanNil  DatabaseLicenseType = "<nil>"
+	Redistribute DatabaseLicenseType = "redistribute"
+	Standard     DatabaseLicenseType = "standard"
+)
+
+// Valid indicates whether the value is a known member of the DatabaseLicenseType enum.
+func (e DatabaseLicenseType) Valid() bool {
+	switch e {
+	case Evaluation:
+		return true
+	case LessThanNil:
+		return true
+	case Redistribute:
+		return true
+	case Standard:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for DatabaseFormat.
 const (
 	Csvgz DatabaseFormat = "csvgz"
@@ -83,27 +107,6 @@ func (e DownloadOutcome) Valid() bool {
 	case DownloadOutcomeUnavailable:
 		return true
 	case DownloadOutcomeUnknown:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for LicenseType.
-const (
-	Evaluation   LicenseType = "evaluation"
-	Redistribute LicenseType = "redistribute"
-	Standard     LicenseType = "standard"
-)
-
-// Valid indicates whether the value is a known member of the LicenseType enum.
-func (e LicenseType) Valid() bool {
-	switch e {
-	case Evaluation:
-		return true
-	case Redistribute:
-		return true
-	case Standard:
 		return true
 	default:
 		return false
@@ -234,9 +237,10 @@ type Database struct {
 	// InTerm False when the license has lapsed; downloads are refused.
 	InTerm bool `json:"in_term"`
 
-	// LicenseType What a license permits you to do with the data. Always present on this
-	// endpoint: it lists families you hold a license for and nothing else.
-	LicenseType LicenseType `json:"license_type"`
+	// LicenseType What a license permits you to do with the data. Null for a family
+	// you hold no license for, which is every one with standing
+	// `unlicensed`.
+	LicenseType *DatabaseLicenseType `json:"license_type"`
 
 	// Name Example: VPN IP
 	Name string `json:"name"`
@@ -258,6 +262,11 @@ type Database struct {
 	// download and checksum endpoints take.
 	Versions []DatabaseVersion `json:"versions"`
 }
+
+// DatabaseLicenseType What a license permits you to do with the data. Null for a family
+// you hold no license for, which is every one with standing
+// `unlicensed`.
+type DatabaseLicenseType string
 
 // DatabaseFormat A file format a database version is published in.
 type DatabaseFormat string
@@ -358,10 +367,6 @@ type DownloadOutcome string
 type Error struct {
 	Rc string `json:"rc"`
 }
-
-// LicenseType What a license permits you to do with the data. Always present on this
-// endpoint: it lists families you hold a license for and nothing else.
-type LicenseType string
 
 // LookupError Every non-2xx response carries this shape.
 type LookupError struct {
@@ -655,7 +660,11 @@ type ClientInterface interface {
 
 	// ListDatabases List
 	//
-	// Every database this organization holds a licence for, with the term and the license_type right beside each one.
+	// Every database this organization may SEE, with where its licence stands.
+	// Not just the ones you hold: a customer with one grant should be able to
+	// tell what else is published without asking. `standing` is the
+	// difference - `licensed`, `expired`, or `unlicensed` for one never
+	// bought.
 	//
 	// Corresponds with GET /api/v1/database/list (the `ListDatabases` operationId).
 	ListDatabases(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -766,7 +775,11 @@ func (c *Client) ListDownloads(ctx context.Context, params *ListDownloadsParams,
 
 // ListDatabases List
 //
-// Every database this organization holds a licence for, with the term and the license_type right beside each one.
+// Every database this organization may SEE, with where its licence stands.
+// Not just the ones you hold: a customer with one grant should be able to
+// tell what else is published without asking. `standing` is the
+// difference - `licensed`, `expired`, or `unlicensed` for one never
+// bought.
 //
 // Corresponds with GET /api/v1/database/list (the `ListDatabases` operationId).
 func (c *Client) ListDatabases(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
@@ -1263,7 +1276,11 @@ type ClientWithResponsesInterface interface {
 
 	// ListDatabasesWithResponse List
 	//
-	// Every database this organization holds a licence for, with the term and the license_type right beside each one.
+	// Every database this organization may SEE, with where its licence stands.
+	// Not just the ones you hold: a customer with one grant should be able to
+	// tell what else is published without asking. `standing` is the
+	// difference - `licensed`, `expired`, or `unlicensed` for one never
+	// bought.
 	//
 	// Returns a wrapper object for the known response body format(s).
 	//
@@ -1923,7 +1940,11 @@ func (c *ClientWithResponses) ListDownloadsWithResponse(ctx context.Context, par
 
 // ListDatabasesWithResponse List
 //
-// Every database this organization holds a licence for, with the term and the license_type right beside each one.
+// Every database this organization may SEE, with where its licence stands.
+// Not just the ones you hold: a customer with one grant should be able to
+// tell what else is published without asking. `standing` is the
+// difference - `licensed`, `expired`, or `unlicensed` for one never
+// bought.
 //
 // Returns a wrapper object for the known response body format(s).
 //

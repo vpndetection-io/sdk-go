@@ -4,7 +4,7 @@ import (
 	"context"
 	"net/http"
 
-	"github.com/vpndetection-io/sdk-go/v3/internal/api"
+	"github.com/vpndetection-io/sdk-go/v4/internal/api"
 )
 
 // The account shapes, re-exported so a consumer never has to name an internal

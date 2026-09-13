@@ -15,7 +15,7 @@ import (
 	"sync"
 	"testing"
 
-	vpndetection "github.com/vpndetection-io/sdk-go/v3"
+	vpndetection "github.com/vpndetection-io/sdk-go/v4"
 )
 
 const (

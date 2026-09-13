@@ -1,6 +1,6 @@
 # [<img src="https://s3.vpndetection.io/vpndetection-public/brand/mark.svg" alt="VPNDetection" width="24"/>](https://vpndetection.io/) VPNDetection Go Client Library
 
-[![Go Reference](https://pkg.go.dev/badge/github.com/vpndetection-io/sdk-go/v3.svg)](https://pkg.go.dev/github.com/vpndetection-io/sdk-go/v3)
+[![Go Reference](https://pkg.go.dev/badge/github.com/vpndetection-io/sdk-go/v4.svg)](https://pkg.go.dev/github.com/vpndetection-io/sdk-go/v4)
 [![license](https://img.shields.io/github/license/vpndetection-io/sdk-go)](LICENSE)
 
 The official Go client library for the [VPNDetection](https://vpndetection.io) API.
@@ -10,13 +10,13 @@ The library helps you query VPNDetection's APIs for anonymity detection includin
 ## Getting Started
 
 ```bash
-go get github.com/vpndetection-io/sdk-go/v3
+go get github.com/vpndetection-io/sdk-go/v4
 ```
 
 Requires Go 1.24 or newer. The module path ends in `sdk-go`, but the package it declares is `vpndetection`:
 
 ```go
-import vpndetection "github.com/vpndetection-io/sdk-go/v3"
+import vpndetection "github.com/vpndetection-io/sdk-go/v4"
 ```
 
 ## Usage

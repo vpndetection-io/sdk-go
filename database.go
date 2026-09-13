@@ -7,7 +7,7 @@ import (
 	"net/http"
 	"os"
 
-	"github.com/vpndetection-io/sdk-go/v3/internal/api"
+	"github.com/vpndetection-io/sdk-go/v4/internal/api"
 )
 
 // DatabaseAPI is the licensed database downloads. Access is granted by contract
@@ -264,8 +264,14 @@ type (
 	// DatabaseVersion is one published version of a licensed family. Its ID is
 	// what the download and checksum calls take.
 	DatabaseVersion = api.DatabaseVersion
-	// LicenseType is what a license permits you to do with the data.
-	LicenseType = api.LicenseType
+	// LicenseType is what a license permits you to do with the data. Null on
+	// the wire for a family you hold no license for, which /list now returns.
+	//
+	// The generated enum carries a LessThanNil variant, because `null` has to
+	// be an enum member in the spec for hey-api to type the field nullable at
+	// all. It is deliberately NOT re-exported below: it is a spelling of
+	// absence, not a license type.
+	LicenseType = api.DatabaseLicenseType
 	// Standing is where a license stands: live, lapsed, or never bought.
 	Standing = api.Standing
 	// SampleFormat is a format an evaluation sample is published in.
