@@ -22,8 +22,12 @@ type (
 	AccountUsage = api.AccountUsage
 )
 
-// Me reports what this client's key is entitled to and how much of it has been
-// used.
+// MyAccount reports what this client's key is entitled to and how much of it
+// has been used.
+//
+// Named for what it answers rather than `Me`, which sits one letter from MyIP
+// and means something quite different: one is which address you are calling
+// from, the other is which account you are calling as.
 //
 // Unlike a lookup there is no useful unauthenticated answer, so a client built
 // without a key gets an unauthorized error rather than a partial one.
@@ -35,7 +39,7 @@ type (
 //
 // Deliberately NOT cached: the whole point is what has been spent, and a
 // cached answer is a wrong one within seconds of the next request.
-func (c *Client) Me(ctx context.Context, opts ...LookupOption) (*Account, error) {
+func (c *Client) MyAccount(ctx context.Context, opts ...LookupOption) (*Account, error) {
 	call := c.callConfig()
 	for _, opt := range opts {
 		opt.applyLookup(&call)
@@ -50,4 +54,14 @@ func (c *Client) Me(ctx context.Context, opts ...LookupOption) (*Account, error)
 		}
 		return res.JSON200, nil
 	})
+}
+
+// Me is the former name of MyAccount.
+//
+// Deprecated: use MyAccount. `Me` sits one letter from MyIP and means something
+// quite different - one is which address you are calling FROM, the other is
+// which account you are calling AS. Kept because it shipped in v3.1.0 and
+// v4.0.0; it goes at the next major.
+func (c *Client) Me(ctx context.Context, opts ...LookupOption) (*Account, error) {
+	return c.MyAccount(ctx, opts...)
 }

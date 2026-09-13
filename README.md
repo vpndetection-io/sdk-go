@@ -64,7 +64,7 @@ Same answer `Lookup` would give for that address, and the same cost against your
 ### Your plan and usage
 
 ```go
-acct, err := client.Me(ctx)
+acct, err := client.MyAccount(ctx)
 fmt.Println(acct.Plan.Key)         // max
 fmt.Println(acct.Usage.Requests)   // 580
 fmt.Println(acct.Usage.WindowEnd)  // when the allowance resets

@@ -257,7 +257,7 @@ func TestMyIPSurfacesAnError(t *testing.T) {
 	}
 }
 
-func TestMeReportsThePlanAndTheUsage(t *testing.T) {
+func TestMyAccountReportsThePlanAndTheUsage(t *testing.T) {
 	stub := newStub(map[string]stubRoute{
 		"/api/v1/account/me": {body: map[string]any{
 			"org_id": "85bb51e4-2eb6-4a31-8e4d-02ba8b98fe61",
@@ -271,9 +271,9 @@ func TestMeReportsThePlanAndTheUsage(t *testing.T) {
 	})
 	client := newTestClient(t, stub)
 
-	acct, err := client.Me(t.Context())
+	acct, err := client.MyAccount(t.Context())
 	if err != nil {
-		t.Fatalf("Me: %v", err)
+		t.Fatalf("MyAccount: %v", err)
 	}
 	if acct.Plan.Key != "max" {
 		t.Errorf("plan = %q, want max", acct.Plan.Key)
@@ -289,7 +289,7 @@ func TestMeReportsThePlanAndTheUsage(t *testing.T) {
 }
 
 // Usage is the whole point, so a cached answer is a wrong one within seconds.
-func TestMeIsNotCached(t *testing.T) {
+func TestMyAccountIsNotCached(t *testing.T) {
 	stub := newStub(map[string]stubRoute{
 		"/api/v1/account/me": {body: map[string]any{
 			"org_id": "f32191d0-ef02-450e-a505-eb5814c35cab", "apikey": map[string]any{"id": "10c2b437-3aa2-4a63-bd17-8e7c8c7f0def", "expires": nil, "allowed_cidrs": []string{}},
@@ -299,8 +299,8 @@ func TestMeIsNotCached(t *testing.T) {
 	})
 	client := newTestClient(t, stub)
 	for i := 0; i < 3; i++ {
-		if _, err := client.Me(t.Context()); err != nil {
-			t.Fatalf("Me: %v", err)
+		if _, err := client.MyAccount(t.Context()); err != nil {
+			t.Fatalf("MyAccount: %v", err)
 		}
 	}
 	if stub.count() != 3 {
