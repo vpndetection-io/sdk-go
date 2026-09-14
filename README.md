@@ -181,6 +181,14 @@ raw, err := client.Database.DownloadBytes(ctx, "cdn_ip_v1", vpndetection.FormatC
 
 `DownloadBytes` holds the whole file in memory, and the catalog runs from `cdn_ip_v1` at 10 KB to `resproxy_ip_90d_v1` at 1.79 GB, so use `DownloadFile` for anything you have not measured.
 
+`Format` is a defined string type, so `Format("zip")` compiles. Anything the API does not publish is refused before the request leaves, as a `bad_request` naming what is allowed; `Valid` is the same check for a format you take from a flag or a config file:
+
+```go
+if !vpndetection.Format(fromFlag).Valid() {
+    // csvgz or mmdb
+}
+```
+
 ### Absent is not false
 
 Every field beyond `IP` and `IsVpn` is a pointer, because your plan decides which of them the API sends. A `nil` pointer means "not in your plan", not "checked, and no".

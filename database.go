@@ -52,6 +52,9 @@ func (d *DatabaseAPI) Metadata(ctx context.Context, id string) (*DatabaseMetadat
 
 // Checksums are the digests of one published file, for verifying a download.
 func (d *DatabaseAPI) Checksums(ctx context.Context, id string, format Format) (*Checksums, error) {
+	if err := checkFormat(format); err != nil {
+		return nil, err
+	}
 	return withRetry(ctx, d.retries, func() (*Checksums, error) {
 		res, err := d.api.DatabaseChecksumWithResponse(ctx, &api.DatabaseChecksumParams{
 			ID:     id,
@@ -99,6 +102,9 @@ func (d *DatabaseAPI) Downloads(ctx context.Context, limit int) ([]Download, err
 // gigabytes; the link authorizes the START of a transfer, so one already
 // running is not interrupted when it lapses.
 func (d *DatabaseAPI) DownloadURL(ctx context.Context, id string, format Format) (string, error) {
+	if err := checkFormat(format); err != nil {
+		return "", err
+	}
 	ctx = withoutRedirects(ctx)
 	return withRetry(ctx, d.retries, func() (string, error) {
 		res, err := d.api.DownloadDatabaseWithResponse(ctx, &api.DownloadDatabaseParams{
@@ -243,6 +249,31 @@ const (
 	FormatCSVGZ Format = "csvgz"
 	FormatMMDB  Format = "mmdb"
 )
+
+// Valid reports whether f is a format the API publishes.
+//
+// Format is a defined string type, so Format("zip") compiles: the constants
+// above document the vocabulary without closing it. Callers taking a format
+// from a flag, a config file or a model should check it here.
+func (f Format) Valid() bool {
+	return f == FormatCSVGZ || f == FormatMMDB
+}
+
+// Rejects a format the API does not publish before the network sees it.
+//
+// Without this the call costs a round trip and returns a 400 whose message
+// names nothing the caller can act on. Ruby, PHP, Python, Java and Perl all
+// reject locally; this is Go catching up.
+func checkFormat(f Format) error {
+	if f.Valid() {
+		return nil
+	}
+	return &Error{
+		Kind: KindBadRequest,
+		Message: fmt.Sprintf("invalid format %q; must be one of %q, %q",
+			string(f), string(FormatCSVGZ), string(FormatMMDB)),
+	}
+}
 
 // Checksums of one published dataset file. A digest the exporter did not write
 // is an empty string.
