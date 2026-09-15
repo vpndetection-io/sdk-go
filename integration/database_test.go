@@ -273,7 +273,7 @@ func transferred(t *testing.T) *transfer {
 	return shared
 }
 
-func publishedSize(t *testing.T, meta *vpndetection.DatabaseMetadata) int {
+func publishedSize(t *testing.T, meta *vpndetection.DatabaseMetadata) int64 {
 	t.Helper()
 	if meta.Size == nil {
 		t.Fatalf("%s publishes no size to check a transfer against", datasetID)
