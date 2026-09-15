@@ -250,6 +250,45 @@ type ApikeyList struct {
 	Rc   string         `json:"rc"`
 }
 
+// BatchLookupError Why one entry of a batch was not answered, as the single lookup would have reported it.
+type BatchLookupError struct {
+	// Error The same message the single lookup carries for that status.
+	//
+	// Example: not a valid IP address
+	Error string `json:"error"`
+
+	// Status The HTTP status `GET /{ip}` would have answered for this entry: `400`
+	// for a string that is not an address, `429` for a spent allowance,
+	// `500` when the VPN dataset could not be consulted. A `429` here is
+	// never a throttle; the whole call is refused instead.
+	//
+	//
+	// Example: 400
+	Status int `json:"status"`
+}
+
+// BatchLookupRequest defines model for BatchLookupRequest.
+type BatchLookupRequest struct {
+	// Ips The addresses to classify, 1 to 1000 per call, counted before
+	// duplicates collapse. Each distinct string is one lookup.
+	//
+	//
+	// Example: ["1.1.1.1","2606:4700:4700::1111"]
+	Ips []string `json:"ips"`
+}
+
+// BatchLookupResponse defines model for BatchLookupResponse.
+type BatchLookupResponse struct {
+	// Errors One entry per input string that could not be classified, keyed the
+	// same way. Empty when every entry was answered.
+	Errors map[string]BatchLookupError `json:"errors"`
+
+	// Results One answer per input string that was classified, keyed by the string
+	// as you sent it; the `ip` inside is the normalized form. Each value is
+	// exactly what `GET /{ip}` answers for your plan.
+	Results map[string]LookupResponse `json:"results"`
+}
+
 // ClassDetail The shared detail shape for the hosting, relay, tor and cdn datasets.
 // Every key is present when the object is populated; the object is `{}`
 // when its flag is false.
@@ -806,6 +845,9 @@ type OauthAuthorizeParamsCodeChallengeMethod string
 // AccountCreateApikeyJSONRequestBody defines body for AccountCreateApikey for application/json ContentType.
 type AccountCreateApikeyJSONRequestBody = AccountCreateApikeyRequest
 
+// LookupBatchJSONRequestBody defines body for LookupBatch for application/json ContentType.
+type LookupBatchJSONRequestBody = BatchLookupRequest
+
 // OauthDeviceAuthorizationFormdataRequestBody defines body for OauthDeviceAuthorization for application/x-www-form-urlencoded ContentType.
 type OauthDeviceAuthorizationFormdataRequestBody = DeviceAuthorizationRequest
 
@@ -1060,6 +1102,56 @@ type ClientInterface interface {
 	//
 	// Corresponds with GET /api/v1/iam/org/members (the `AccountOrgMembers` operationId).
 	AccountOrgMembers(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// LookupBatchWithBody Batch
+	//
+	// Answers up to 1000 addresses in one call. Each distinct string in `ips`
+	// is one lookup: it costs exactly what `GET /{ip}` costs for that address
+	// and comes back with exactly the fields that call would carry for your
+	// plan. Exact duplicates collapse to one entry and one lookup.
+	//
+	// Both maps in the answer are keyed by the string you sent, so nothing has
+	// to be lined up by position; the `ip` inside each result is the
+	// normalized form. An address that could not be answered sits in `errors`
+	// with the status and message the single lookup would have given, and
+	// never disturbs the others: a string that is not an address is a `400`
+	// there, and an allowance that runs out part way through leaves the
+	// remaining entries as `429`s.
+	//
+	// The call itself fails only for the reasons below, and a `429` on the
+	// call always carries `Retry-After`: the batch is admitted or refused
+	// whole by the rate limit, so a per-entry `429` is always a spent
+	// allowance and never a throttle.
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with POST /batch (the `LookupBatch` operationId).
+	LookupBatchWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// LookupBatch Batch
+	//
+	// Answers up to 1000 addresses in one call. Each distinct string in `ips`
+	// is one lookup: it costs exactly what `GET /{ip}` costs for that address
+	// and comes back with exactly the fields that call would carry for your
+	// plan. Exact duplicates collapse to one entry and one lookup.
+	//
+	// Both maps in the answer are keyed by the string you sent, so nothing has
+	// to be lined up by position; the `ip` inside each result is the
+	// normalized form. An address that could not be answered sits in `errors`
+	// with the status and message the single lookup would have given, and
+	// never disturbs the others: a string that is not an address is a `400`
+	// there, and an allowance that runs out part way through leaves the
+	// remaining entries as `429`s.
+	//
+	// The call itself fails only for the reasons below, and a `429` on the
+	// call always carries `Retry-After`: the batch is admitted or refused
+	// whole by the rate limit, so a per-entry `429` is always a spent
+	// allowance and never a throttle.
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with POST /batch (the `LookupBatch` operationId).
+	LookupBatch(ctx context.Context, body LookupBatchJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// LookupMyIP My IP
 	//
@@ -1515,6 +1607,76 @@ func (c *Client) AccountOrg(ctx context.Context, reqEditors ...RequestEditorFn) 
 // Corresponds with GET /api/v1/iam/org/members (the `AccountOrgMembers` operationId).
 func (c *Client) AccountOrgMembers(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewAccountOrgMembersRequest(c.Server)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// LookupBatchWithBody Batch
+//
+// Answers up to 1000 addresses in one call. Each distinct string in `ips`
+// is one lookup: it costs exactly what `GET /{ip}` costs for that address
+// and comes back with exactly the fields that call would carry for your
+// plan. Exact duplicates collapse to one entry and one lookup.
+//
+// Both maps in the answer are keyed by the string you sent, so nothing has
+// to be lined up by position; the `ip` inside each result is the
+// normalized form. An address that could not be answered sits in `errors`
+// with the status and message the single lookup would have given, and
+// never disturbs the others: a string that is not an address is a `400`
+// there, and an allowance that runs out part way through leaves the
+// remaining entries as `429`s.
+//
+// The call itself fails only for the reasons below, and a `429` on the
+// call always carries `Retry-After`: the batch is admitted or refused
+// whole by the rate limit, so a per-entry `429` is always a spent
+// allowance and never a throttle.
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with POST /batch (the `LookupBatch` operationId).
+func (c *Client) LookupBatchWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewLookupBatchRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// LookupBatch Batch
+//
+// Answers up to 1000 addresses in one call. Each distinct string in `ips`
+// is one lookup: it costs exactly what `GET /{ip}` costs for that address
+// and comes back with exactly the fields that call would carry for your
+// plan. Exact duplicates collapse to one entry and one lookup.
+//
+// Both maps in the answer are keyed by the string you sent, so nothing has
+// to be lined up by position; the `ip` inside each result is the
+// normalized form. An address that could not be answered sits in `errors`
+// with the status and message the single lookup would have given, and
+// never disturbs the others: a string that is not an address is a `400`
+// there, and an allowance that runs out part way through leaves the
+// remaining entries as `429`s.
+//
+// The call itself fails only for the reasons below, and a `429` on the
+// call always carries `Retry-After`: the batch is admitted or refused
+// whole by the rate limit, so a per-entry `429` is always a spent
+// allowance and never a throttle.
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with POST /batch (the `LookupBatch` operationId).
+func (c *Client) LookupBatch(ctx context.Context, body LookupBatchJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewLookupBatchRequest(c.Server, body)
 	if err != nil {
 		return nil, err
 	}
@@ -2297,6 +2459,46 @@ func NewAccountOrgMembersRequest(server string) (*http.Request, error) {
 	return req, nil
 }
 
+// NewLookupBatchRequest calls the generic LookupBatch builder with application/json body
+func NewLookupBatchRequest(server string, body LookupBatchJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewLookupBatchRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewLookupBatchRequestWithBody constructs an http.Request for the LookupBatch method, with any body, and a specified content type
+func NewLookupBatchRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/batch")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
 // NewLookupMyIPRequest constructs an http.Request for the LookupMyIP method
 func NewLookupMyIPRequest(server string) (*http.Request, error) {
 	var err error
@@ -2843,6 +3045,56 @@ type ClientWithResponsesInterface interface {
 	//
 	// Corresponds with GET /api/v1/iam/org/members (the `AccountOrgMembers` operationId).
 	AccountOrgMembersWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*AccountOrgMembersResponse, error)
+
+	// LookupBatchWithBodyWithResponse Batch
+	//
+	// Answers up to 1000 addresses in one call. Each distinct string in `ips`
+	// is one lookup: it costs exactly what `GET /{ip}` costs for that address
+	// and comes back with exactly the fields that call would carry for your
+	// plan. Exact duplicates collapse to one entry and one lookup.
+	//
+	// Both maps in the answer are keyed by the string you sent, so nothing has
+	// to be lined up by position; the `ip` inside each result is the
+	// normalized form. An address that could not be answered sits in `errors`
+	// with the status and message the single lookup would have given, and
+	// never disturbs the others: a string that is not an address is a `400`
+	// there, and an allowance that runs out part way through leaves the
+	// remaining entries as `429`s.
+	//
+	// The call itself fails only for the reasons below, and a `429` on the
+	// call always carries `Retry-After`: the batch is admitted or refused
+	// whole by the rate limit, so a per-entry `429` is always a spent
+	// allowance and never a throttle.
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /batch (the `LookupBatch` operationId).
+	LookupBatchWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*LookupBatchResponse, error)
+
+	// LookupBatchWithResponse Batch
+	//
+	// Answers up to 1000 addresses in one call. Each distinct string in `ips`
+	// is one lookup: it costs exactly what `GET /{ip}` costs for that address
+	// and comes back with exactly the fields that call would carry for your
+	// plan. Exact duplicates collapse to one entry and one lookup.
+	//
+	// Both maps in the answer are keyed by the string you sent, so nothing has
+	// to be lined up by position; the `ip` inside each result is the
+	// normalized form. An address that could not be answered sits in `errors`
+	// with the status and message the single lookup would have given, and
+	// never disturbs the others: a string that is not an address is a `400`
+	// there, and an allowance that runs out part way through leaves the
+	// remaining entries as `429`s.
+	//
+	// The call itself fails only for the reasons below, and a `429` on the
+	// call always carries `Retry-After`: the batch is admitted or refused
+	// whole by the rate limit, so a per-entry `429` is always a spent
+	// allowance and never a throttle.
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /batch (the `LookupBatch` operationId).
+	LookupBatchWithResponse(ctx context.Context, body LookupBatchJSONRequestBody, reqEditors ...RequestEditorFn) (*LookupBatchResponse, error)
 
 	// LookupMyIPWithResponse My IP
 	//
@@ -3888,6 +4140,89 @@ func (r AccountOrgMembersResponse) ContentType() string {
 	return ""
 }
 
+// LookupBatchResponse429Headers the declared response headers of an HTTP 429 response for LookupBatch
+type LookupBatchResponse429Headers struct {
+	RetryAfter int
+}
+
+type LookupBatchResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *BatchLookupResponse
+	// JSON400 the response for an HTTP 400 `application/json` response
+	JSON400 *LookupError
+	// JSON401 the response for an HTTP 401 `application/json` response
+	JSON401 *LookupError
+	// JSON403 the response for an HTTP 403 `application/json` response
+	JSON403 *LookupError
+	// JSON413 the response for an HTTP 413 `application/json` response
+	JSON413 *LookupError
+	// JSON429 the response for an HTTP 429 `application/json` response
+	JSON429 *LookupError
+	// Headers429 the parsed response headers for an HTTP 429 response
+	Headers429 *LookupBatchResponse429Headers
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r LookupBatchResponse) GetJSON200() *BatchLookupResponse {
+	return r.JSON200
+}
+
+// GetJSON400 returns the response for an HTTP 400 `application/json` response
+func (r LookupBatchResponse) GetJSON400() *LookupError {
+	return r.JSON400
+}
+
+// GetJSON401 returns the response for an HTTP 401 `application/json` response
+func (r LookupBatchResponse) GetJSON401() *LookupError {
+	return r.JSON401
+}
+
+// GetJSON403 returns the response for an HTTP 403 `application/json` response
+func (r LookupBatchResponse) GetJSON403() *LookupError {
+	return r.JSON403
+}
+
+// GetJSON413 returns the response for an HTTP 413 `application/json` response
+func (r LookupBatchResponse) GetJSON413() *LookupError {
+	return r.JSON413
+}
+
+// GetJSON429 returns the response for an HTTP 429 `application/json` response
+func (r LookupBatchResponse) GetJSON429() *LookupError {
+	return r.JSON429
+}
+
+// GetBody returns the raw response body bytes
+func (r LookupBatchResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r LookupBatchResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r LookupBatchResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r LookupBatchResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 type LookupMyIPResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -4505,6 +4840,68 @@ func (c *ClientWithResponses) AccountOrgMembersWithResponse(ctx context.Context,
 		return nil, err
 	}
 	return ParseAccountOrgMembersResponse(rsp)
+}
+
+// LookupBatchWithBodyWithResponse Batch
+//
+// Answers up to 1000 addresses in one call. Each distinct string in `ips`
+// is one lookup: it costs exactly what `GET /{ip}` costs for that address
+// and comes back with exactly the fields that call would carry for your
+// plan. Exact duplicates collapse to one entry and one lookup.
+//
+// Both maps in the answer are keyed by the string you sent, so nothing has
+// to be lined up by position; the `ip` inside each result is the
+// normalized form. An address that could not be answered sits in `errors`
+// with the status and message the single lookup would have given, and
+// never disturbs the others: a string that is not an address is a `400`
+// there, and an allowance that runs out part way through leaves the
+// remaining entries as `429`s.
+//
+// The call itself fails only for the reasons below, and a `429` on the
+// call always carries `Retry-After`: the batch is admitted or refused
+// whole by the rate limit, so a per-entry `429` is always a spent
+// allowance and never a throttle.
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /batch (the `LookupBatch` operationId).
+func (c *ClientWithResponses) LookupBatchWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*LookupBatchResponse, error) {
+	rsp, err := c.LookupBatchWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseLookupBatchResponse(rsp)
+}
+
+// LookupBatchWithResponse Batch
+//
+// Answers up to 1000 addresses in one call. Each distinct string in `ips`
+// is one lookup: it costs exactly what `GET /{ip}` costs for that address
+// and comes back with exactly the fields that call would carry for your
+// plan. Exact duplicates collapse to one entry and one lookup.
+//
+// Both maps in the answer are keyed by the string you sent, so nothing has
+// to be lined up by position; the `ip` inside each result is the
+// normalized form. An address that could not be answered sits in `errors`
+// with the status and message the single lookup would have given, and
+// never disturbs the others: a string that is not an address is a `400`
+// there, and an allowance that runs out part way through leaves the
+// remaining entries as `429`s.
+//
+// The call itself fails only for the reasons below, and a `429` on the
+// call always carries `Retry-After`: the batch is admitted or refused
+// whole by the rate limit, so a per-entry `429` is always a spent
+// allowance and never a throttle.
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /batch (the `LookupBatch` operationId).
+func (c *ClientWithResponses) LookupBatchWithResponse(ctx context.Context, body LookupBatchJSONRequestBody, reqEditors ...RequestEditorFn) (*LookupBatchResponse, error) {
+	rsp, err := c.LookupBatch(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseLookupBatchResponse(rsp)
 }
 
 // LookupMyIPWithResponse My IP
@@ -5374,6 +5771,80 @@ func ParseAccountOrgMembersResponse(rsp *http.Response) (*AccountOrgMembersRespo
 		}
 		response.JSON403 = &dest
 
+	}
+
+	return response, nil
+}
+
+// ParseLookupBatchResponse parses an HTTP response from a LookupBatchWithResponse call
+func ParseLookupBatchResponse(rsp *http.Response) (*LookupBatchResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &LookupBatchResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest BatchLookupResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest LookupError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest LookupError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest LookupError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 413:
+		var dest LookupError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON413 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 429:
+		var dest LookupError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON429 = &dest
+
+	}
+
+	switch {
+	case rsp.StatusCode == 429:
+		var headers LookupBatchResponse429Headers
+		if values := rsp.Header.Values("Retry-After"); len(values) > 0 {
+			var value int
+			if err := runtime.BindStyledParameterWithOptions("simple", "Retry-After", values[0], &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "integer", Format: ""}); err != nil {
+				return nil, err
+			}
+			headers.RetryAfter = value
+		}
+		response.Headers429 = &headers
 	}
 
 	return response, nil

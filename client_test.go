@@ -11,10 +11,13 @@ import (
 	"time"
 )
 
+// Enough addresses for seven chunks of the batch endpoint's 1000, so a
+// concurrency bound has something to bound: one request per chunk, and only
+// the chunks overlap.
 var manyAddrs = func() []string {
-	addrs := make([]string, 12)
+	addrs := make([]string, 6001)
 	for i := range addrs {
-		addrs[i] = fmt.Sprintf("9.9.9.%d", i+1)
+		addrs[i] = fmt.Sprintf("9.%d.%d.%d", 1+i/65536, (i/256)%256, i%256)
 	}
 	return addrs
 }()
@@ -30,8 +33,8 @@ func TestBatchConcurrencyIsConfigurablePerCall(t *testing.T) {
 		t.Fatalf("LookupBatch: %v", err)
 	}
 
-	if stub.count() != len(manyAddrs) {
-		t.Errorf("issued %d request(s), want %d", stub.count(), len(manyAddrs))
+	if stub.count() != 7 {
+		t.Errorf("issued %d request(s), want 7 chunks for %d addresses", stub.count(), len(manyAddrs))
 	}
 	if peak := stub.peakInFlight(); peak > 3 {
 		t.Errorf("peak in flight was %d, want at most 3", peak)

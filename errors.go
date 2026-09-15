@@ -103,6 +103,14 @@ func errorFromTransport(err error) *Error {
 	return &Error{Kind: KindNetwork, Message: err.Error(), cause: err}
 }
 
+// A per-entry failure inside a successful batch: the status the single lookup
+// would have answered, and its message, with no headers at all - so a 429 here
+// is a spent allowance, which is the only kind the API puts in an entry.
+func errorFromEntry(status int, message string) *Error {
+	body, _ := json.Marshal(map[string]string{"error": message})
+	return errorFromResponse(status, http.Header{}, body)
+}
+
 // The two APIs behind this host answer with different envelopes: the lookup
 // endpoint uses `error`, the database endpoints use `rc`. Both are read here so
 // a caller never has to know which one they hit.

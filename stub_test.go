@@ -44,6 +44,9 @@ func (s *stubTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 		time.Sleep(s.delay)
 	}
 
+	if req.Method == http.MethodPost && req.URL.Path == "/batch" {
+		return s.respond(req, s.batch(req)), nil
+	}
 	route, ok := s.routes[stubKey(req)]
 	if !ok {
 		route = stubRoute{
@@ -61,6 +64,36 @@ func okRoutes(ips ...string) map[string]stubRoute {
 		routes[ip] = stubRoute{body: map[string]any{"ip": ip, "is_vpn": false}}
 	}
 	return routes
+}
+
+// A POST /batch is answered the way the API answers one: every address the
+// table knows is a result if its route is a 200 and an entry error otherwise,
+// and an unknown address is the 400 the API gives a string that is not one.
+// One call however many addresses, which is what the request counts measure.
+func (s *stubTransport) batch(req *http.Request) stubRoute {
+	var in struct {
+		IPs []string `json:"ips"`
+	}
+	if req.Body != nil {
+		raw, _ := io.ReadAll(req.Body)
+		_ = json.Unmarshal(raw, &in)
+	}
+	results := map[string]any{}
+	failures := map[string]any{}
+	for _, ip := range in.IPs {
+		route, ok := s.routes[ip]
+		if !ok {
+			failures[ip] = map[string]any{"status": http.StatusBadRequest, "error": "not a valid IP address"}
+			continue
+		}
+		if route.status == 0 || route.status == http.StatusOK {
+			results[ip] = route.body
+			continue
+		}
+		encoded, _ := json.Marshal(route.body)
+		failures[ip] = map[string]any{"status": route.status, "error": messageOf(encoded)}
+	}
+	return stubRoute{body: map[string]any{"results": results, "errors": failures}}
 }
 
 func (s *stubTransport) count() int {

@@ -9,6 +9,7 @@ package vpndetection
 import (
 	"encoding/json"
 	"errors"
+	"net/http"
 	"net/netip"
 	"os"
 	"reflect"
@@ -164,6 +165,10 @@ func TestOneBadAddressDoesNotLoseTheRestOfTheBatch(t *testing.T) {
 		var apiErr *Error
 		if !errors.As(got[ip].Err, &apiErr) {
 			t.Errorf("%s should carry its own error, got %v", ip, got[ip].Err)
+			continue
+		}
+		if want := c.Expect.ErrorKinds[ip]; string(apiErr.Kind) != want {
+			t.Errorf("%s: Kind = %q, want %q", ip, apiErr.Kind, want)
 		}
 	}
 	if good := got["1.1.1.1"]; good.Err != nil || good.Result.IsVpn {
@@ -179,6 +184,61 @@ func TestACacheHitIssuesNoSecondRequest(t *testing.T) {
 	for range c.Repeat {
 		if _, err := client.LookupBatch(t.Context(), c.Input); err != nil {
 			t.Fatalf("LookupBatch: %v", err)
+		}
+	}
+	if stub.count() != *c.Expect.HTTPRequests {
+		t.Errorf("issued %d request(s), want %d", stub.count(), *c.Expect.HTTPRequests)
+	}
+}
+
+func TestALargeBatchIsSentInChunksOfAThousand(t *testing.T) {
+	c := batchCase(t, "chunks-of-one-thousand")
+	stub := newStub(okRoutes(c.Input...))
+	client := newTestClient(t, stub, WithoutCache())
+
+	got, err := client.LookupBatch(t.Context(), c.Input)
+	if err != nil {
+		t.Fatalf("LookupBatch: %v", err)
+	}
+	if len(got) != c.Expect.KeyCount {
+		t.Errorf("batch has %d key(s), want %d", len(got), c.Expect.KeyCount)
+	}
+	if stub.count() != *c.Expect.HTTPRequests {
+		t.Errorf("issued %d request(s), want %d", stub.count(), *c.Expect.HTTPRequests)
+	}
+	for _, ip := range c.Input {
+		if answer := got[ip]; answer.Err != nil || answer.Result == nil || answer.Result.IP != ip {
+			t.Fatalf("%s: %+v, want a served answer for itself", ip, answer)
+		}
+	}
+}
+
+// A per-entry failure carries no headers, so its 429 can only be a spent
+// allowance, and a 500 is the server's; neither is retried per entry, because
+// retries belong to the call and the call succeeded.
+func TestAnEntryErrorIsClassifiedByItsStatus(t *testing.T) {
+	c := batchCase(t, "an-entry-error-is-classified-by-its-status")
+	routes := okRoutes("1.1.1.1")
+	routes["8.8.8.8"] = stubRoute{
+		status: http.StatusTooManyRequests,
+		body:   map[string]string{"error": "request allowance exceeded; raise or remove your overage limit"},
+	}
+	routes["9.9.9.9"] = stubRoute{
+		status: http.StatusInternalServerError,
+		body:   map[string]string{"error": "lookup failed"},
+	}
+	stub := newStub(routes)
+	client := newTestClient(t, stub, WithRetries(3))
+
+	got, err := client.LookupBatch(t.Context(), c.Input)
+	if err != nil {
+		t.Fatalf("LookupBatch: %v", err)
+	}
+	assertKeys(t, got, c.Expect.Keys)
+	for ip, kind := range c.Expect.ErrorKinds {
+		var apiErr *Error
+		if !errors.As(got[ip].Err, &apiErr) || string(apiErr.Kind) != kind {
+			t.Errorf("%s: error = %v, want kind %q", ip, got[ip].Err, kind)
 		}
 	}
 	if stub.count() != *c.Expect.HTTPRequests {
@@ -415,9 +475,11 @@ type corpusBatch struct {
 	Input  []string `json:"input"`
 	Repeat int      `json:"repeat"`
 	Expect struct {
-		Keys         []string `json:"keys"`
-		HTTPRequests *int     `json:"httpRequests"`
-		BogonKeys    []string `json:"bogonKeys"`
-		ErrorKeys    []string `json:"errorKeys"`
+		Keys         []string          `json:"keys"`
+		HTTPRequests *int              `json:"httpRequests"`
+		BogonKeys    []string          `json:"bogonKeys"`
+		ErrorKeys    []string          `json:"errorKeys"`
+		KeyCount     int               `json:"keyCount"`
+		ErrorKinds   map[string]string `json:"errorKinds"`
 	} `json:"expect"`
 }

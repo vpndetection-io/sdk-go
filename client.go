@@ -30,6 +30,9 @@ const (
 	defaultRetries     = 2
 	defaultTimeout     = 30 * time.Second
 	retryBaseDelay     = 250 * time.Millisecond
+	// batchMax is the most addresses POST /batch takes in one call; a larger
+	// batch is sent in chunks of this size.
+	batchMax = 1000
 )
 
 // Client is a client for the VPNDetection API. It is safe for concurrent use.
@@ -153,13 +156,18 @@ func (c *Client) MyIP(ctx context.Context, opts ...LookupOption) (*Result, error
 	})
 }
 
-// LookupBatch classifies many addresses concurrently.
+// LookupBatch classifies many addresses in as few requests as possible.
 //
-// The answers are keyed by address rather than positional, so duplicates in the
-// input collapse to a single request and the caller never has to line two lists
-// up. An address that fails carries its error as its value, so one bad entry
-// cannot lose the rest of the answers. The returned error is reserved for the
-// batch as a whole failing, which today means the context was canceled.
+// Bogons are answered locally and cached answers are reused; whatever is left
+// goes to POST /batch in chunks of up to 1000, with at most `concurrency`
+// chunks in flight. The answers are keyed by address rather than positional,
+// so duplicates in the input collapse to a single entry and the caller never
+// has to line two lists up. An address that fails carries its error as its
+// value, so one bad entry cannot lose the rest of the answers: the API reports
+// a per-entry failure with the status the single lookup would have answered,
+// and a chunk that fails as a whole marks every address in it. The returned
+// error is reserved for the batch as a whole failing, which today means the
+// context was canceled.
 func (c *Client) LookupBatch(
 	ctx context.Context, ips []string, opts ...BatchOption,
 ) (map[string]BatchResult, error) {
@@ -169,28 +177,88 @@ func (c *Client) LookupBatch(
 	}
 
 	unique := dedupe(ips)
-	// Written by index rather than into the map, so the workers need no lock.
-	answers := make([]BatchResult, len(unique))
+	results := make(map[string]BatchResult, len(unique))
+	var pending []string
+	for _, ip := range unique {
+		if IsBogon(ip) {
+			results[ip] = BatchResult{Result: bogonResult(ip)}
+			continue
+		}
+		if c.cache != nil {
+			if hit, ok := c.cache.Get(ip); ok {
+				results[ip] = BatchResult{Result: &hit}
+				continue
+			}
+		}
+		pending = append(pending, ip)
+	}
+
+	// One map of answers per chunk, written by index so the workers need no
+	// lock, and merged afterwards.
+	chunks := chunk(pending, batchMax)
+	answers := make([]map[string]BatchResult, len(chunks))
 	group := new(errgroup.Group)
 	group.SetLimit(call.concurrency)
-	for i, ip := range unique {
+	for i, addrs := range chunks {
 		group.Go(func() error {
-			result, err := c.Lookup(ctx, ip, Retries(call.retries))
-			answers[i] = BatchResult{Result: result, Err: err}
+			answers[i] = c.lookupChunk(ctx, addrs, call.retries)
 			return nil
 		})
 	}
 	// Every unit records its own outcome and returns nil, so this only waits.
 	_ = group.Wait()
-
-	results := make(map[string]BatchResult, len(unique))
-	for i, ip := range unique {
-		results[ip] = answers[i]
+	for _, chunkAnswers := range answers {
+		for ip, answer := range chunkAnswers {
+			results[ip] = answer
+		}
 	}
+
 	if err := ctx.Err(); err != nil {
 		return results, fmt.Errorf("vpndetection: batch: %w", err)
 	}
 	return results, nil
+}
+
+// lookupChunk sends one POST /batch and maps its answer back onto the
+// addresses it was asked about. A chunk-level failure - the call refused, the
+// transport failing, the retries exhausted - becomes every address's error,
+// exactly as it would have been had each been looked up alone.
+func (c *Client) lookupChunk(ctx context.Context, addrs []string, retries int) map[string]BatchResult {
+	out := make(map[string]BatchResult, len(addrs))
+	body, err := withRetry(ctx, retries, func() (*api.BatchLookupResponse, error) {
+		res, err := c.api.LookupBatchWithResponse(ctx, api.BatchLookupRequest{Ips: addrs})
+		if err != nil {
+			return nil, errorFromTransport(err)
+		}
+		if res.StatusCode() != http.StatusOK || res.JSON200 == nil {
+			return nil, errorFromResponse(res.StatusCode(), res.HTTPResponse.Header, res.Body)
+		}
+		return res.JSON200, nil
+	})
+	if err != nil {
+		for _, ip := range addrs {
+			out[ip] = BatchResult{Err: err}
+		}
+		return out
+	}
+	for _, ip := range addrs {
+		if served, ok := body.Results[ip]; ok {
+			result := &Result{LookupResponse: served}
+			if c.cache != nil {
+				c.cache.Add(ip, *result)
+			}
+			out[ip] = BatchResult{Result: result}
+			continue
+		}
+		if failed, ok := body.Errors[ip]; ok {
+			out[ip] = BatchResult{Err: errorFromEntry(failed.Status, failed.Error)}
+			continue
+		}
+		out[ip] = BatchResult{Err: &Error{
+			Kind: KindServerError, Message: "the batch answer did not include " + ip, StatusCode: http.StatusOK,
+		}}
+	}
+	return out
 }
 
 // IsBogon reports whether an address is answered locally rather than served.
@@ -258,7 +326,8 @@ func WithoutCache() Option {
 	}
 }
 
-// WithConcurrency sets how many requests a batch keeps in flight. Default 8.
+// WithConcurrency sets how many batch requests - chunks of up to 1000
+// addresses - a batch keeps in flight. Default 8.
 func WithConcurrency(n int) Option {
 	return func(c *config) error {
 		if n < 1 {
@@ -316,8 +385,9 @@ func Retries(n int) LookupOption {
 	return retriesOption(n)
 }
 
-// Concurrency overrides the client's in-flight request limit for this batch, so
-// one large batch does not need a second client to widen it.
+// Concurrency overrides the client's in-flight limit for this batch - how many
+// chunks of up to 1000 addresses are sent at once - so one large batch does not
+// need a second client to widen it.
 func Concurrency(n int) BatchOption {
 	return concurrencyOption(n)
 }
@@ -443,4 +513,17 @@ func dedupe(ips []string) []string {
 		unique = append(unique, ip)
 	}
 	return unique
+}
+
+// chunk splits addresses into consecutive slices of at most size each.
+func chunk(ips []string, size int) [][]string {
+	var out [][]string
+	for len(ips) > size {
+		out = append(out, ips[:size])
+		ips = ips[size:]
+	}
+	if len(ips) > 0 {
+		out = append(out, ips)
+	}
+	return out
 }
