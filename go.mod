@@ -7,7 +7,7 @@
 // neither was ever downloadable. Bumping the major means editing this line,
 // every internal import, integration/go.mod and the README, in the same commit
 // as the tag.
-module github.com/vpndetection-io/sdk-go/v4
+module github.com/vpndetection-io/sdk-go/v5
 
 go 1.24.0
 

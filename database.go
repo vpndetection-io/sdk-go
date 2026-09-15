@@ -7,7 +7,7 @@ import (
 	"net/http"
 	"os"
 
-	"github.com/vpndetection-io/sdk-go/v4/internal/api"
+	"github.com/vpndetection-io/sdk-go/v5/internal/api"
 )
 
 // DatabaseAPI is the licensed database downloads. Access is granted by contract

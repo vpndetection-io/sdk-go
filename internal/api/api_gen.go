@@ -4,6 +4,7 @@
 package api
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -16,30 +17,6 @@ import (
 	"github.com/oapi-codegen/runtime"
 	openapi_types "github.com/oapi-codegen/runtime/types"
 )
-
-// Defines values for AccountPlanTier.
-const (
-	Free    AccountPlanTier = "free"
-	Max     AccountPlanTier = "max"
-	Scale   AccountPlanTier = "scale"
-	Starter AccountPlanTier = "starter"
-)
-
-// Valid indicates whether the value is a known member of the AccountPlanTier enum.
-func (e AccountPlanTier) Valid() bool {
-	switch e {
-	case Free:
-		return true
-	case Max:
-		return true
-	case Scale:
-		return true
-	case Starter:
-		return true
-	default:
-		return false
-	}
-}
 
 // Defines values for DatabaseLicenseType.
 const (
@@ -113,6 +90,30 @@ func (e DownloadOutcome) Valid() bool {
 	}
 }
 
+// Defines values for EntitlementPlanTier.
+const (
+	Free    EntitlementPlanTier = "free"
+	Max     EntitlementPlanTier = "max"
+	Scale   EntitlementPlanTier = "scale"
+	Starter EntitlementPlanTier = "starter"
+)
+
+// Valid indicates whether the value is a known member of the EntitlementPlanTier enum.
+func (e EntitlementPlanTier) Valid() bool {
+	switch e {
+	case Free:
+		return true
+	case Max:
+		return true
+	case Scale:
+		return true
+	case Starter:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for Standing.
 const (
 	StandingExpired    Standing = "expired"
@@ -134,72 +135,119 @@ func (e Standing) Valid() bool {
 	}
 }
 
-// AccountApikey The credential itself. The key is never echoed - only its id, which is
-// what the console shows and what you can act on.
-type AccountApikey struct {
-	// AllowedCidrs The source addresses this key may be used from. EMPTY means
-	// unrestricted, never "deny all".
-	AllowedCidrs []string `json:"allowed_cidrs"`
+// Defines values for OauthAuthorizeParamsResponseType.
+const (
+	Code OauthAuthorizeParamsResponseType = "code"
+)
 
-	// Expires Null for a key with no end date, which is the normal case.
-	Expires *time.Time         `json:"expires"`
+// Valid indicates whether the value is a known member of the OauthAuthorizeParamsResponseType enum.
+func (e OauthAuthorizeParamsResponseType) Valid() bool {
+	switch e {
+	case Code:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for OauthAuthorizeParamsCodeChallengeMethod.
+const (
+	S256 OauthAuthorizeParamsCodeChallengeMethod = "S256"
+)
+
+// Valid indicates whether the value is a known member of the OauthAuthorizeParamsCodeChallengeMethod enum.
+func (e OauthAuthorizeParamsCodeChallengeMethod) Valid() bool {
+	switch e {
+	case S256:
+		return true
+	default:
+		return false
+	}
+}
+
+// AccountCreateApikeyRequest defines model for AccountCreateApikeyRequest.
+type AccountCreateApikeyRequest struct {
+	// AllowedScopes What the new key may do. Omit for a key that carries no named scope, which is the safe default.
+	AllowedScopes *[]string `json:"allowed_scopes,omitempty"`
+
+	// Name A label you will recognise later. Shown wherever the key is listed.
+	Name string `json:"name"`
+}
+
+// AccountCreatedApikey defines model for AccountCreatedApikey.
+type AccountCreatedApikey struct {
+	AllowedCidrs  *[]string          `json:"allowed_cidrs,omitempty"`
+	AllowedScopes *[]string          `json:"allowed_scopes,omitempty"`
+	ID            openapi_types.UUID `json:"id"`
+
+	// Key The secret. Returned once, here, and never again.
+	Key       string  `json:"key"`
+	KeyPrefix *string `json:"key_prefix,omitempty"`
+	Name      *string `json:"name,omitempty"`
+	Rc        string  `json:"rc"`
+}
+
+// AccountOrg defines model for AccountOrg.
+type AccountOrg struct {
+	Created *time.Time         `json:"created,omitempty"`
 	ID      openapi_types.UUID `json:"id"`
+	Name    *string            `json:"name,omitempty"`
 }
 
-// AccountError defines model for AccountError.
-type AccountError struct {
-	Error string `json:"error"`
+// AccountOrgRef defines model for AccountOrgRef.
+type AccountOrgRef struct {
+	ID openapi_types.UUID `json:"id"`
 }
 
-// AccountMe defines model for AccountMe.
-type AccountMe struct {
-	// Apikey The credential itself. The key is never echoed - only its id, which is
-	// what the console shows and what you can act on.
-	Apikey AccountApikey `json:"apikey"`
-
-	// OrgID The organization the key belongs to.
-	OrgID openapi_types.UUID `json:"org_id"`
-	Plan  AccountPlan        `json:"plan"`
-	Usage AccountUsage       `json:"usage"`
+// AccountOrgWrap defines model for AccountOrgWrap.
+type AccountOrgWrap struct {
+	Org AccountOrg `json:"org"`
+	Rc  string     `json:"rc"`
 }
 
-// AccountPlan defines model for AccountPlan.
-type AccountPlan struct {
-	// Key The plan the organization is on.
-	//
-	// Example: max
+// AccountRc defines model for AccountRc.
+type AccountRc struct {
+	// Rc The outcome. `SUCCESS` on success; otherwise the reason.
+	Rc string `json:"rc"`
+}
+
+// AccountRevealedApikey defines model for AccountRevealedApikey.
+type AccountRevealedApikey struct {
+	// Key The secret.
 	Key string `json:"key"`
-
-	// Tier The field tier, which decides how much of a lookup answer comes
-	// back. What each tier includes is documented on the lookup endpoint
-	// rather than repeated here, so there is one place it can be wrong.
-	Tier AccountPlanTier `json:"tier"`
+	Rc  string `json:"rc"`
 }
 
-// AccountPlanTier The field tier, which decides how much of a lookup answer comes
-// back. What each tier includes is documented on the lookup endpoint
-// rather than repeated here, so there is one place it can be wrong.
-type AccountPlanTier string
+// AccountUser defines model for AccountUser.
+type AccountUser struct {
+	Email    *openapi_types.Email `json:"email,omitempty"`
+	Fullname *string              `json:"fullname,omitempty"`
+	ID       openapi_types.UUID   `json:"id"`
+}
 
-// AccountUsage defines model for AccountUsage.
-type AccountUsage struct {
-	// HardLimit Where we stop serving. NULL means never, which is the normal state
-	// of an uncapped paid plan and is not the same as zero. Above the
-	// quota and below this, requests are served and billed as overage.
-	HardLimit *int64 `json:"hard_limit"`
+// ApikeyDetail Key METADATA. Never the key itself.
+type ApikeyDetail struct {
+	// AllowedCidrs Source-IP allowlist. EMPTY MEANS UNRESTRICTED, not deny-all.
+	AllowedCidrs  *[]string          `json:"allowed_cidrs,omitempty"`
+	AllowedScopes *[]string          `json:"allowed_scopes,omitempty"`
+	Created       time.Time          `json:"created"`
+	Expires       *time.Time         `json:"expires,omitempty"`
+	ID            openapi_types.UUID `json:"id"`
 
-	// Quota What the plan includes. Zero on a plan that includes none.
-	Quota int64 `json:"quota"`
+	// KeyPrefix The leading, non-secret part, so a key is recognisable without storing it.
+	KeyPrefix  string     `json:"key_prefix"`
+	LastUsedAt *time.Time `json:"last_used_at,omitempty"`
+	Name       string     `json:"name"`
 
-	// Requests Requests counted in the current window. The same number the lookup
-	// API gates on, and it can lag by a few seconds.
-	Requests int64 `json:"requests"`
+	// Retrievable Whether this key's secret can still be read back. False permanently for a key issued before secrets were stored recoverably.
+	Retrievable *bool      `json:"retrievable,omitempty"`
+	RevokedAt   *time.Time `json:"revoked_at,omitempty"`
+}
 
-	// WindowEnd When the allowance next resets.
-	WindowEnd time.Time `json:"window_end"`
-
-	// WindowStart When the current allowance period began.
-	WindowStart time.Time `json:"window_start"`
+// ApikeyList defines model for ApikeyList.
+type ApikeyList struct {
+	Keys []ApikeyDetail `json:"keys"`
+	Rc   string         `json:"rc"`
 }
 
 // ClassDetail The shared detail shape for the hosting, relay, tor and cdn datasets.
@@ -273,8 +321,11 @@ type DatabaseFormat string
 
 // DatabaseFormatSize defines model for DatabaseFormatSize.
 type DatabaseFormatSize struct {
-	// Bytes Size of the published file, or null when it has not been published yet
-	Bytes *int `json:"bytes"`
+	// Bytes Size of the published file, or null when it has not been published
+	// yet. int64 because it is not hypothetical: resproxy_ip_14d's MMDB is
+	// 4.58 GB, so a 32-bit field cannot carry the catalogue and `list`
+	// throws for every caller rather than for that one entry.
+	Bytes *int64 `json:"bytes"`
 
 	// Format A file format a database version is published in.
 	Format DatabaseFormat `json:"format"`
@@ -293,13 +344,13 @@ type DatabaseMetadata struct {
 	SampleEntries *int `json:"sample_entries,omitempty"`
 
 	// SampleSize Bytes per format of the evaluation sample, where one is published
-	SampleSize *map[string]int `json:"sample_size,omitempty"`
+	SampleSize *map[string]int64 `json:"sample_size,omitempty"`
 
 	// Schema Columns, keyed by format
 	Schema map[string][]DatabaseMetadataColumn `json:"schema"`
 
 	// Size Bytes per format
-	Size *map[string]int `json:"size,omitempty"`
+	Size *map[string]int64 `json:"size,omitempty"`
 
 	// UpdateFreq How often a new build is published
 	UpdateFreq *string            `json:"update_freq,omitempty"`
@@ -338,6 +389,34 @@ type DBChecksums struct {
 	Sha512 string `json:"sha512"`
 }
 
+// DeviceAuthorization defines model for DeviceAuthorization.
+type DeviceAuthorization struct {
+	// DeviceCode Yours. Poll with it; never show it to anyone.
+	DeviceCode string `json:"device_code"`
+	ExpiresIn  int    `json:"expires_in"`
+
+	// Interval Seconds between polls.
+	Interval int `json:"interval"`
+
+	// UserCode Short and typable. This is what the person confirms.
+	UserCode        string `json:"user_code"`
+	VerificationURI string `json:"verification_uri"`
+
+	// VerificationURIComplete The same page with the code already filled in.
+	VerificationURIComplete *string `json:"verification_uri_complete,omitempty"`
+}
+
+// DeviceAuthorizationRequest defines model for DeviceAuthorizationRequest.
+type DeviceAuthorizationRequest struct {
+	ClientID string `json:"client_id"`
+
+	// Resource RFC 8707: what the token is for.
+	Resource *string `json:"resource,omitempty"`
+
+	// Scope Space-delimited. Anything your client is not registered for is dropped rather than refused.
+	Scope *string `json:"scope,omitempty"`
+}
+
 // Download One download ATTEMPT, refusals included - a denial is what answers "it
 // stopped working", so they are listed rather than dropped.
 type Download struct {
@@ -347,7 +426,9 @@ type Download struct {
 
 	// Bytes Object size at redirect time, NOT bytes delivered: the transfer is a
 	// presigned redirect straight to object storage, so we never observe it.
-	Bytes      *int            `json:"bytes"`
+	// int64 for the same reason as DatabaseFormatSize.bytes - it is the
+	// size of the same object.
+	Bytes      *int64          `json:"bytes"`
 	ClientIP   *string         `json:"client_ip"`
 	Created    time.Time       `json:"created"`
 	DatasetID  string          `json:"dataset_id"`
@@ -363,9 +444,87 @@ type Download struct {
 // DownloadOutcome defines model for Download.Outcome.
 type DownloadOutcome string
 
+// Entitlement defines model for Entitlement.
+type Entitlement struct {
+	// Apikey The credential itself. The key is never echoed - only its id, which is
+	// what the console shows and what you can act on.
+	Apikey EntitlementApikey `json:"apikey"`
+
+	// OrgID The organization the key belongs to.
+	OrgID openapi_types.UUID `json:"org_id"`
+	Plan  EntitlementPlan    `json:"plan"`
+	Usage EntitlementUsage   `json:"usage"`
+}
+
+// EntitlementApikey The credential itself. The key is never echoed - only its id, which is
+// what the console shows and what you can act on.
+type EntitlementApikey struct {
+	// AllowedCidrs The source addresses this key may be used from. EMPTY means
+	// unrestricted, never "deny all".
+	AllowedCidrs []string `json:"allowed_cidrs"`
+
+	// Expires Null for a key with no end date, which is the normal case.
+	Expires *time.Time         `json:"expires"`
+	ID      openapi_types.UUID `json:"id"`
+}
+
+// EntitlementError defines model for EntitlementError.
+type EntitlementError struct {
+	Error string `json:"error"`
+}
+
+// EntitlementPlan defines model for EntitlementPlan.
+type EntitlementPlan struct {
+	// Key The plan the organization is on.
+	//
+	// Example: max
+	Key string `json:"key"`
+
+	// Tier The field tier, which decides how much of a lookup answer comes
+	// back. What each tier includes is documented on the lookup endpoint
+	// rather than repeated here, so there is one place it can be wrong.
+	Tier EntitlementPlanTier `json:"tier"`
+}
+
+// EntitlementPlanTier The field tier, which decides how much of a lookup answer comes
+// back. What each tier includes is documented on the lookup endpoint
+// rather than repeated here, so there is one place it can be wrong.
+type EntitlementPlanTier string
+
+// EntitlementUsage defines model for EntitlementUsage.
+type EntitlementUsage struct {
+	// HardLimit Where we stop serving. NULL means never, which is the normal state
+	// of an uncapped paid plan and is not the same as zero. Above the
+	// quota and below this, requests are served and billed as overage.
+	HardLimit *int64 `json:"hard_limit"`
+
+	// Quota What the plan includes. Zero on a plan that includes none.
+	Quota int64 `json:"quota"`
+
+	// Requests Requests counted in the current window. The same number the lookup
+	// API gates on, and it can lag by a few seconds.
+	Requests int64 `json:"requests"`
+
+	// WindowEnd When the allowance next resets.
+	WindowEnd time.Time `json:"window_end"`
+
+	// WindowStart When the current allowance period began.
+	WindowStart time.Time `json:"window_start"`
+}
+
 // Error defines model for Error.
 type Error struct {
 	Rc string `json:"rc"`
+}
+
+// Identity defines model for Identity.
+type Identity struct {
+	Org AccountOrgRef `json:"org"`
+	Rc  string        `json:"rc"`
+
+	// Scopes What this credential may do right now.
+	Scopes []string    `json:"scopes"`
+	User   AccountUser `json:"user"`
 }
 
 // LookupError Every non-2xx response carries this shape.
@@ -438,6 +597,28 @@ type LookupResponse struct {
 	Vpn *VpnDetail `json:"vpn,omitempty"`
 }
 
+// OauthError defines model for OauthError.
+type OauthError struct {
+	Error            string  `json:"error"`
+	ErrorDescription *string `json:"error_description,omitempty"`
+}
+
+// OauthMetadata defines model for OauthMetadata.
+type OauthMetadata struct {
+	AuthorizationEndpoint string `json:"authorization_endpoint"`
+
+	// ClientIDMetadataDocumentSupported A client_id may be an https URL serving your client metadata.
+	ClientIDMetadataDocumentSupported *bool     `json:"client_id_metadata_document_supported,omitempty"`
+	CodeChallengeMethodsSupported     *[]string `json:"code_challenge_methods_supported,omitempty"`
+	DeviceAuthorizationEndpoint       *string   `json:"device_authorization_endpoint,omitempty"`
+	GrantTypesSupported               *[]string `json:"grant_types_supported,omitempty"`
+	Issuer                            string    `json:"issuer"`
+	ResponseTypesSupported            *[]string `json:"response_types_supported,omitempty"`
+	RevocationEndpoint                *string   `json:"revocation_endpoint,omitempty"`
+	ScopesSupported                   *[]string `json:"scopes_supported,omitempty"`
+	TokenEndpoint                     string    `json:"token_endpoint"`
+}
+
 // ProxyDetail The shared detail shape for the residential, datacenter and mobile proxy
 // families, measured over a rolling 90 day window. Every key is present
 // when the object is populated; the object is `{}` when its flag is false.
@@ -476,10 +657,38 @@ type ProxyDetail struct {
 	ProvidersNum *int `json:"providers_num,omitempty"`
 }
 
+// RevokeRequest defines model for RevokeRequest.
+type RevokeRequest struct {
+	ClientID *string `json:"client_id,omitempty"`
+	Token    string  `json:"token"`
+}
+
 // Standing Where your license for a database family stands today. `licensed` is a
 // live grant, `expired` one whose term has ended, and `unlicensed` a
 // database published but never bought.
 type Standing string
+
+// TokenRequest defines model for TokenRequest.
+type TokenRequest struct {
+	ClientID     string  `json:"client_id"`
+	Code         *string `json:"code,omitempty"`
+	CodeVerifier *string `json:"code_verifier,omitempty"`
+	DeviceCode   *string `json:"device_code,omitempty"`
+	GrantType    string  `json:"grant_type"`
+	RedirectURI  *string `json:"redirect_uri,omitempty"`
+	RefreshToken *string `json:"refresh_token,omitempty"`
+}
+
+// TokenResponse defines model for TokenResponse.
+type TokenResponse struct {
+	AccessToken  string  `json:"access_token"`
+	ExpiresIn    int     `json:"expires_in"`
+	RefreshToken *string `json:"refresh_token,omitempty"`
+
+	// Scope What was actually granted, which may be narrower than what was asked for.
+	Scope     *string `json:"scope,omitempty"`
+	TokenType string  `json:"token_type"`
+}
 
 // VpnDetail What is known about the VPN attribution. Every key is present when the
 // object is populated, empty values included; the object is `{}` when
@@ -515,6 +724,21 @@ type VpnDetail struct {
 	// Example: mullvad
 	Provider *string `json:"provider,omitempty"`
 }
+
+// ApikeyIDParam defines model for ApikeyIdParam.
+type ApikeyIDParam = openapi_types.UUID
+
+// AccountForbidden defines model for AccountForbidden.
+type AccountForbidden = AccountRc
+
+// AccountInvalid defines model for AccountInvalid.
+type AccountInvalid = AccountRc
+
+// AccountNotFound defines model for AccountNotFound.
+type AccountNotFound = AccountRc
+
+// AccountUnauthorized defines model for AccountUnauthorized.
+type AccountUnauthorized = AccountRc
 
 // NotAvailable defines model for NotAvailable.
 type NotAvailable = Error
@@ -554,6 +778,42 @@ type ListDownloadsParams struct {
 type DatabaseMetadataParams struct {
 	ID string `form:"id" json:"id"`
 }
+
+// OauthAuthorizeParams defines parameters for OauthAuthorize.
+type OauthAuthorizeParams struct {
+	ClientID      string                           `form:"client_id" json:"client_id"`
+	RedirectURI   string                           `form:"redirect_uri" json:"redirect_uri"`
+	ResponseType  OauthAuthorizeParamsResponseType `form:"response_type" json:"response_type"`
+	CodeChallenge string                           `form:"code_challenge" json:"code_challenge"`
+
+	// CodeChallengeMethod S256 only. `plain` is refused rather than downgraded.
+	CodeChallengeMethod *OauthAuthorizeParamsCodeChallengeMethod `form:"code_challenge_method,omitempty" json:"code_challenge_method,omitempty"`
+	Scope               *string                                  `form:"scope,omitempty" json:"scope,omitempty"`
+
+	// State Returned unchanged. Use it to bind the response to your request.
+	State *string `form:"state,omitempty" json:"state,omitempty"`
+
+	// Resource RFC 8707. What the token is FOR, so it cannot be replayed elsewhere.
+	Resource *string `form:"resource,omitempty" json:"resource,omitempty"`
+}
+
+// OauthAuthorizeParamsResponseType defines parameters for OauthAuthorize.
+type OauthAuthorizeParamsResponseType string
+
+// OauthAuthorizeParamsCodeChallengeMethod defines parameters for OauthAuthorize.
+type OauthAuthorizeParamsCodeChallengeMethod string
+
+// AccountCreateApikeyJSONRequestBody defines body for AccountCreateApikey for application/json ContentType.
+type AccountCreateApikeyJSONRequestBody = AccountCreateApikeyRequest
+
+// OauthDeviceAuthorizationFormdataRequestBody defines body for OauthDeviceAuthorization for application/x-www-form-urlencoded ContentType.
+type OauthDeviceAuthorizationFormdataRequestBody = DeviceAuthorizationRequest
+
+// OauthRevokeFormdataRequestBody defines body for OauthRevoke for application/x-www-form-urlencoded ContentType.
+type OauthRevokeFormdataRequestBody = RevokeRequest
+
+// OauthTokenFormdataRequestBody defines body for OauthToken for application/x-www-form-urlencoded ContentType.
+type OauthTokenFormdataRequestBody = TokenRequest
 
 // RequestEditorFn is the function signature for the RequestEditor callback function
 type RequestEditorFn func(ctx context.Context, req *http.Request) error
@@ -629,13 +889,126 @@ func WithRequestEditorFn(fn RequestEditorFn) ClientOption {
 // The interface specification for the client above.
 type ClientInterface interface {
 
-	// AccountMe Your key, plan and usage
+	// OauthMetadata Discovery document
 	//
-	// Answers what the presented key is, what plan is behind it, and what has
-	// been spent against that plan's allowance in the current window.
+	// RFC 8414 authorization server metadata: the endpoints, the grant types
+	// and the scopes this server supports.
 	//
-	// Corresponds with GET /api/v1/account/me (the `AccountMe` operationId).
-	AccountMe(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+	// Read this rather than hardcoding endpoints. It is also served at
+	// `/.well-known/openid-configuration`, identically, because several
+	// clients probe that path first.
+	//
+	// Corresponds with GET /.well-known/oauth-authorization-server (the `OauthMetadata` operationId).
+	OauthMetadata(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// AccountListApikeys List your API keys
+	//
+	// Metadata only. A key's secret is never in a list - not here and not in
+	// the console - because a list is the response that ends up in logs,
+	// caches and support tickets.
+	//
+	// `retrievable` says whether the secret could still be read back at all.
+	// A key issued before this product stored secrets recoverably was never
+	// kept, so `reveal` will refuse it permanently; rotating produces one
+	// that can be read.
+	//
+	// Corresponds with GET /api/v1/account/apikeys (the `AccountListApikeys` operationId).
+	AccountListApikeys(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// AccountCreateApikeyWithBody Create an API key
+	//
+	// Creates a key and returns its secret.
+	//
+	// This is the ONLY response that ever carries the secret, and only
+	// because this is the moment it comes into existence. Store it now.
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with POST /api/v1/account/apikeys (the `AccountCreateApikey` operationId).
+	AccountCreateApikeyWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// AccountCreateApikey Create an API key
+	//
+	// Creates a key and returns its secret.
+	//
+	// This is the ONLY response that ever carries the secret, and only
+	// because this is the moment it comes into existence. Store it now.
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with POST /api/v1/account/apikeys (the `AccountCreateApikey` operationId).
+	AccountCreateApikey(ctx context.Context, body AccountCreateApikeyJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// AccountRevealApikey Read back a key's secret
+	//
+	// Returns an existing key's secret.
+	//
+	// Its own scope rather than part of `apikeys.manage`, because the two are
+	// different acts: rotating replaces a secret you never see, while this
+	// hands one over.
+	//
+	// Refused with `NOT_RETRIEVABLE` for a key issued before this product
+	// stored secrets recoverably - that secret was never kept, so no retry
+	// will ever produce it. Rotate the key instead.
+	//
+	// Corresponds with POST /api/v1/account/apikeys/{id}/reveal (the `AccountRevealApikey` operationId).
+	AccountRevealApikey(ctx context.Context, id ApikeyIDParam, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// AccountRevokeApikey Revoke an API key
+	//
+	// Stops the key working. Revocation is soft: the key stays listed with a
+	// `revoked_at`, because the organization still owns whatever it did while
+	// it was alive.
+	//
+	// Corresponds with POST /api/v1/account/apikeys/{id}/revoke (the `AccountRevokeApikey` operationId).
+	AccountRevokeApikey(ctx context.Context, id ApikeyIDParam, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// AccountRotateApikey Rotate an API key
+	//
+	// Replaces the secret behind a key, keeping its id, name and settings.
+	// The previous secret stops working immediately.
+	//
+	// Corresponds with POST /api/v1/account/apikeys/{id}/rotate (the `AccountRotateApikey` operationId).
+	AccountRotateApikey(ctx context.Context, id ApikeyIDParam, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// AccountIdentity Identity - who this credential belongs to
+	//
+	// The identity behind this credential: what it is, the organization it is
+	// scoped to, and the scopes it currently holds.
+	//
+	// `user` is present for an OAuth token and ABSENT for an API key, which
+	// has an organization but no person behind it. `credential.kind` says
+	// which you are holding, so a client can branch without guessing from a
+	// missing field.
+	//
+	// Narrower than what the console shows its own user on purpose: an
+	// integration needs a name to display and an organization to address, not
+	// a profile. The `scopes` array is what the credential may do RIGHT NOW,
+	// so a client can render its own capabilities rather than discovering
+	// them from a 403.
+	//
+	// Corresponds with GET /api/v1/account/identity (the `AccountIdentity` operationId).
+	AccountIdentity(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// AccountOrg Your organization
+	//
+	// The organization this credential is scoped to.
+	//
+	// There is no way to name a different one. A credential describes exactly
+	// one organization, so an identifier in the path could only ever be your
+	// own or a refusal.
+	//
+	// Corresponds with GET /api/v1/account/org (the `AccountOrg` operationId).
+	AccountOrg(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// AccountOrgMembers Who else is in your organization
+	//
+	// Read-only. Adding or removing a member is an invitation flow with email
+	// in the middle rather than a POST, and modelling it as one here would
+	// promise something this API does not do.
+	//
+	// Corresponds with GET /api/v1/account/org/members (the `AccountOrgMembers` operationId).
+	AccountOrgMembers(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// DatabaseChecksum Checksums
 	//
@@ -680,6 +1053,14 @@ type ClientInterface interface {
 	// Corresponds with GET /api/v1/database/metadata (the `DatabaseMetadata` operationId).
 	DatabaseMetadata(ctx context.Context, params *DatabaseMetadataParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// MyEntitlement Your key, plan and usage
+	//
+	// Answers what the presented key is, what plan is behind it, and what has
+	// been spent against that plan's allowance in the current window.
+	//
+	// Corresponds with GET /api/v1/entitlement/me (the `MyEntitlement` operationId).
+	MyEntitlement(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// LookupMyIP Lookup your own address
 	//
 	// Answers what is known about the address this request came from, which is
@@ -694,6 +1075,114 @@ type ClientInterface interface {
 	// Corresponds with GET /myip (the `LookupMyIP` operationId).
 	LookupMyIP(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// OauthAuthorize Send a user here to approve
+	//
+	// The browser entry point for the authorization-code flow. This is a
+	// redirect target, not something to call from code.
+	//
+	// An unknown `client_id` or an unregistered `redirect_uri` is shown to the
+	// USER and never redirected, because sending an error to an address we
+	// have not verified belongs to you is how an open redirector works.
+	// Everything else comes back to your `redirect_uri` with `error`, your
+	// `state`, and `iss`.
+	//
+	// Corresponds with GET /oauth/authorize (the `OauthAuthorize` operationId).
+	OauthAuthorize(ctx context.Context, params *OauthAuthorizeParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// OauthDeviceAuthorizationWithBody Begin a device authorization
+	//
+	// Starts the device flow. Show the `user_code` to the person and send them
+	// to `verification_uri`; `verification_uri_complete` has the code already
+	// embedded, which is what to open if you can open a browser at all.
+	//
+	// Then poll `/oauth/token`, no faster than `interval` seconds.
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with POST /oauth/device_authorization (the `OauthDeviceAuthorization` operationId).
+	OauthDeviceAuthorizationWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// OauthDeviceAuthorizationWithFormdataBody Begin a device authorization
+	//
+	// Starts the device flow. Show the `user_code` to the person and send them
+	// to `verification_uri`; `verification_uri_complete` has the code already
+	// embedded, which is what to open if you can open a browser at all.
+	//
+	// Then poll `/oauth/token`, no faster than `interval` seconds.
+	//
+	// Takes a body of the `application/x-www-form-urlencoded` content type.
+	//
+	// Corresponds with POST /oauth/device_authorization (the `OauthDeviceAuthorization` operationId).
+	OauthDeviceAuthorizationWithFormdataBody(ctx context.Context, body OauthDeviceAuthorizationFormdataRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// OauthRevokeWithBody Revoke a token
+	//
+	// RFC 7009. Always answers 200, including for a token that was never
+	// valid - an endpoint that distinguished the two would be a way to test
+	// whether a stolen string is a live credential.
+	//
+	// Revoking a REFRESH token ends the whole authorization and takes its
+	// access tokens with it. Revoking an access token affects only that token.
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with POST /oauth/revoke (the `OauthRevoke` operationId).
+	OauthRevokeWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// OauthRevokeWithFormdataBody Revoke a token
+	//
+	// RFC 7009. Always answers 200, including for a token that was never
+	// valid - an endpoint that distinguished the two would be a way to test
+	// whether a stolen string is a live credential.
+	//
+	// Revoking a REFRESH token ends the whole authorization and takes its
+	// access tokens with it. Revoking an access token affects only that token.
+	//
+	// Takes a body of the `application/x-www-form-urlencoded` content type.
+	//
+	// Corresponds with POST /oauth/revoke (the `OauthRevoke` operationId).
+	OauthRevokeWithFormdataBody(ctx context.Context, body OauthRevokeFormdataRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// OauthTokenWithBody Exchange a grant for tokens
+	//
+	// Three grant types.
+	//
+	// `urn:ietf:params:oauth:grant-type:device_code` polls a device
+	// authorization. Until the person approves it answers
+	// `authorization_pending`; poll faster than `interval` and it answers
+	// `slow_down`, which means widen your interval and keep it widened.
+	//
+	// `authorization_code` exchanges a code from `/oauth/authorize`, with the
+	// `code_verifier` matching the challenge you sent.
+	//
+	// `refresh_token` exchanges a refresh token. The presented token is
+	// consumed whatever happens next, so store the new one before using it.
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with POST /oauth/token (the `OauthToken` operationId).
+	OauthTokenWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// OauthTokenWithFormdataBody Exchange a grant for tokens
+	//
+	// Three grant types.
+	//
+	// `urn:ietf:params:oauth:grant-type:device_code` polls a device
+	// authorization. Until the person approves it answers
+	// `authorization_pending`; poll faster than `interval` and it answers
+	// `slow_down`, which means widen your interval and keep it widened.
+	//
+	// `authorization_code` exchanges a code from `/oauth/authorize`, with the
+	// `code_verifier` matching the challenge you sent.
+	//
+	// `refresh_token` exchanges a refresh token. The presented token is
+	// consumed whatever happens next, so store the new one before using it.
+	//
+	// Takes a body of the `application/x-www-form-urlencoded` content type.
+	//
+	// Corresponds with POST /oauth/token (the `OauthToken` operationId).
+	OauthTokenWithFormdataBody(ctx context.Context, body OauthTokenFormdataRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// LookupIP Lookup
 	//
 	// Answers what is known about a single IPv4 or IPv6 address. Which fields
@@ -704,14 +1193,217 @@ type ClientInterface interface {
 	LookupIP(ctx context.Context, ip string, reqEditors ...RequestEditorFn) (*http.Response, error)
 }
 
-// AccountMe Your key, plan and usage
+// OauthMetadata Discovery document
 //
-// Answers what the presented key is, what plan is behind it, and what has
-// been spent against that plan's allowance in the current window.
+// RFC 8414 authorization server metadata: the endpoints, the grant types
+// and the scopes this server supports.
 //
-// Corresponds with GET /api/v1/account/me (the `AccountMe` operationId).
-func (c *Client) AccountMe(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewAccountMeRequest(c.Server)
+// Read this rather than hardcoding endpoints. It is also served at
+// `/.well-known/openid-configuration`, identically, because several
+// clients probe that path first.
+//
+// Corresponds with GET /.well-known/oauth-authorization-server (the `OauthMetadata` operationId).
+func (c *Client) OauthMetadata(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewOauthMetadataRequest(c.Server)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// AccountListApikeys List your API keys
+//
+// Metadata only. A key's secret is never in a list - not here and not in
+// the console - because a list is the response that ends up in logs,
+// caches and support tickets.
+//
+// `retrievable` says whether the secret could still be read back at all.
+// A key issued before this product stored secrets recoverably was never
+// kept, so `reveal` will refuse it permanently; rotating produces one
+// that can be read.
+//
+// Corresponds with GET /api/v1/account/apikeys (the `AccountListApikeys` operationId).
+func (c *Client) AccountListApikeys(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewAccountListApikeysRequest(c.Server)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// AccountCreateApikeyWithBody Create an API key
+//
+// Creates a key and returns its secret.
+//
+// This is the ONLY response that ever carries the secret, and only
+// because this is the moment it comes into existence. Store it now.
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with POST /api/v1/account/apikeys (the `AccountCreateApikey` operationId).
+func (c *Client) AccountCreateApikeyWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewAccountCreateApikeyRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// AccountCreateApikey Create an API key
+//
+// Creates a key and returns its secret.
+//
+// This is the ONLY response that ever carries the secret, and only
+// because this is the moment it comes into existence. Store it now.
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with POST /api/v1/account/apikeys (the `AccountCreateApikey` operationId).
+func (c *Client) AccountCreateApikey(ctx context.Context, body AccountCreateApikeyJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewAccountCreateApikeyRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// AccountRevealApikey Read back a key's secret
+//
+// Returns an existing key's secret.
+//
+// Its own scope rather than part of `apikeys.manage`, because the two are
+// different acts: rotating replaces a secret you never see, while this
+// hands one over.
+//
+// Refused with `NOT_RETRIEVABLE` for a key issued before this product
+// stored secrets recoverably - that secret was never kept, so no retry
+// will ever produce it. Rotate the key instead.
+//
+// Corresponds with POST /api/v1/account/apikeys/{id}/reveal (the `AccountRevealApikey` operationId).
+func (c *Client) AccountRevealApikey(ctx context.Context, id ApikeyIDParam, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewAccountRevealApikeyRequest(c.Server, id)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// AccountRevokeApikey Revoke an API key
+//
+// Stops the key working. Revocation is soft: the key stays listed with a
+// `revoked_at`, because the organization still owns whatever it did while
+// it was alive.
+//
+// Corresponds with POST /api/v1/account/apikeys/{id}/revoke (the `AccountRevokeApikey` operationId).
+func (c *Client) AccountRevokeApikey(ctx context.Context, id ApikeyIDParam, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewAccountRevokeApikeyRequest(c.Server, id)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// AccountRotateApikey Rotate an API key
+//
+// Replaces the secret behind a key, keeping its id, name and settings.
+// The previous secret stops working immediately.
+//
+// Corresponds with POST /api/v1/account/apikeys/{id}/rotate (the `AccountRotateApikey` operationId).
+func (c *Client) AccountRotateApikey(ctx context.Context, id ApikeyIDParam, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewAccountRotateApikeyRequest(c.Server, id)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// AccountIdentity Identity - who this credential belongs to
+//
+// The identity behind this credential: what it is, the organization it is
+// scoped to, and the scopes it currently holds.
+//
+// `user` is present for an OAuth token and ABSENT for an API key, which
+// has an organization but no person behind it. `credential.kind` says
+// which you are holding, so a client can branch without guessing from a
+// missing field.
+//
+// Narrower than what the console shows its own user on purpose: an
+// integration needs a name to display and an organization to address, not
+// a profile. The `scopes` array is what the credential may do RIGHT NOW,
+// so a client can render its own capabilities rather than discovering
+// them from a 403.
+//
+// Corresponds with GET /api/v1/account/identity (the `AccountIdentity` operationId).
+func (c *Client) AccountIdentity(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewAccountIdentityRequest(c.Server)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// AccountOrg Your organization
+//
+// The organization this credential is scoped to.
+//
+// There is no way to name a different one. A credential describes exactly
+// one organization, so an identifier in the path could only ever be your
+// own or a refusal.
+//
+// Corresponds with GET /api/v1/account/org (the `AccountOrg` operationId).
+func (c *Client) AccountOrg(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewAccountOrgRequest(c.Server)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// AccountOrgMembers Who else is in your organization
+//
+// Read-only. Adding or removing a member is an invitation flow with email
+// in the middle rather than a POST, and modelling it as one here would
+// promise something this API does not do.
+//
+// Corresponds with GET /api/v1/account/org/members (the `AccountOrgMembers` operationId).
+func (c *Client) AccountOrgMembers(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewAccountOrgMembersRequest(c.Server)
 	if err != nil {
 		return nil, err
 	}
@@ -815,6 +1507,24 @@ func (c *Client) DatabaseMetadata(ctx context.Context, params *DatabaseMetadataP
 	return c.Client.Do(req)
 }
 
+// MyEntitlement Your key, plan and usage
+//
+// Answers what the presented key is, what plan is behind it, and what has
+// been spent against that plan's allowance in the current window.
+//
+// Corresponds with GET /api/v1/entitlement/me (the `MyEntitlement` operationId).
+func (c *Client) MyEntitlement(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewMyEntitlementRequest(c.Server)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 // LookupMyIP Lookup your own address
 //
 // Answers what is known about the address this request came from, which is
@@ -829,6 +1539,184 @@ func (c *Client) DatabaseMetadata(ctx context.Context, params *DatabaseMetadataP
 // Corresponds with GET /myip (the `LookupMyIP` operationId).
 func (c *Client) LookupMyIP(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewLookupMyIPRequest(c.Server)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// OauthAuthorize Send a user here to approve
+//
+// The browser entry point for the authorization-code flow. This is a
+// redirect target, not something to call from code.
+//
+// An unknown `client_id` or an unregistered `redirect_uri` is shown to the
+// USER and never redirected, because sending an error to an address we
+// have not verified belongs to you is how an open redirector works.
+// Everything else comes back to your `redirect_uri` with `error`, your
+// `state`, and `iss`.
+//
+// Corresponds with GET /oauth/authorize (the `OauthAuthorize` operationId).
+func (c *Client) OauthAuthorize(ctx context.Context, params *OauthAuthorizeParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewOauthAuthorizeRequest(c.Server, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// OauthDeviceAuthorizationWithBody Begin a device authorization
+//
+// Starts the device flow. Show the `user_code` to the person and send them
+// to `verification_uri`; `verification_uri_complete` has the code already
+// embedded, which is what to open if you can open a browser at all.
+//
+// Then poll `/oauth/token`, no faster than `interval` seconds.
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with POST /oauth/device_authorization (the `OauthDeviceAuthorization` operationId).
+func (c *Client) OauthDeviceAuthorizationWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewOauthDeviceAuthorizationRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// OauthDeviceAuthorizationWithFormdataBody Begin a device authorization
+//
+// Starts the device flow. Show the `user_code` to the person and send them
+// to `verification_uri`; `verification_uri_complete` has the code already
+// embedded, which is what to open if you can open a browser at all.
+//
+// Then poll `/oauth/token`, no faster than `interval` seconds.
+//
+// Takes a body of the `application/x-www-form-urlencoded` content type.
+//
+// Corresponds with POST /oauth/device_authorization (the `OauthDeviceAuthorization` operationId).
+func (c *Client) OauthDeviceAuthorizationWithFormdataBody(ctx context.Context, body OauthDeviceAuthorizationFormdataRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewOauthDeviceAuthorizationRequestWithFormdataBody(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// OauthRevokeWithBody Revoke a token
+//
+// RFC 7009. Always answers 200, including for a token that was never
+// valid - an endpoint that distinguished the two would be a way to test
+// whether a stolen string is a live credential.
+//
+// Revoking a REFRESH token ends the whole authorization and takes its
+// access tokens with it. Revoking an access token affects only that token.
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with POST /oauth/revoke (the `OauthRevoke` operationId).
+func (c *Client) OauthRevokeWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewOauthRevokeRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// OauthRevokeWithFormdataBody Revoke a token
+//
+// RFC 7009. Always answers 200, including for a token that was never
+// valid - an endpoint that distinguished the two would be a way to test
+// whether a stolen string is a live credential.
+//
+// Revoking a REFRESH token ends the whole authorization and takes its
+// access tokens with it. Revoking an access token affects only that token.
+//
+// Takes a body of the `application/x-www-form-urlencoded` content type.
+//
+// Corresponds with POST /oauth/revoke (the `OauthRevoke` operationId).
+func (c *Client) OauthRevokeWithFormdataBody(ctx context.Context, body OauthRevokeFormdataRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewOauthRevokeRequestWithFormdataBody(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// OauthTokenWithBody Exchange a grant for tokens
+//
+// Three grant types.
+//
+// `urn:ietf:params:oauth:grant-type:device_code` polls a device
+// authorization. Until the person approves it answers
+// `authorization_pending`; poll faster than `interval` and it answers
+// `slow_down`, which means widen your interval and keep it widened.
+//
+// `authorization_code` exchanges a code from `/oauth/authorize`, with the
+// `code_verifier` matching the challenge you sent.
+//
+// `refresh_token` exchanges a refresh token. The presented token is
+// consumed whatever happens next, so store the new one before using it.
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with POST /oauth/token (the `OauthToken` operationId).
+func (c *Client) OauthTokenWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewOauthTokenRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// OauthTokenWithFormdataBody Exchange a grant for tokens
+//
+// Three grant types.
+//
+// `urn:ietf:params:oauth:grant-type:device_code` polls a device
+// authorization. Until the person approves it answers
+// `authorization_pending`; poll faster than `interval` and it answers
+// `slow_down`, which means widen your interval and keep it widened.
+//
+// `authorization_code` exchanges a code from `/oauth/authorize`, with the
+// `code_verifier` matching the challenge you sent.
+//
+// `refresh_token` exchanges a refresh token. The presented token is
+// consumed whatever happens next, so store the new one before using it.
+//
+// Takes a body of the `application/x-www-form-urlencoded` content type.
+//
+// Corresponds with POST /oauth/token (the `OauthToken` operationId).
+func (c *Client) OauthTokenWithFormdataBody(ctx context.Context, body OauthTokenFormdataRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewOauthTokenRequestWithFormdataBody(c.Server, body)
 	if err != nil {
 		return nil, err
 	}
@@ -858,8 +1746,8 @@ func (c *Client) LookupIP(ctx context.Context, ip string, reqEditors ...RequestE
 	return c.Client.Do(req)
 }
 
-// NewAccountMeRequest constructs an http.Request for the AccountMe method
-func NewAccountMeRequest(server string) (*http.Request, error) {
+// NewOauthMetadataRequest constructs an http.Request for the OauthMetadata method
+func NewOauthMetadataRequest(server string) (*http.Request, error) {
 	var err error
 
 	serverURL, err := url.Parse(server)
@@ -867,7 +1755,257 @@ func NewAccountMeRequest(server string) (*http.Request, error) {
 		return nil, err
 	}
 
-	operationPath := fmt.Sprintf("/api/v1/account/me")
+	operationPath := fmt.Sprintf("/.well-known/oauth-authorization-server")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewAccountListApikeysRequest constructs an http.Request for the AccountListApikeys method
+func NewAccountListApikeysRequest(server string) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/account/apikeys")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewAccountCreateApikeyRequest calls the generic AccountCreateApikey builder with application/json body
+func NewAccountCreateApikeyRequest(server string, body AccountCreateApikeyJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewAccountCreateApikeyRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewAccountCreateApikeyRequestWithBody constructs an http.Request for the AccountCreateApikey method, with any body, and a specified content type
+func NewAccountCreateApikeyRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/account/apikeys")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewAccountRevealApikeyRequest constructs an http.Request for the AccountRevealApikey method
+func NewAccountRevealApikeyRequest(server string, id ApikeyIDParam) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/account/apikeys/%s/reveal", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewAccountRevokeApikeyRequest constructs an http.Request for the AccountRevokeApikey method
+func NewAccountRevokeApikeyRequest(server string, id ApikeyIDParam) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/account/apikeys/%s/revoke", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewAccountRotateApikeyRequest constructs an http.Request for the AccountRotateApikey method
+func NewAccountRotateApikeyRequest(server string, id ApikeyIDParam) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/account/apikeys/%s/rotate", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewAccountIdentityRequest constructs an http.Request for the AccountIdentity method
+func NewAccountIdentityRequest(server string) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/account/identity")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewAccountOrgRequest constructs an http.Request for the AccountOrg method
+func NewAccountOrgRequest(server string) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/account/org")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewAccountOrgMembersRequest constructs an http.Request for the AccountOrgMembers method
+func NewAccountOrgMembersRequest(server string) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/account/org/members")
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
@@ -1132,6 +2270,33 @@ func NewDatabaseMetadataRequest(server string, params *DatabaseMetadataParams) (
 	return req, nil
 }
 
+// NewMyEntitlementRequest constructs an http.Request for the MyEntitlement method
+func NewMyEntitlementRequest(server string) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/entitlement/me")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewLookupMyIPRequest constructs an http.Request for the LookupMyIP method
 func NewLookupMyIPRequest(server string) (*http.Request, error) {
 	var err error
@@ -1155,6 +2320,248 @@ func NewLookupMyIPRequest(server string) (*http.Request, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	return req, nil
+}
+
+// NewOauthAuthorizeRequest constructs an http.Request for the OauthAuthorize method
+func NewOauthAuthorizeRequest(server string, params *OauthAuthorizeParams) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/oauth/authorize")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if queryFrag, err := runtime.StyleParamWithOptions("form", true, "client_id", params.ClientID, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+			return nil, err
+		} else {
+			for _, qp := range strings.Split(queryFrag, "&") {
+				rawQueryFragments = append(rawQueryFragments, qp)
+			}
+		}
+
+		if queryFrag, err := runtime.StyleParamWithOptions("form", true, "redirect_uri", params.RedirectURI, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+			return nil, err
+		} else {
+			for _, qp := range strings.Split(queryFrag, "&") {
+				rawQueryFragments = append(rawQueryFragments, qp)
+			}
+		}
+
+		if queryFrag, err := runtime.StyleParamWithOptions("form", true, "response_type", params.ResponseType, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+			return nil, err
+		} else {
+			for _, qp := range strings.Split(queryFrag, "&") {
+				rawQueryFragments = append(rawQueryFragments, qp)
+			}
+		}
+
+		if queryFrag, err := runtime.StyleParamWithOptions("form", true, "code_challenge", params.CodeChallenge, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+			return nil, err
+		} else {
+			for _, qp := range strings.Split(queryFrag, "&") {
+				rawQueryFragments = append(rawQueryFragments, qp)
+			}
+		}
+
+		if params.CodeChallengeMethod != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "code_challenge_method", *params.CodeChallengeMethod, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Scope != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "scope", *params.Scope, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.State != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "state", *params.State, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Resource != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "resource", *params.Resource, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewOauthDeviceAuthorizationRequestWithFormdataBody calls the generic OauthDeviceAuthorization builder with application/x-www-form-urlencoded body
+func NewOauthDeviceAuthorizationRequestWithFormdataBody(server string, body OauthDeviceAuthorizationFormdataRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	bodyStr, err := runtime.MarshalForm(body, nil)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = strings.NewReader(bodyStr.Encode())
+	return NewOauthDeviceAuthorizationRequestWithBody(server, "application/x-www-form-urlencoded", bodyReader)
+}
+
+// NewOauthDeviceAuthorizationRequestWithBody constructs an http.Request for the OauthDeviceAuthorization method, with any body, and a specified content type
+func NewOauthDeviceAuthorizationRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/oauth/device_authorization")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewOauthRevokeRequestWithFormdataBody calls the generic OauthRevoke builder with application/x-www-form-urlencoded body
+func NewOauthRevokeRequestWithFormdataBody(server string, body OauthRevokeFormdataRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	bodyStr, err := runtime.MarshalForm(body, nil)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = strings.NewReader(bodyStr.Encode())
+	return NewOauthRevokeRequestWithBody(server, "application/x-www-form-urlencoded", bodyReader)
+}
+
+// NewOauthRevokeRequestWithBody constructs an http.Request for the OauthRevoke method, with any body, and a specified content type
+func NewOauthRevokeRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/oauth/revoke")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewOauthTokenRequestWithFormdataBody calls the generic OauthToken builder with application/x-www-form-urlencoded body
+func NewOauthTokenRequestWithFormdataBody(server string, body OauthTokenFormdataRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	bodyStr, err := runtime.MarshalForm(body, nil)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = strings.NewReader(bodyStr.Encode())
+	return NewOauthTokenRequestWithBody(server, "application/x-www-form-urlencoded", bodyReader)
+}
+
+// NewOauthTokenRequestWithBody constructs an http.Request for the OauthToken method, with any body, and a specified content type
+func NewOauthTokenRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/oauth/token")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
 
 	return req, nil
 }
@@ -1237,15 +2644,142 @@ func WithBaseURL(baseURL string) ClientOption {
 // ClientWithResponsesInterface is the interface specification for the client with responses above.
 type ClientWithResponsesInterface interface {
 
-	// AccountMeWithResponse Your key, plan and usage
+	// OauthMetadataWithResponse Discovery document
 	//
-	// Answers what the presented key is, what plan is behind it, and what has
-	// been spent against that plan's allowance in the current window.
+	// RFC 8414 authorization server metadata: the endpoints, the grant types
+	// and the scopes this server supports.
+	//
+	// Read this rather than hardcoding endpoints. It is also served at
+	// `/.well-known/openid-configuration`, identically, because several
+	// clients probe that path first.
 	//
 	// Returns a wrapper object for the known response body format(s).
 	//
-	// Corresponds with GET /api/v1/account/me (the `AccountMe` operationId).
-	AccountMeWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*AccountMeResponse, error)
+	// Corresponds with GET /.well-known/oauth-authorization-server (the `OauthMetadata` operationId).
+	OauthMetadataWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*OauthMetadataResponse, error)
+
+	// AccountListApikeysWithResponse List your API keys
+	//
+	// Metadata only. A key's secret is never in a list - not here and not in
+	// the console - because a list is the response that ends up in logs,
+	// caches and support tickets.
+	//
+	// `retrievable` says whether the secret could still be read back at all.
+	// A key issued before this product stored secrets recoverably was never
+	// kept, so `reveal` will refuse it permanently; rotating produces one
+	// that can be read.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /api/v1/account/apikeys (the `AccountListApikeys` operationId).
+	AccountListApikeysWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*AccountListApikeysResponse, error)
+
+	// AccountCreateApikeyWithBodyWithResponse Create an API key
+	//
+	// Creates a key and returns its secret.
+	//
+	// This is the ONLY response that ever carries the secret, and only
+	// because this is the moment it comes into existence. Store it now.
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /api/v1/account/apikeys (the `AccountCreateApikey` operationId).
+	AccountCreateApikeyWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*AccountCreateApikeyResponse, error)
+
+	// AccountCreateApikeyWithResponse Create an API key
+	//
+	// Creates a key and returns its secret.
+	//
+	// This is the ONLY response that ever carries the secret, and only
+	// because this is the moment it comes into existence. Store it now.
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /api/v1/account/apikeys (the `AccountCreateApikey` operationId).
+	AccountCreateApikeyWithResponse(ctx context.Context, body AccountCreateApikeyJSONRequestBody, reqEditors ...RequestEditorFn) (*AccountCreateApikeyResponse, error)
+
+	// AccountRevealApikeyWithResponse Read back a key's secret
+	//
+	// Returns an existing key's secret.
+	//
+	// Its own scope rather than part of `apikeys.manage`, because the two are
+	// different acts: rotating replaces a secret you never see, while this
+	// hands one over.
+	//
+	// Refused with `NOT_RETRIEVABLE` for a key issued before this product
+	// stored secrets recoverably - that secret was never kept, so no retry
+	// will ever produce it. Rotate the key instead.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /api/v1/account/apikeys/{id}/reveal (the `AccountRevealApikey` operationId).
+	AccountRevealApikeyWithResponse(ctx context.Context, id ApikeyIDParam, reqEditors ...RequestEditorFn) (*AccountRevealApikeyResponse, error)
+
+	// AccountRevokeApikeyWithResponse Revoke an API key
+	//
+	// Stops the key working. Revocation is soft: the key stays listed with a
+	// `revoked_at`, because the organization still owns whatever it did while
+	// it was alive.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /api/v1/account/apikeys/{id}/revoke (the `AccountRevokeApikey` operationId).
+	AccountRevokeApikeyWithResponse(ctx context.Context, id ApikeyIDParam, reqEditors ...RequestEditorFn) (*AccountRevokeApikeyResponse, error)
+
+	// AccountRotateApikeyWithResponse Rotate an API key
+	//
+	// Replaces the secret behind a key, keeping its id, name and settings.
+	// The previous secret stops working immediately.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /api/v1/account/apikeys/{id}/rotate (the `AccountRotateApikey` operationId).
+	AccountRotateApikeyWithResponse(ctx context.Context, id ApikeyIDParam, reqEditors ...RequestEditorFn) (*AccountRotateApikeyResponse, error)
+
+	// AccountIdentityWithResponse Identity - who this credential belongs to
+	//
+	// The identity behind this credential: what it is, the organization it is
+	// scoped to, and the scopes it currently holds.
+	//
+	// `user` is present for an OAuth token and ABSENT for an API key, which
+	// has an organization but no person behind it. `credential.kind` says
+	// which you are holding, so a client can branch without guessing from a
+	// missing field.
+	//
+	// Narrower than what the console shows its own user on purpose: an
+	// integration needs a name to display and an organization to address, not
+	// a profile. The `scopes` array is what the credential may do RIGHT NOW,
+	// so a client can render its own capabilities rather than discovering
+	// them from a 403.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /api/v1/account/identity (the `AccountIdentity` operationId).
+	AccountIdentityWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*AccountIdentityResponse, error)
+
+	// AccountOrgWithResponse Your organization
+	//
+	// The organization this credential is scoped to.
+	//
+	// There is no way to name a different one. A credential describes exactly
+	// one organization, so an identifier in the path could only ever be your
+	// own or a refusal.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /api/v1/account/org (the `AccountOrg` operationId).
+	AccountOrgWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*AccountOrgResponse, error)
+
+	// AccountOrgMembersWithResponse Who else is in your organization
+	//
+	// Read-only. Adding or removing a member is an invitation flow with email
+	// in the middle rather than a POST, and modelling it as one here would
+	// promise something this API does not do.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /api/v1/account/org/members (the `AccountOrgMembers` operationId).
+	AccountOrgMembersWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*AccountOrgMembersResponse, error)
 
 	// DatabaseChecksumWithResponse Checksums
 	//
@@ -1300,6 +2834,16 @@ type ClientWithResponsesInterface interface {
 	// Corresponds with GET /api/v1/database/metadata (the `DatabaseMetadata` operationId).
 	DatabaseMetadataWithResponse(ctx context.Context, params *DatabaseMetadataParams, reqEditors ...RequestEditorFn) (*DatabaseMetadataResponse, error)
 
+	// MyEntitlementWithResponse Your key, plan and usage
+	//
+	// Answers what the presented key is, what plan is behind it, and what has
+	// been spent against that plan's allowance in the current window.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /api/v1/entitlement/me (the `MyEntitlement` operationId).
+	MyEntitlementWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*MyEntitlementResponse, error)
+
 	// LookupMyIPWithResponse Lookup your own address
 	//
 	// Answers what is known about the address this request came from, which is
@@ -1316,6 +2860,116 @@ type ClientWithResponsesInterface interface {
 	// Corresponds with GET /myip (the `LookupMyIP` operationId).
 	LookupMyIPWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*LookupMyIPResponse, error)
 
+	// OauthAuthorizeWithResponse Send a user here to approve
+	//
+	// The browser entry point for the authorization-code flow. This is a
+	// redirect target, not something to call from code.
+	//
+	// An unknown `client_id` or an unregistered `redirect_uri` is shown to the
+	// USER and never redirected, because sending an error to an address we
+	// have not verified belongs to you is how an open redirector works.
+	// Everything else comes back to your `redirect_uri` with `error`, your
+	// `state`, and `iss`.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /oauth/authorize (the `OauthAuthorize` operationId).
+	OauthAuthorizeWithResponse(ctx context.Context, params *OauthAuthorizeParams, reqEditors ...RequestEditorFn) (*OauthAuthorizeResponse, error)
+
+	// OauthDeviceAuthorizationWithBodyWithResponse Begin a device authorization
+	//
+	// Starts the device flow. Show the `user_code` to the person and send them
+	// to `verification_uri`; `verification_uri_complete` has the code already
+	// embedded, which is what to open if you can open a browser at all.
+	//
+	// Then poll `/oauth/token`, no faster than `interval` seconds.
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /oauth/device_authorization (the `OauthDeviceAuthorization` operationId).
+	OauthDeviceAuthorizationWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*OauthDeviceAuthorizationResponse, error)
+
+	// OauthDeviceAuthorizationWithFormdataBodyWithResponse Begin a device authorization
+	//
+	// Starts the device flow. Show the `user_code` to the person and send them
+	// to `verification_uri`; `verification_uri_complete` has the code already
+	// embedded, which is what to open if you can open a browser at all.
+	//
+	// Then poll `/oauth/token`, no faster than `interval` seconds.
+	//
+	// Takes a body of the `application/x-www-form-urlencoded` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /oauth/device_authorization (the `OauthDeviceAuthorization` operationId).
+	OauthDeviceAuthorizationWithFormdataBodyWithResponse(ctx context.Context, body OauthDeviceAuthorizationFormdataRequestBody, reqEditors ...RequestEditorFn) (*OauthDeviceAuthorizationResponse, error)
+
+	// OauthRevokeWithBodyWithResponse Revoke a token
+	//
+	// RFC 7009. Always answers 200, including for a token that was never
+	// valid - an endpoint that distinguished the two would be a way to test
+	// whether a stolen string is a live credential.
+	//
+	// Revoking a REFRESH token ends the whole authorization and takes its
+	// access tokens with it. Revoking an access token affects only that token.
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /oauth/revoke (the `OauthRevoke` operationId).
+	OauthRevokeWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*OauthRevokeResponse, error)
+
+	// OauthRevokeWithFormdataBodyWithResponse Revoke a token
+	//
+	// RFC 7009. Always answers 200, including for a token that was never
+	// valid - an endpoint that distinguished the two would be a way to test
+	// whether a stolen string is a live credential.
+	//
+	// Revoking a REFRESH token ends the whole authorization and takes its
+	// access tokens with it. Revoking an access token affects only that token.
+	//
+	// Takes a body of the `application/x-www-form-urlencoded` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /oauth/revoke (the `OauthRevoke` operationId).
+	OauthRevokeWithFormdataBodyWithResponse(ctx context.Context, body OauthRevokeFormdataRequestBody, reqEditors ...RequestEditorFn) (*OauthRevokeResponse, error)
+
+	// OauthTokenWithBodyWithResponse Exchange a grant for tokens
+	//
+	// Three grant types.
+	//
+	// `urn:ietf:params:oauth:grant-type:device_code` polls a device
+	// authorization. Until the person approves it answers
+	// `authorization_pending`; poll faster than `interval` and it answers
+	// `slow_down`, which means widen your interval and keep it widened.
+	//
+	// `authorization_code` exchanges a code from `/oauth/authorize`, with the
+	// `code_verifier` matching the challenge you sent.
+	//
+	// `refresh_token` exchanges a refresh token. The presented token is
+	// consumed whatever happens next, so store the new one before using it.
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /oauth/token (the `OauthToken` operationId).
+	OauthTokenWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*OauthTokenResponse, error)
+
+	// OauthTokenWithFormdataBodyWithResponse Exchange a grant for tokens
+	//
+	// Three grant types.
+	//
+	// `urn:ietf:params:oauth:grant-type:device_code` polls a device
+	// authorization. Until the person approves it answers
+	// `authorization_pending`; poll faster than `interval` and it answers
+	// `slow_down`, which means widen your interval and keep it widened.
+	//
+	// `authorization_code` exchanges a code from `/oauth/authorize`, with the
+	// `code_verifier` matching the challenge you sent.
+	//
+	// `refresh_token` exchanges a refresh token. The presented token is
+	// consumed whatever happens next, so store the new one before using it.
+	//
+	// Takes a body of the `application/x-www-form-urlencoded` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /oauth/token (the `OauthToken` operationId).
+	OauthTokenWithFormdataBodyWithResponse(ctx context.Context, body OauthTokenFormdataRequestBody, reqEditors ...RequestEditorFn) (*OauthTokenResponse, error)
+
 	// LookupIPWithResponse Lookup
 	//
 	// Answers what is known about a single IPv4 or IPv6 address. Which fields
@@ -1328,46 +2982,25 @@ type ClientWithResponsesInterface interface {
 	LookupIPWithResponse(ctx context.Context, ip string, reqEditors ...RequestEditorFn) (*LookupIPResponse, error)
 }
 
-type AccountMeResponse struct {
+type OauthMetadataResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	// JSON200 the response for an HTTP 200 `application/json` response
-	JSON200 *AccountMe
-	// JSON401 the response for an HTTP 401 `application/json` response
-	JSON401 *AccountError
-	// JSON403 the response for an HTTP 403 `application/json` response
-	JSON403 *AccountError
-	// JSON503 the response for an HTTP 503 `application/json` response
-	JSON503 *AccountError
+	JSON200 *OauthMetadata
 }
 
 // GetJSON200 returns the response for an HTTP 200 `application/json` response
-func (r AccountMeResponse) GetJSON200() *AccountMe {
+func (r OauthMetadataResponse) GetJSON200() *OauthMetadata {
 	return r.JSON200
 }
 
-// GetJSON401 returns the response for an HTTP 401 `application/json` response
-func (r AccountMeResponse) GetJSON401() *AccountError {
-	return r.JSON401
-}
-
-// GetJSON403 returns the response for an HTTP 403 `application/json` response
-func (r AccountMeResponse) GetJSON403() *AccountError {
-	return r.JSON403
-}
-
-// GetJSON503 returns the response for an HTTP 503 `application/json` response
-func (r AccountMeResponse) GetJSON503() *AccountError {
-	return r.JSON503
-}
-
 // GetBody returns the raw response body bytes
-func (r AccountMeResponse) GetBody() []byte {
+func (r OauthMetadataResponse) GetBody() []byte {
 	return r.Body
 }
 
 // Status returns HTTPResponse.Status
-func (r AccountMeResponse) Status() string {
+func (r OauthMetadataResponse) Status() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Status
 	}
@@ -1375,7 +3008,7 @@ func (r AccountMeResponse) Status() string {
 }
 
 // StatusCode returns HTTPResponse.StatusCode
-func (r AccountMeResponse) StatusCode() int {
+func (r OauthMetadataResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -1383,7 +3016,475 @@ func (r AccountMeResponse) StatusCode() int {
 }
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
-func (r AccountMeResponse) ContentType() string {
+func (r OauthMetadataResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type AccountListApikeysResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *ApikeyList
+	// JSON401 the response for an HTTP 401 `application/json` response
+	JSON401 *AccountUnauthorized
+	// JSON403 the response for an HTTP 403 `application/json` response
+	JSON403 *AccountForbidden
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r AccountListApikeysResponse) GetJSON200() *ApikeyList {
+	return r.JSON200
+}
+
+// GetJSON401 returns the response for an HTTP 401 `application/json` response
+func (r AccountListApikeysResponse) GetJSON401() *AccountUnauthorized {
+	return r.JSON401
+}
+
+// GetJSON403 returns the response for an HTTP 403 `application/json` response
+func (r AccountListApikeysResponse) GetJSON403() *AccountForbidden {
+	return r.JSON403
+}
+
+// GetBody returns the raw response body bytes
+func (r AccountListApikeysResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r AccountListApikeysResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r AccountListApikeysResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r AccountListApikeysResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type AccountCreateApikeyResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *AccountCreatedApikey
+	// JSON400 the response for an HTTP 400 `application/json` response
+	JSON400 *AccountInvalid
+	// JSON401 the response for an HTTP 401 `application/json` response
+	JSON401 *AccountUnauthorized
+	// JSON403 the response for an HTTP 403 `application/json` response
+	JSON403 *AccountForbidden
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r AccountCreateApikeyResponse) GetJSON200() *AccountCreatedApikey {
+	return r.JSON200
+}
+
+// GetJSON400 returns the response for an HTTP 400 `application/json` response
+func (r AccountCreateApikeyResponse) GetJSON400() *AccountInvalid {
+	return r.JSON400
+}
+
+// GetJSON401 returns the response for an HTTP 401 `application/json` response
+func (r AccountCreateApikeyResponse) GetJSON401() *AccountUnauthorized {
+	return r.JSON401
+}
+
+// GetJSON403 returns the response for an HTTP 403 `application/json` response
+func (r AccountCreateApikeyResponse) GetJSON403() *AccountForbidden {
+	return r.JSON403
+}
+
+// GetBody returns the raw response body bytes
+func (r AccountCreateApikeyResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r AccountCreateApikeyResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r AccountCreateApikeyResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r AccountCreateApikeyResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type AccountRevealApikeyResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *AccountRevealedApikey
+	// JSON401 the response for an HTTP 401 `application/json` response
+	JSON401 *AccountUnauthorized
+	// JSON403 the response for an HTTP 403 `application/json` response
+	JSON403 *AccountForbidden
+	// JSON404 the response for an HTTP 404 `application/json` response
+	JSON404 *AccountRc
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r AccountRevealApikeyResponse) GetJSON200() *AccountRevealedApikey {
+	return r.JSON200
+}
+
+// GetJSON401 returns the response for an HTTP 401 `application/json` response
+func (r AccountRevealApikeyResponse) GetJSON401() *AccountUnauthorized {
+	return r.JSON401
+}
+
+// GetJSON403 returns the response for an HTTP 403 `application/json` response
+func (r AccountRevealApikeyResponse) GetJSON403() *AccountForbidden {
+	return r.JSON403
+}
+
+// GetJSON404 returns the response for an HTTP 404 `application/json` response
+func (r AccountRevealApikeyResponse) GetJSON404() *AccountRc {
+	return r.JSON404
+}
+
+// GetBody returns the raw response body bytes
+func (r AccountRevealApikeyResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r AccountRevealApikeyResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r AccountRevealApikeyResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r AccountRevealApikeyResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type AccountRevokeApikeyResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *AccountRc
+	// JSON401 the response for an HTTP 401 `application/json` response
+	JSON401 *AccountUnauthorized
+	// JSON403 the response for an HTTP 403 `application/json` response
+	JSON403 *AccountForbidden
+	// JSON404 the response for an HTTP 404 `application/json` response
+	JSON404 *AccountNotFound
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r AccountRevokeApikeyResponse) GetJSON200() *AccountRc {
+	return r.JSON200
+}
+
+// GetJSON401 returns the response for an HTTP 401 `application/json` response
+func (r AccountRevokeApikeyResponse) GetJSON401() *AccountUnauthorized {
+	return r.JSON401
+}
+
+// GetJSON403 returns the response for an HTTP 403 `application/json` response
+func (r AccountRevokeApikeyResponse) GetJSON403() *AccountForbidden {
+	return r.JSON403
+}
+
+// GetJSON404 returns the response for an HTTP 404 `application/json` response
+func (r AccountRevokeApikeyResponse) GetJSON404() *AccountNotFound {
+	return r.JSON404
+}
+
+// GetBody returns the raw response body bytes
+func (r AccountRevokeApikeyResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r AccountRevokeApikeyResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r AccountRevokeApikeyResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r AccountRevokeApikeyResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type AccountRotateApikeyResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *AccountCreatedApikey
+	// JSON401 the response for an HTTP 401 `application/json` response
+	JSON401 *AccountUnauthorized
+	// JSON403 the response for an HTTP 403 `application/json` response
+	JSON403 *AccountForbidden
+	// JSON404 the response for an HTTP 404 `application/json` response
+	JSON404 *AccountNotFound
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r AccountRotateApikeyResponse) GetJSON200() *AccountCreatedApikey {
+	return r.JSON200
+}
+
+// GetJSON401 returns the response for an HTTP 401 `application/json` response
+func (r AccountRotateApikeyResponse) GetJSON401() *AccountUnauthorized {
+	return r.JSON401
+}
+
+// GetJSON403 returns the response for an HTTP 403 `application/json` response
+func (r AccountRotateApikeyResponse) GetJSON403() *AccountForbidden {
+	return r.JSON403
+}
+
+// GetJSON404 returns the response for an HTTP 404 `application/json` response
+func (r AccountRotateApikeyResponse) GetJSON404() *AccountNotFound {
+	return r.JSON404
+}
+
+// GetBody returns the raw response body bytes
+func (r AccountRotateApikeyResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r AccountRotateApikeyResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r AccountRotateApikeyResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r AccountRotateApikeyResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type AccountIdentityResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *Identity
+	// JSON401 the response for an HTTP 401 `application/json` response
+	JSON401 *AccountUnauthorized
+	// JSON403 the response for an HTTP 403 `application/json` response
+	JSON403 *AccountForbidden
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r AccountIdentityResponse) GetJSON200() *Identity {
+	return r.JSON200
+}
+
+// GetJSON401 returns the response for an HTTP 401 `application/json` response
+func (r AccountIdentityResponse) GetJSON401() *AccountUnauthorized {
+	return r.JSON401
+}
+
+// GetJSON403 returns the response for an HTTP 403 `application/json` response
+func (r AccountIdentityResponse) GetJSON403() *AccountForbidden {
+	return r.JSON403
+}
+
+// GetBody returns the raw response body bytes
+func (r AccountIdentityResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r AccountIdentityResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r AccountIdentityResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r AccountIdentityResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type AccountOrgResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *AccountOrgWrap
+	// JSON401 the response for an HTTP 401 `application/json` response
+	JSON401 *AccountUnauthorized
+	// JSON403 the response for an HTTP 403 `application/json` response
+	JSON403 *AccountForbidden
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r AccountOrgResponse) GetJSON200() *AccountOrgWrap {
+	return r.JSON200
+}
+
+// GetJSON401 returns the response for an HTTP 401 `application/json` response
+func (r AccountOrgResponse) GetJSON401() *AccountUnauthorized {
+	return r.JSON401
+}
+
+// GetJSON403 returns the response for an HTTP 403 `application/json` response
+func (r AccountOrgResponse) GetJSON403() *AccountForbidden {
+	return r.JSON403
+}
+
+// GetBody returns the raw response body bytes
+func (r AccountOrgResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r AccountOrgResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r AccountOrgResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r AccountOrgResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type AccountOrgMembersResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *AccountRc
+	// JSON401 the response for an HTTP 401 `application/json` response
+	JSON401 *AccountUnauthorized
+	// JSON403 the response for an HTTP 403 `application/json` response
+	JSON403 *AccountForbidden
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r AccountOrgMembersResponse) GetJSON200() *AccountRc {
+	return r.JSON200
+}
+
+// GetJSON401 returns the response for an HTTP 401 `application/json` response
+func (r AccountOrgMembersResponse) GetJSON401() *AccountUnauthorized {
+	return r.JSON401
+}
+
+// GetJSON403 returns the response for an HTTP 403 `application/json` response
+func (r AccountOrgMembersResponse) GetJSON403() *AccountForbidden {
+	return r.JSON403
+}
+
+// GetBody returns the raw response body bytes
+func (r AccountOrgMembersResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r AccountOrgMembersResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r AccountOrgMembersResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r AccountOrgMembersResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -1725,6 +3826,68 @@ func (r DatabaseMetadataResponse) ContentType() string {
 	return ""
 }
 
+type MyEntitlementResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *Entitlement
+	// JSON401 the response for an HTTP 401 `application/json` response
+	JSON401 *EntitlementError
+	// JSON403 the response for an HTTP 403 `application/json` response
+	JSON403 *EntitlementError
+	// JSON503 the response for an HTTP 503 `application/json` response
+	JSON503 *EntitlementError
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r MyEntitlementResponse) GetJSON200() *Entitlement {
+	return r.JSON200
+}
+
+// GetJSON401 returns the response for an HTTP 401 `application/json` response
+func (r MyEntitlementResponse) GetJSON401() *EntitlementError {
+	return r.JSON401
+}
+
+// GetJSON403 returns the response for an HTTP 403 `application/json` response
+func (r MyEntitlementResponse) GetJSON403() *EntitlementError {
+	return r.JSON403
+}
+
+// GetJSON503 returns the response for an HTTP 503 `application/json` response
+func (r MyEntitlementResponse) GetJSON503() *EntitlementError {
+	return r.JSON503
+}
+
+// GetBody returns the raw response body bytes
+func (r MyEntitlementResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r MyEntitlementResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r MyEntitlementResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r MyEntitlementResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 type LookupMyIPResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -1788,6 +3951,177 @@ func (r LookupMyIPResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r LookupMyIPResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type OauthAuthorizeResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+}
+
+// GetBody returns the raw response body bytes
+func (r OauthAuthorizeResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r OauthAuthorizeResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r OauthAuthorizeResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r OauthAuthorizeResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type OauthDeviceAuthorizationResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *DeviceAuthorization
+	// JSON400 the response for an HTTP 400 `application/json` response
+	JSON400 *OauthError
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r OauthDeviceAuthorizationResponse) GetJSON200() *DeviceAuthorization {
+	return r.JSON200
+}
+
+// GetJSON400 returns the response for an HTTP 400 `application/json` response
+func (r OauthDeviceAuthorizationResponse) GetJSON400() *OauthError {
+	return r.JSON400
+}
+
+// GetBody returns the raw response body bytes
+func (r OauthDeviceAuthorizationResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r OauthDeviceAuthorizationResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r OauthDeviceAuthorizationResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r OauthDeviceAuthorizationResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type OauthRevokeResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *map[string]interface{}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r OauthRevokeResponse) GetJSON200() *map[string]interface{} {
+	return r.JSON200
+}
+
+// GetBody returns the raw response body bytes
+func (r OauthRevokeResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r OauthRevokeResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r OauthRevokeResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r OauthRevokeResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type OauthTokenResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *TokenResponse
+	// JSON400 the response for an HTTP 400 `application/json` response
+	JSON400 *OauthError
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r OauthTokenResponse) GetJSON200() *TokenResponse {
+	return r.JSON200
+}
+
+// GetJSON400 returns the response for an HTTP 400 `application/json` response
+func (r OauthTokenResponse) GetJSON400() *OauthError {
+	return r.JSON400
+}
+
+// GetBody returns the raw response body bytes
+func (r OauthTokenResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r OauthTokenResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r OauthTokenResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r OauthTokenResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -1877,20 +4211,201 @@ func (r LookupIPResponse) ContentType() string {
 	return ""
 }
 
-// AccountMeWithResponse Your key, plan and usage
+// OauthMetadataWithResponse Discovery document
 //
-// Answers what the presented key is, what plan is behind it, and what has
-// been spent against that plan's allowance in the current window.
+// RFC 8414 authorization server metadata: the endpoints, the grant types
+// and the scopes this server supports.
+//
+// Read this rather than hardcoding endpoints. It is also served at
+// `/.well-known/openid-configuration`, identically, because several
+// clients probe that path first.
 //
 // Returns a wrapper object for the known response body format(s).
 //
-// Corresponds with GET /api/v1/account/me (the `AccountMe` operationId).
-func (c *ClientWithResponses) AccountMeWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*AccountMeResponse, error) {
-	rsp, err := c.AccountMe(ctx, reqEditors...)
+// Corresponds with GET /.well-known/oauth-authorization-server (the `OauthMetadata` operationId).
+func (c *ClientWithResponses) OauthMetadataWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*OauthMetadataResponse, error) {
+	rsp, err := c.OauthMetadata(ctx, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseAccountMeResponse(rsp)
+	return ParseOauthMetadataResponse(rsp)
+}
+
+// AccountListApikeysWithResponse List your API keys
+//
+// Metadata only. A key's secret is never in a list - not here and not in
+// the console - because a list is the response that ends up in logs,
+// caches and support tickets.
+//
+// `retrievable` says whether the secret could still be read back at all.
+// A key issued before this product stored secrets recoverably was never
+// kept, so `reveal` will refuse it permanently; rotating produces one
+// that can be read.
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /api/v1/account/apikeys (the `AccountListApikeys` operationId).
+func (c *ClientWithResponses) AccountListApikeysWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*AccountListApikeysResponse, error) {
+	rsp, err := c.AccountListApikeys(ctx, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseAccountListApikeysResponse(rsp)
+}
+
+// AccountCreateApikeyWithBodyWithResponse Create an API key
+//
+// Creates a key and returns its secret.
+//
+// This is the ONLY response that ever carries the secret, and only
+// because this is the moment it comes into existence. Store it now.
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /api/v1/account/apikeys (the `AccountCreateApikey` operationId).
+func (c *ClientWithResponses) AccountCreateApikeyWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*AccountCreateApikeyResponse, error) {
+	rsp, err := c.AccountCreateApikeyWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseAccountCreateApikeyResponse(rsp)
+}
+
+// AccountCreateApikeyWithResponse Create an API key
+//
+// Creates a key and returns its secret.
+//
+// This is the ONLY response that ever carries the secret, and only
+// because this is the moment it comes into existence. Store it now.
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /api/v1/account/apikeys (the `AccountCreateApikey` operationId).
+func (c *ClientWithResponses) AccountCreateApikeyWithResponse(ctx context.Context, body AccountCreateApikeyJSONRequestBody, reqEditors ...RequestEditorFn) (*AccountCreateApikeyResponse, error) {
+	rsp, err := c.AccountCreateApikey(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseAccountCreateApikeyResponse(rsp)
+}
+
+// AccountRevealApikeyWithResponse Read back a key's secret
+//
+// Returns an existing key's secret.
+//
+// Its own scope rather than part of `apikeys.manage`, because the two are
+// different acts: rotating replaces a secret you never see, while this
+// hands one over.
+//
+// Refused with `NOT_RETRIEVABLE` for a key issued before this product
+// stored secrets recoverably - that secret was never kept, so no retry
+// will ever produce it. Rotate the key instead.
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /api/v1/account/apikeys/{id}/reveal (the `AccountRevealApikey` operationId).
+func (c *ClientWithResponses) AccountRevealApikeyWithResponse(ctx context.Context, id ApikeyIDParam, reqEditors ...RequestEditorFn) (*AccountRevealApikeyResponse, error) {
+	rsp, err := c.AccountRevealApikey(ctx, id, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseAccountRevealApikeyResponse(rsp)
+}
+
+// AccountRevokeApikeyWithResponse Revoke an API key
+//
+// Stops the key working. Revocation is soft: the key stays listed with a
+// `revoked_at`, because the organization still owns whatever it did while
+// it was alive.
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /api/v1/account/apikeys/{id}/revoke (the `AccountRevokeApikey` operationId).
+func (c *ClientWithResponses) AccountRevokeApikeyWithResponse(ctx context.Context, id ApikeyIDParam, reqEditors ...RequestEditorFn) (*AccountRevokeApikeyResponse, error) {
+	rsp, err := c.AccountRevokeApikey(ctx, id, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseAccountRevokeApikeyResponse(rsp)
+}
+
+// AccountRotateApikeyWithResponse Rotate an API key
+//
+// Replaces the secret behind a key, keeping its id, name and settings.
+// The previous secret stops working immediately.
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /api/v1/account/apikeys/{id}/rotate (the `AccountRotateApikey` operationId).
+func (c *ClientWithResponses) AccountRotateApikeyWithResponse(ctx context.Context, id ApikeyIDParam, reqEditors ...RequestEditorFn) (*AccountRotateApikeyResponse, error) {
+	rsp, err := c.AccountRotateApikey(ctx, id, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseAccountRotateApikeyResponse(rsp)
+}
+
+// AccountIdentityWithResponse Identity - who this credential belongs to
+//
+// The identity behind this credential: what it is, the organization it is
+// scoped to, and the scopes it currently holds.
+//
+// `user` is present for an OAuth token and ABSENT for an API key, which
+// has an organization but no person behind it. `credential.kind` says
+// which you are holding, so a client can branch without guessing from a
+// missing field.
+//
+// Narrower than what the console shows its own user on purpose: an
+// integration needs a name to display and an organization to address, not
+// a profile. The `scopes` array is what the credential may do RIGHT NOW,
+// so a client can render its own capabilities rather than discovering
+// them from a 403.
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /api/v1/account/identity (the `AccountIdentity` operationId).
+func (c *ClientWithResponses) AccountIdentityWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*AccountIdentityResponse, error) {
+	rsp, err := c.AccountIdentity(ctx, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseAccountIdentityResponse(rsp)
+}
+
+// AccountOrgWithResponse Your organization
+//
+// The organization this credential is scoped to.
+//
+// There is no way to name a different one. A credential describes exactly
+// one organization, so an identifier in the path could only ever be your
+// own or a refusal.
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /api/v1/account/org (the `AccountOrg` operationId).
+func (c *ClientWithResponses) AccountOrgWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*AccountOrgResponse, error) {
+	rsp, err := c.AccountOrg(ctx, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseAccountOrgResponse(rsp)
+}
+
+// AccountOrgMembersWithResponse Who else is in your organization
+//
+// Read-only. Adding or removing a member is an invitation flow with email
+// in the middle rather than a POST, and modelling it as one here would
+// promise something this API does not do.
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /api/v1/account/org/members (the `AccountOrgMembers` operationId).
+func (c *ClientWithResponses) AccountOrgMembersWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*AccountOrgMembersResponse, error) {
+	rsp, err := c.AccountOrgMembers(ctx, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseAccountOrgMembersResponse(rsp)
 }
 
 // DatabaseChecksumWithResponse Checksums
@@ -1976,6 +4491,22 @@ func (c *ClientWithResponses) DatabaseMetadataWithResponse(ctx context.Context, 
 	return ParseDatabaseMetadataResponse(rsp)
 }
 
+// MyEntitlementWithResponse Your key, plan and usage
+//
+// Answers what the presented key is, what plan is behind it, and what has
+// been spent against that plan's allowance in the current window.
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /api/v1/entitlement/me (the `MyEntitlement` operationId).
+func (c *ClientWithResponses) MyEntitlementWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*MyEntitlementResponse, error) {
+	rsp, err := c.MyEntitlement(ctx, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseMyEntitlementResponse(rsp)
+}
+
 // LookupMyIPWithResponse Lookup your own address
 //
 // Answers what is known about the address this request came from, which is
@@ -1998,6 +4529,158 @@ func (c *ClientWithResponses) LookupMyIPWithResponse(ctx context.Context, reqEdi
 	return ParseLookupMyIPResponse(rsp)
 }
 
+// OauthAuthorizeWithResponse Send a user here to approve
+//
+// The browser entry point for the authorization-code flow. This is a
+// redirect target, not something to call from code.
+//
+// An unknown `client_id` or an unregistered `redirect_uri` is shown to the
+// USER and never redirected, because sending an error to an address we
+// have not verified belongs to you is how an open redirector works.
+// Everything else comes back to your `redirect_uri` with `error`, your
+// `state`, and `iss`.
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /oauth/authorize (the `OauthAuthorize` operationId).
+func (c *ClientWithResponses) OauthAuthorizeWithResponse(ctx context.Context, params *OauthAuthorizeParams, reqEditors ...RequestEditorFn) (*OauthAuthorizeResponse, error) {
+	rsp, err := c.OauthAuthorize(ctx, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseOauthAuthorizeResponse(rsp)
+}
+
+// OauthDeviceAuthorizationWithBodyWithResponse Begin a device authorization
+//
+// Starts the device flow. Show the `user_code` to the person and send them
+// to `verification_uri`; `verification_uri_complete` has the code already
+// embedded, which is what to open if you can open a browser at all.
+//
+// Then poll `/oauth/token`, no faster than `interval` seconds.
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /oauth/device_authorization (the `OauthDeviceAuthorization` operationId).
+func (c *ClientWithResponses) OauthDeviceAuthorizationWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*OauthDeviceAuthorizationResponse, error) {
+	rsp, err := c.OauthDeviceAuthorizationWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseOauthDeviceAuthorizationResponse(rsp)
+}
+
+// OauthDeviceAuthorizationWithFormdataBodyWithResponse Begin a device authorization
+//
+// Starts the device flow. Show the `user_code` to the person and send them
+// to `verification_uri`; `verification_uri_complete` has the code already
+// embedded, which is what to open if you can open a browser at all.
+//
+// Then poll `/oauth/token`, no faster than `interval` seconds.
+//
+// Takes a body of the `application/x-www-form-urlencoded` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /oauth/device_authorization (the `OauthDeviceAuthorization` operationId).
+func (c *ClientWithResponses) OauthDeviceAuthorizationWithFormdataBodyWithResponse(ctx context.Context, body OauthDeviceAuthorizationFormdataRequestBody, reqEditors ...RequestEditorFn) (*OauthDeviceAuthorizationResponse, error) {
+	rsp, err := c.OauthDeviceAuthorizationWithFormdataBody(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseOauthDeviceAuthorizationResponse(rsp)
+}
+
+// OauthRevokeWithBodyWithResponse Revoke a token
+//
+// RFC 7009. Always answers 200, including for a token that was never
+// valid - an endpoint that distinguished the two would be a way to test
+// whether a stolen string is a live credential.
+//
+// Revoking a REFRESH token ends the whole authorization and takes its
+// access tokens with it. Revoking an access token affects only that token.
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /oauth/revoke (the `OauthRevoke` operationId).
+func (c *ClientWithResponses) OauthRevokeWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*OauthRevokeResponse, error) {
+	rsp, err := c.OauthRevokeWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseOauthRevokeResponse(rsp)
+}
+
+// OauthRevokeWithFormdataBodyWithResponse Revoke a token
+//
+// RFC 7009. Always answers 200, including for a token that was never
+// valid - an endpoint that distinguished the two would be a way to test
+// whether a stolen string is a live credential.
+//
+// Revoking a REFRESH token ends the whole authorization and takes its
+// access tokens with it. Revoking an access token affects only that token.
+//
+// Takes a body of the `application/x-www-form-urlencoded` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /oauth/revoke (the `OauthRevoke` operationId).
+func (c *ClientWithResponses) OauthRevokeWithFormdataBodyWithResponse(ctx context.Context, body OauthRevokeFormdataRequestBody, reqEditors ...RequestEditorFn) (*OauthRevokeResponse, error) {
+	rsp, err := c.OauthRevokeWithFormdataBody(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseOauthRevokeResponse(rsp)
+}
+
+// OauthTokenWithBodyWithResponse Exchange a grant for tokens
+//
+// Three grant types.
+//
+// `urn:ietf:params:oauth:grant-type:device_code` polls a device
+// authorization. Until the person approves it answers
+// `authorization_pending`; poll faster than `interval` and it answers
+// `slow_down`, which means widen your interval and keep it widened.
+//
+// `authorization_code` exchanges a code from `/oauth/authorize`, with the
+// `code_verifier` matching the challenge you sent.
+//
+// `refresh_token` exchanges a refresh token. The presented token is
+// consumed whatever happens next, so store the new one before using it.
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /oauth/token (the `OauthToken` operationId).
+func (c *ClientWithResponses) OauthTokenWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*OauthTokenResponse, error) {
+	rsp, err := c.OauthTokenWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseOauthTokenResponse(rsp)
+}
+
+// OauthTokenWithFormdataBodyWithResponse Exchange a grant for tokens
+//
+// Three grant types.
+//
+// `urn:ietf:params:oauth:grant-type:device_code` polls a device
+// authorization. Until the person approves it answers
+// `authorization_pending`; poll faster than `interval` and it answers
+// `slow_down`, which means widen your interval and keep it widened.
+//
+// `authorization_code` exchanges a code from `/oauth/authorize`, with the
+// `code_verifier` matching the challenge you sent.
+//
+// `refresh_token` exchanges a refresh token. The presented token is
+// consumed whatever happens next, so store the new one before using it.
+//
+// Takes a body of the `application/x-www-form-urlencoded` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /oauth/token (the `OauthToken` operationId).
+func (c *ClientWithResponses) OauthTokenWithFormdataBodyWithResponse(ctx context.Context, body OauthTokenFormdataRequestBody, reqEditors ...RequestEditorFn) (*OauthTokenResponse, error) {
+	rsp, err := c.OauthTokenWithFormdataBody(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseOauthTokenResponse(rsp)
+}
+
 // LookupIPWithResponse Lookup
 //
 // Answers what is known about a single IPv4 or IPv6 address. Which fields
@@ -2015,47 +4698,374 @@ func (c *ClientWithResponses) LookupIPWithResponse(ctx context.Context, ip strin
 	return ParseLookupIPResponse(rsp)
 }
 
-// ParseAccountMeResponse parses an HTTP response from a AccountMeWithResponse call
-func ParseAccountMeResponse(rsp *http.Response) (*AccountMeResponse, error) {
+// ParseOauthMetadataResponse parses an HTTP response from a OauthMetadataWithResponse call
+func ParseOauthMetadataResponse(rsp *http.Response) (*OauthMetadataResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
 	defer func() { _ = rsp.Body.Close() }()
 	if err != nil {
 		return nil, err
 	}
 
-	response := &AccountMeResponse{
+	response := &OauthMetadataResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest AccountMe
+		var dest OauthMetadata
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseAccountListApikeysResponse parses an HTTP response from a AccountListApikeysWithResponse call
+func ParseAccountListApikeysResponse(rsp *http.Response) (*AccountListApikeysResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &AccountListApikeysResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ApikeyList
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
 		response.JSON200 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
-		var dest AccountError
+		var dest AccountUnauthorized
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
 		response.JSON401 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
-		var dest AccountError
+		var dest AccountForbidden
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
 		response.JSON403 = &dest
 
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 503:
-		var dest AccountError
+	}
+
+	return response, nil
+}
+
+// ParseAccountCreateApikeyResponse parses an HTTP response from a AccountCreateApikeyWithResponse call
+func ParseAccountCreateApikeyResponse(rsp *http.Response) (*AccountCreateApikeyResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &AccountCreateApikeyResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest AccountCreatedApikey
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
-		response.JSON503 = &dest
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest AccountInvalid
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest AccountUnauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest AccountForbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseAccountRevealApikeyResponse parses an HTTP response from a AccountRevealApikeyWithResponse call
+func ParseAccountRevealApikeyResponse(rsp *http.Response) (*AccountRevealApikeyResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &AccountRevealApikeyResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest AccountRevealedApikey
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest AccountUnauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest AccountForbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest AccountRc
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseAccountRevokeApikeyResponse parses an HTTP response from a AccountRevokeApikeyWithResponse call
+func ParseAccountRevokeApikeyResponse(rsp *http.Response) (*AccountRevokeApikeyResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &AccountRevokeApikeyResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest AccountRc
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest AccountUnauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest AccountForbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest AccountNotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseAccountRotateApikeyResponse parses an HTTP response from a AccountRotateApikeyWithResponse call
+func ParseAccountRotateApikeyResponse(rsp *http.Response) (*AccountRotateApikeyResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &AccountRotateApikeyResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest AccountCreatedApikey
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest AccountUnauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest AccountForbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest AccountNotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseAccountIdentityResponse parses an HTTP response from a AccountIdentityWithResponse call
+func ParseAccountIdentityResponse(rsp *http.Response) (*AccountIdentityResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &AccountIdentityResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest Identity
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest AccountUnauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest AccountForbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseAccountOrgResponse parses an HTTP response from a AccountOrgWithResponse call
+func ParseAccountOrgResponse(rsp *http.Response) (*AccountOrgResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &AccountOrgResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest AccountOrgWrap
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest AccountUnauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest AccountForbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseAccountOrgMembersResponse parses an HTTP response from a AccountOrgMembersWithResponse call
+func ParseAccountOrgMembersResponse(rsp *http.Response) (*AccountOrgMembersResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &AccountOrgMembersResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest AccountRc
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest AccountUnauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest AccountForbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
 
 	}
 
@@ -2322,6 +5332,53 @@ func ParseDatabaseMetadataResponse(rsp *http.Response) (*DatabaseMetadataRespons
 	return response, nil
 }
 
+// ParseMyEntitlementResponse parses an HTTP response from a MyEntitlementWithResponse call
+func ParseMyEntitlementResponse(rsp *http.Response) (*MyEntitlementResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &MyEntitlementResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest Entitlement
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest EntitlementError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest EntitlementError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 503:
+		var dest EntitlementError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON503 = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseLookupMyIPResponse parses an HTTP response from a LookupMyIPWithResponse call
 func ParseLookupMyIPResponse(rsp *http.Response) (*LookupMyIPResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -2370,6 +5427,114 @@ func ParseLookupMyIPResponse(rsp *http.Response) (*LookupMyIPResponse, error) {
 			return nil, err
 		}
 		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseOauthAuthorizeResponse parses an HTTP response from a OauthAuthorizeWithResponse call
+func ParseOauthAuthorizeResponse(rsp *http.Response) (*OauthAuthorizeResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &OauthAuthorizeResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	return response, nil
+}
+
+// ParseOauthDeviceAuthorizationResponse parses an HTTP response from a OauthDeviceAuthorizationWithResponse call
+func ParseOauthDeviceAuthorizationResponse(rsp *http.Response) (*OauthDeviceAuthorizationResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &OauthDeviceAuthorizationResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest DeviceAuthorization
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest OauthError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseOauthRevokeResponse parses an HTTP response from a OauthRevokeWithResponse call
+func ParseOauthRevokeResponse(rsp *http.Response) (*OauthRevokeResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &OauthRevokeResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest map[string]interface{}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseOauthTokenResponse parses an HTTP response from a OauthTokenWithResponse call
+func ParseOauthTokenResponse(rsp *http.Response) (*OauthTokenResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &OauthTokenResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest TokenResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest OauthError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
 
 	}
 

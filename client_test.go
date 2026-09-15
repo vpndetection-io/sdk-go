@@ -257,9 +257,9 @@ func TestMyIPSurfacesAnError(t *testing.T) {
 	}
 }
 
-func TestMyAccountReportsThePlanAndTheUsage(t *testing.T) {
+func TestMyEntitlementReportsThePlanAndTheUsage(t *testing.T) {
 	stub := newStub(map[string]stubRoute{
-		"/api/v1/account/me": {body: map[string]any{
+		"/api/v1/entitlement/me": {body: map[string]any{
 			"org_id": "85bb51e4-2eb6-4a31-8e4d-02ba8b98fe61",
 			"apikey": map[string]any{"id": "0ab424cc-7619-4dad-b027-afacdc2cedb0", "expires": nil, "allowed_cidrs": []string{}},
 			"plan":   map[string]any{"key": "max", "tier": "max"},
@@ -271,9 +271,9 @@ func TestMyAccountReportsThePlanAndTheUsage(t *testing.T) {
 	})
 	client := newTestClient(t, stub)
 
-	acct, err := client.MyAccount(t.Context())
+	acct, err := client.MyEntitlement(t.Context())
 	if err != nil {
-		t.Fatalf("MyAccount: %v", err)
+		t.Fatalf("MyEntitlement: %v", err)
 	}
 	if acct.Plan.Key != "max" {
 		t.Errorf("plan = %q, want max", acct.Plan.Key)
@@ -289,9 +289,9 @@ func TestMyAccountReportsThePlanAndTheUsage(t *testing.T) {
 }
 
 // Usage is the whole point, so a cached answer is a wrong one within seconds.
-func TestMyAccountIsNotCached(t *testing.T) {
+func TestMyEntitlementIsNotCached(t *testing.T) {
 	stub := newStub(map[string]stubRoute{
-		"/api/v1/account/me": {body: map[string]any{
+		"/api/v1/entitlement/me": {body: map[string]any{
 			"org_id": "f32191d0-ef02-450e-a505-eb5814c35cab", "apikey": map[string]any{"id": "10c2b437-3aa2-4a63-bd17-8e7c8c7f0def", "expires": nil, "allowed_cidrs": []string{}},
 			"plan":  map[string]any{"key": "free", "tier": "free"},
 			"usage": map[string]any{"requests": 1, "quota": 2, "hard_limit": 2, "window_start": "2026-09-01T00:00:00Z", "window_end": "2026-10-01T00:00:00Z"},
@@ -299,8 +299,8 @@ func TestMyAccountIsNotCached(t *testing.T) {
 	})
 	client := newTestClient(t, stub)
 	for i := 0; i < 3; i++ {
-		if _, err := client.MyAccount(t.Context()); err != nil {
-			t.Fatalf("MyAccount: %v", err)
+		if _, err := client.MyEntitlement(t.Context()); err != nil {
+			t.Fatalf("MyEntitlement: %v", err)
 		}
 	}
 	if stub.count() != 3 {

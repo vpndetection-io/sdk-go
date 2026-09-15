@@ -9,7 +9,7 @@ import (
 	"sync"
 	"time"
 
-	vpndetection "github.com/vpndetection-io/sdk-go/v4"
+	vpndetection "github.com/vpndetection-io/sdk-go/v5"
 )
 
 // Defaults set for a request path rather than for a script: failing open
