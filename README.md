@@ -191,6 +191,25 @@ if !vpndetection.Format(fromFlag).Valid() {
 }
 ```
 
+### Sign in with OAuth (device flow)
+
+A program running on the person's own machine can let them sign in with a browser and pick one of their API keys, instead of asking them to paste it:
+
+```go
+client, err := vpndetection.New()
+device, err := client.Oauth.DeviceAuthorization(ctx, "your-client-id",
+    vpndetection.DeviceAuthorizationOptions{Scope: "account.read apikeys.read apikeys.reveal"})
+fmt.Printf("Open %s and enter %s\n", device.VerificationURI, device.UserCode)
+
+token, err := client.Oauth.PollDeviceToken(ctx, "your-client-id", device)
+if token.Apikey == nil {
+    log.Fatal("no API key came back: none was picked, or it cannot be revealed")
+}
+keyed, err := vpndetection.New(vpndetection.WithAPIKey(*token.Apikey))
+```
+
+A denied sign-in satisfies `errors.Is(err, vpndetection.ErrOauthAccessDenied)` and a code that ran out `errors.Is(err, vpndetection.ErrOauthExpiredToken)`, and client IDs are issued on request from support@vpndetection.io. `client.Oauth.Revoke(ctx, "your-client-id", *token.RefreshToken)` signs the machine out again.
+
 ### Absent is not false
 
 Every field beyond `IP` and `IsVpn` is a pointer, because your plan decides which of them the API sends. A `nil` pointer means "not in your plan", not "checked, and no".

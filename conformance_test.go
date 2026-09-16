@@ -191,25 +191,35 @@ func TestACacheHitIssuesNoSecondRequest(t *testing.T) {
 	}
 }
 
+// The boundary, and the absence of any cap: 2,500 addresses are three requests.
 func TestALargeBatchIsSentInChunksOfAThousand(t *testing.T) {
-	c := batchCase(t, "chunks-of-one-thousand")
-	stub := newStub(okRoutes(c.Input...))
-	client := newTestClient(t, stub, WithoutCache())
+	for _, name := range []string{"chunks-of-one-thousand", "uncapped-input-is-chunked"} {
+		t.Run(name, func(t *testing.T) {
+			c := batchCase(t, name)
+			stub := newStub(okRoutes(c.Input...))
+			client := newTestClient(t, stub, WithoutCache())
 
-	got, err := client.LookupBatch(t.Context(), c.Input)
-	if err != nil {
-		t.Fatalf("LookupBatch: %v", err)
-	}
-	if len(got) != c.Expect.KeyCount {
-		t.Errorf("batch has %d key(s), want %d", len(got), c.Expect.KeyCount)
-	}
-	if stub.count() != *c.Expect.HTTPRequests {
-		t.Errorf("issued %d request(s), want %d", stub.count(), *c.Expect.HTTPRequests)
-	}
-	for _, ip := range c.Input {
-		if answer := got[ip]; answer.Err != nil || answer.Result == nil || answer.Result.IP != ip {
-			t.Fatalf("%s: %+v, want a served answer for itself", ip, answer)
-		}
+			got, err := client.LookupBatch(t.Context(), c.Input)
+			if err != nil {
+				t.Fatalf("LookupBatch: %v", err)
+			}
+			if len(got) != c.Expect.KeyCount {
+				t.Errorf("batch has %d key(s), want %d", len(got), c.Expect.KeyCount)
+			}
+			if stub.count() != *c.Expect.HTTPRequests {
+				t.Errorf("issued %d request(s), want %d", stub.count(), *c.Expect.HTTPRequests)
+			}
+			for _, url := range stub.calls {
+				if !strings.HasSuffix(url, "/batch") {
+					t.Errorf("requested %s, want only POST /batch", url)
+				}
+			}
+			for _, ip := range c.Input {
+				if answer := got[ip]; answer.Err != nil || answer.Result == nil || answer.Result.IP != ip {
+					t.Fatalf("%s: %+v, want a served answer for itself", ip, answer)
+				}
+			}
+		})
 	}
 }
 

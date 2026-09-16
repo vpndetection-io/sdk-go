@@ -10,7 +10,6 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
-	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -81,32 +80,20 @@ func TestWithoutAnOverrideTheClientConcurrencyStillApplies(t *testing.T) {
 	}
 }
 
-// Chunking to the endpoint's 1000 is the library's job, so a caller's 2500 is
-// three requests rather than an error or a request per address.
-func TestABatchTakesAnyNumberOfAddresses(t *testing.T) {
-	addrs := manyAddrs[:2500]
-	stub := newStub(okRoutes(addrs...))
-	client := newTestClient(t, stub, WithoutCache())
+// errgroup reads a limit of 0 as admitting nothing, so an unrefused
+// Concurrency(0) waited forever, deaf even to its context.
+func TestABatchRefusesAConcurrencyBelowOneBeforeAnyRequest(t *testing.T) {
+	for _, n := range []int{0, -1} {
+		stub := newStub(okRoutes("9.9.9.9"))
+		client := newTestClient(t, stub, WithoutCache())
 
-	got, err := client.LookupBatch(t.Context(), addrs)
-	if err != nil {
-		t.Fatalf("LookupBatch: %v", err)
-	}
-
-	if stub.count() != 3 {
-		t.Errorf("issued %d request(s), want 3 chunks for %d addresses", stub.count(), len(addrs))
-	}
-	for _, url := range stub.calls {
-		if !strings.HasSuffix(url, "/batch") {
-			t.Errorf("requested %s, want only POST /batch", url)
+		got, err := client.LookupBatch(t.Context(), []string{"9.9.9.9"}, Concurrency(n))
+		var apiErr *Error
+		if !errors.As(err, &apiErr) || apiErr.Kind != KindBadRequest || got != nil {
+			t.Fatalf("Concurrency(%d): got %v, %v; want a bad_request *Error", n, got, err)
 		}
-	}
-	if len(got) != len(addrs) {
-		t.Errorf("batch has %d answer(s), want %d", len(got), len(addrs))
-	}
-	for _, ip := range addrs {
-		if answer := got[ip]; answer.Err != nil || answer.Result == nil || answer.Result.IP != ip {
-			t.Fatalf("%s: %+v, want a served answer for itself", ip, answer)
+		if stub.count() != 0 {
+			t.Errorf("Concurrency(%d): issued %d request(s), want none", n, stub.count())
 		}
 	}
 }

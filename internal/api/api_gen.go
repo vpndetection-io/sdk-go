@@ -432,7 +432,9 @@ type DBChecksums struct {
 type DeviceAuthorization struct {
 	// DeviceCode Yours. Poll with it; never show it to anyone.
 	DeviceCode string `json:"device_code"`
-	ExpiresIn  int    `json:"expires_in"`
+
+	// ExpiresIn Seconds until both codes expire.
+	ExpiresIn int `json:"expires_in"`
 
 	// Interval Seconds between polls.
 	Interval int `json:"interval"`
@@ -646,16 +648,20 @@ type OauthError struct {
 type OauthMetadata struct {
 	AuthorizationEndpoint string `json:"authorization_endpoint"`
 
-	// ClientIDMetadataDocumentSupported A client_id may be an https URL serving your client metadata.
-	ClientIDMetadataDocumentSupported *bool     `json:"client_id_metadata_document_supported,omitempty"`
-	CodeChallengeMethodsSupported     *[]string `json:"code_challenge_methods_supported,omitempty"`
-	DeviceAuthorizationEndpoint       *string   `json:"device_authorization_endpoint,omitempty"`
-	GrantTypesSupported               *[]string `json:"grant_types_supported,omitempty"`
-	Issuer                            string    `json:"issuer"`
-	ResponseTypesSupported            *[]string `json:"response_types_supported,omitempty"`
-	RevocationEndpoint                *string   `json:"revocation_endpoint,omitempty"`
-	ScopesSupported                   *[]string `json:"scopes_supported,omitempty"`
-	TokenEndpoint                     string    `json:"token_endpoint"`
+	// AuthorizationResponseIssParameterSupported RFC 9207. A redirect back from the authorization endpoint carries `iss`.
+	AuthorizationResponseIssParameterSupported *bool     `json:"authorization_response_iss_parameter_supported,omitempty"`
+	CodeChallengeMethodsSupported              *[]string `json:"code_challenge_methods_supported,omitempty"`
+	DeviceAuthorizationEndpoint                *string   `json:"device_authorization_endpoint,omitempty"`
+	GrantTypesSupported                        *[]string `json:"grant_types_supported,omitempty"`
+	Issuer                                     string    `json:"issuer"`
+	ResponseTypesSupported                     *[]string `json:"response_types_supported,omitempty"`
+	RevocationEndpoint                         *string   `json:"revocation_endpoint,omitempty"`
+	ScopesSupported                            *[]string `json:"scopes_supported,omitempty"`
+	ServiceDocumentation                       *string   `json:"service_documentation,omitempty"`
+	TokenEndpoint                              string    `json:"token_endpoint"`
+
+	// TokenEndpointAuthMethodsSupported Always `none`. Every client is public and has no secret.
+	TokenEndpointAuthMethodsSupported *[]string `json:"token_endpoint_auth_methods_supported,omitempty"`
 }
 
 // ProxyDetail The shared detail shape for the residential, datacenter and mobile proxy
@@ -698,8 +704,11 @@ type ProxyDetail struct {
 
 // RevokeRequest defines model for RevokeRequest.
 type RevokeRequest struct {
+	// ClientID Accepted and not checked.
 	ClientID *string `json:"client_id,omitempty"`
-	Token    string  `json:"token"`
+
+	// Token An access token or a refresh token.
+	Token string `json:"token"`
 }
 
 // Standing Where your license for a database family stands today. `licensed` is a
@@ -709,24 +718,56 @@ type Standing string
 
 // TokenRequest defines model for TokenRequest.
 type TokenRequest struct {
-	ClientID     string  `json:"client_id"`
-	Code         *string `json:"code,omitempty"`
+	ClientID string `json:"client_id"`
+
+	// Code Required by the authorization code grant.
+	Code *string `json:"code,omitempty"`
+
+	// CodeVerifier Required by the authorization code grant.
 	CodeVerifier *string `json:"code_verifier,omitempty"`
-	DeviceCode   *string `json:"device_code,omitempty"`
-	GrantType    string  `json:"grant_type"`
-	RedirectURI  *string `json:"redirect_uri,omitempty"`
+
+	// DeviceCode Required by the device code grant.
+	DeviceCode *string `json:"device_code,omitempty"`
+
+	// GrantType `urn:ietf:params:oauth:grant-type:device_code`, `authorization_code` or `refresh_token`.
+	GrantType string `json:"grant_type"`
+
+	// RedirectURI Authorization code grant: the `redirect_uri` the code was issued against, exactly.
+	RedirectURI *string `json:"redirect_uri,omitempty"`
+
+	// RefreshToken Required by the refresh token grant.
 	RefreshToken *string `json:"refresh_token,omitempty"`
 }
 
 // TokenResponse defines model for TokenResponse.
 type TokenResponse struct {
-	AccessToken  string  `json:"access_token"`
-	ExpiresIn    int     `json:"expires_in"`
+	AccessToken string `json:"access_token"`
+
+	// ExpiresIn Seconds until the access token expires.
+	ExpiresIn int `json:"expires_in"`
+
+	// MslmApikey Not part of OAuth. The API key itself, so a device ends up holding an
+	// ordinary key. Returned by the device code and authorization code
+	// grants only, never by a refresh, and only alongside
+	// `mslm:apikey_id`. Absent when that key's secret cannot be read back,
+	// which is the case for a key created before keys could be shown again
+	// in the console; a rotated key can be.
+	MslmApikey *string `json:"mslm:apikey,omitempty"`
+
+	// MslmApikeyID Not part of OAuth. The ID of the API key the person picked when they
+	// approved, returned by every grant while this authorization may still
+	// read that key back. Absent when no key was picked, or when the
+	// person's role no longer allows reading keys back.
+	MslmApikeyID *string `json:"mslm:apikey_id,omitempty"`
+
+	// RefreshToken Always returned. A refresh consumes the token it presents, so keep this one.
 	RefreshToken *string `json:"refresh_token,omitempty"`
 
 	// Scope What was actually granted, which may be narrower than what was asked for.
-	Scope     *string `json:"scope,omitempty"`
-	TokenType string  `json:"token_type"`
+	Scope *string `json:"scope,omitempty"`
+
+	// TokenType Always `Bearer`.
+	TokenType string `json:"token_type"`
 }
 
 // VpnDetail What is known about the VPN attribution. Every key is present when the
@@ -810,6 +851,7 @@ type DownloadDatabaseParams struct {
 
 // ListDownloadsParams defines parameters for ListDownloads.
 type ListDownloadsParams struct {
+	// Limit How many attempts to return. Clamped to 1 through 200.
 	Limit *int `form:"limit,omitempty" json:"limit,omitempty"`
 }
 
@@ -4333,6 +4375,8 @@ type OauthDeviceAuthorizationResponse struct {
 	JSON200 *DeviceAuthorization
 	// JSON400 the response for an HTTP 400 `application/json` response
 	JSON400 *OauthError
+	// JSON401 the response for an HTTP 401 `application/json` response
+	JSON401 *OauthError
 }
 
 // GetJSON200 returns the response for an HTTP 200 `application/json` response
@@ -4343,6 +4387,11 @@ func (r OauthDeviceAuthorizationResponse) GetJSON200() *DeviceAuthorization {
 // GetJSON400 returns the response for an HTTP 400 `application/json` response
 func (r OauthDeviceAuthorizationResponse) GetJSON400() *OauthError {
 	return r.JSON400
+}
+
+// GetJSON401 returns the response for an HTTP 401 `application/json` response
+func (r OauthDeviceAuthorizationResponse) GetJSON401() *OauthError {
+	return r.JSON401
 }
 
 // GetBody returns the raw response body bytes
@@ -4422,6 +4471,8 @@ type OauthTokenResponse struct {
 	JSON200 *TokenResponse
 	// JSON400 the response for an HTTP 400 `application/json` response
 	JSON400 *OauthError
+	// JSON401 the response for an HTTP 401 `application/json` response
+	JSON401 *OauthError
 }
 
 // GetJSON200 returns the response for an HTTP 200 `application/json` response
@@ -4432,6 +4483,11 @@ func (r OauthTokenResponse) GetJSON200() *TokenResponse {
 // GetJSON400 returns the response for an HTTP 400 `application/json` response
 func (r OauthTokenResponse) GetJSON400() *OauthError {
 	return r.JSON400
+}
+
+// GetJSON401 returns the response for an HTTP 401 `application/json` response
+func (r OauthTokenResponse) GetJSON401() *OauthError {
+	return r.JSON401
 }
 
 // GetBody returns the raw response body bytes
@@ -5948,6 +6004,13 @@ func ParseOauthDeviceAuthorizationResponse(rsp *http.Response) (*OauthDeviceAuth
 		}
 		response.JSON400 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest OauthError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
 	}
 
 	return response, nil
@@ -6006,6 +6069,13 @@ func ParseOauthTokenResponse(rsp *http.Response) (*OauthTokenResponse, error) {
 			return nil, err
 		}
 		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest OauthError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
 
 	}
 

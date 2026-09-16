@@ -44,6 +44,9 @@ type Client struct {
 	// Database is the licensed dataset downloads, for keys that carry the
 	// db.download scope.
 	Database *DatabaseAPI
+	// Oauth is the device sign-in, which hands a program one of a person's API
+	// keys. Its requests never carry this client's key.
+	Oauth *OauthAPI
 
 	api         *api.ClientWithResponses
 	cache       *expirable.LRU[string, Result]
@@ -77,9 +80,15 @@ func New(opts ...Option) (*Client, error) {
 	if err != nil {
 		return nil, fmt.Errorf("vpndetection: %w", err)
 	}
+	// The same transport without the key's request editor, which is client-wide.
+	keyless, err := api.NewClientWithResponses(cfg.baseURL, apiOpts[0])
+	if err != nil {
+		return nil, fmt.Errorf("vpndetection: %w", err)
+	}
 
 	client := &Client{
 		Database:    &DatabaseAPI{api: inner, transfer: untimed(httpClient), retries: cfg.retries},
+		Oauth:       &OauthAPI{api: keyless, retries: cfg.retries, sleep: sleep, now: time.Now},
 		api:         inner,
 		concurrency: cfg.concurrency,
 		retries:     cfg.retries,
@@ -168,14 +177,20 @@ func (c *Client) MyIP(ctx context.Context, opts ...LookupOption) (*Result, error
 // value, so one bad entry cannot lose the rest of the answers: the API reports
 // a per-entry failure with the status the single lookup would have answered,
 // and a chunk that fails as a whole marks every address in it. The returned
-// error is reserved for the batch as a whole failing, which today means the
-// context was canceled.
+// error is reserved for the batch as a whole failing: the context canceled, or
+// a Concurrency below 1, refused before any request.
 func (c *Client) LookupBatch(
 	ctx context.Context, ips []string, opts ...BatchOption,
 ) (map[string]BatchResult, error) {
 	call := c.callConfig()
 	for _, opt := range opts {
 		opt.applyBatch(&call)
+	}
+	// errgroup reads a limit of 0 as "admit nothing", which would wait forever.
+	if call.concurrency < 1 {
+		return nil, &Error{
+			Kind: KindBadRequest, Message: fmt.Sprintf("concurrency must be at least 1, got %d", call.concurrency),
+		}
 	}
 	ctx = call.carry(ctx)
 
