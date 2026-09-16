@@ -179,9 +179,21 @@ func TestABatchCollapsesDuplicatesAndKeepsBogonsOffTheWire(t *testing.T) {
 	for _, f := range rec.seen() {
 		asked[f.path] = true
 	}
-	want := []string{"/" + probe, "/8.8.8.8"}
-	if paths := slices.Sorted(maps.Keys(asked)); !slices.Equal(paths, want) {
-		t.Errorf("the batch asked for %v, want %v", paths, want)
+	if paths := slices.Sorted(maps.Keys(asked)); !slices.Equal(paths, []string{"/batch"}) {
+		t.Errorf("the batch asked for %v, want only /batch", paths)
+	}
+	// The server answers exactly the addresses it was sent, once each.
+	answer := rec.jsonBody(t, "/batch")
+	var sent []string
+	for _, member := range []string{"results", "errors"} {
+		entries, _ := answer[member].(map[string]any)
+		sent = append(sent, slices.Collect(maps.Keys(entries))...)
+	}
+	want := []string{probe, "8.8.8.8"}
+	slices.Sort(sent)
+	slices.Sort(want)
+	if !slices.Equal(sent, want) {
+		t.Errorf("the batch sent %v, want %v", sent, want)
 	}
 	if bogon := got["10.0.0.1"]; bogon.Err != nil || !bogon.Result.IsBogon {
 		t.Errorf("10.0.0.1 was not answered locally: %+v", bogon)
