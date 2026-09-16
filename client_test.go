@@ -4,9 +4,14 @@
 package vpndetection
 
 import (
+	"context"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
+	"net/http/httptest"
+	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 )
@@ -74,6 +79,157 @@ func TestWithoutAnOverrideTheClientConcurrencyStillApplies(t *testing.T) {
 	if peak := stub.peakInFlight(); peak > 2 {
 		t.Errorf("peak in flight was %d, want at most 2", peak)
 	}
+}
+
+// Chunking to the endpoint's 1000 is the library's job, so a caller's 2500 is
+// three requests rather than an error or a request per address.
+func TestABatchTakesAnyNumberOfAddresses(t *testing.T) {
+	addrs := manyAddrs[:2500]
+	stub := newStub(okRoutes(addrs...))
+	client := newTestClient(t, stub, WithoutCache())
+
+	got, err := client.LookupBatch(t.Context(), addrs)
+	if err != nil {
+		t.Fatalf("LookupBatch: %v", err)
+	}
+
+	if stub.count() != 3 {
+		t.Errorf("issued %d request(s), want 3 chunks for %d addresses", stub.count(), len(addrs))
+	}
+	for _, url := range stub.calls {
+		if !strings.HasSuffix(url, "/batch") {
+			t.Errorf("requested %s, want only POST /batch", url)
+		}
+	}
+	if len(got) != len(addrs) {
+		t.Errorf("batch has %d answer(s), want %d", len(got), len(addrs))
+	}
+	for _, ip := range addrs {
+		if answer := got[ip]; answer.Err != nil || answer.Result == nil || answer.Result.IP != ip {
+			t.Fatalf("%s: %+v, want a served answer for itself", ip, answer)
+		}
+	}
+}
+
+// The per-call Timeout has to be the bound that fires, not the client's, and it
+// has to fail as every transport failure does. Retries(1) makes it per ATTEMPT:
+// a deadline over the whole call would expire during the backoff and never send
+// the second request.
+func TestAPerCallTimeoutBoundsEachAttemptBelowTheClients(t *testing.T) {
+	cases := []struct {
+		name string
+		call func(context.Context, *Client, ...LookupOption) error
+	}{
+		{"Lookup", func(ctx context.Context, c *Client, opts ...LookupOption) error {
+			_, err := c.Lookup(ctx, "9.9.9.9", opts...)
+			return err
+		}},
+		{"MyIP", func(ctx context.Context, c *Client, opts ...LookupOption) error {
+			_, err := c.MyIP(ctx, opts...)
+			return err
+		}},
+		{"MyEntitlement", func(ctx context.Context, c *Client, opts ...LookupOption) error {
+			_, err := c.MyEntitlement(ctx, opts...)
+			return err
+		}},
+		{"LookupBatch", func(ctx context.Context, c *Client, opts ...LookupOption) error {
+			batchOpts := make([]BatchOption, len(opts))
+			for i, opt := range opts {
+				batchOpts[i] = opt
+			}
+			got, err := c.LookupBatch(ctx, []string{"9.9.9.9"}, batchOpts...)
+			if err != nil {
+				return err
+			}
+			return got["9.9.9.9"].Err
+		}},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			api := newSlowAPI(t, 0)
+			client, err := New(WithBaseURL(api.URL), WithoutCache(),
+				WithHTTPClient(&http.Client{Timeout: 5 * time.Second}))
+			if err != nil {
+				t.Fatalf("New: %v", err)
+			}
+
+			start := time.Now()
+			err = c.call(t.Context(), client, Timeout(100*time.Millisecond), Retries(1))
+			elapsed := time.Since(start)
+
+			var apiErr *Error
+			if !errors.As(err, &apiErr) || apiErr.Kind != KindNetwork || !apiErr.Retryable() {
+				t.Fatalf("error was %v, want a retryable network *Error", err)
+			}
+			if !errors.Is(err, context.DeadlineExceeded) {
+				t.Errorf("error was %v, want one that reports a deadline", err)
+			}
+			if n := api.requests.Load(); n != 2 {
+				t.Errorf("sent %d request(s), want 2: each attempt gets the whole timeout", n)
+			}
+			if elapsed > 2500*time.Millisecond {
+				t.Errorf("gave up after %s, so the client's 5s bound fired rather than the call's", elapsed)
+			}
+		})
+	}
+}
+
+// The override replaces the client's bound rather than racing it, so a call
+// that is expected to be slow can be given longer than the client allows.
+func TestAPerCallTimeoutCanLoosenTheClients(t *testing.T) {
+	api := newSlowAPI(t, 300*time.Millisecond)
+	client, err := New(WithBaseURL(api.URL), WithoutCache(), WithRetries(0),
+		WithHTTPClient(&http.Client{Timeout: 50 * time.Millisecond}))
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+
+	if _, err := client.Lookup(t.Context(), "9.9.9.9"); err == nil {
+		t.Fatal("a 300ms answer should have outlasted the client's 50ms")
+	}
+	result, err := client.Lookup(t.Context(), "9.9.9.9", Timeout(5*time.Second))
+	if err != nil {
+		t.Fatalf("Lookup with a 5s timeout: %v", err)
+	}
+	if result.IP != "9.9.9.9" {
+		t.Errorf("IP = %q, want 9.9.9.9", result.IP)
+	}
+}
+
+// An API that answers every request after a delay, or with a zero delay never:
+// it holds each request until the client abandons it. A real server rather
+// than the stub transport, because a timeout is only honest against a transport
+// that honors cancellation.
+type slowAPI struct {
+	*httptest.Server
+	requests atomic.Int32
+}
+
+func newSlowAPI(t *testing.T, delay time.Duration) *slowAPI {
+	t.Helper()
+	api := &slowAPI{}
+	release := make(chan struct{})
+	api.Server = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		api.requests.Add(1)
+		// Draining the body is what lets the server notice the client leave.
+		_, _ = io.Copy(io.Discard, r.Body)
+		var answer <-chan time.Time
+		if delay > 0 {
+			answer = time.After(delay)
+		}
+		select {
+		case <-answer:
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = io.WriteString(w, `{"ip":"9.9.9.9","is_vpn":false}`)
+		case <-r.Context().Done():
+		case <-release:
+		}
+	}))
+	// Cleanups run last-in first-out, so the held handlers return before Close
+	// waits on them.
+	t.Cleanup(api.Close)
+	t.Cleanup(func() { close(release) })
+	return api
 }
 
 func TestRetriesAreConfigurablePerCall(t *testing.T) {

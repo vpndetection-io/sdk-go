@@ -90,12 +90,14 @@ for ip, result := range results {
 
 Results are keyed by address, so duplicates in your list collapse into a single entry and one address failing never loses the rest: it carries its error as its value, with the status the API would have given that address on its own.
 
-How many chunks are in flight at once, and how many times a failed chunk is retried, are configurable per call:
+Pass as many addresses as you like; splitting them into chunks is the library's job. How many chunks are in flight at once, how many times a failed chunk is retried, and how long each attempt may take are configurable per call:
 
 ```go
 results, err := client.LookupBatch(ctx, manyIPs,
-    vpndetection.Concurrency(4), vpndetection.Retries(4))
+    vpndetection.Concurrency(4), vpndetection.Retries(4), vpndetection.Timeout(10*time.Second))
 ```
+
+`Retries` and `Timeout` work on `Lookup`, `MyIP` and `MyEntitlement` too. The timeout bounds each attempt rather than the whole call, and defaults to the HTTP client's: 30 seconds unless `WithHTTPClient` supplied another.
 
 ### Caching
 

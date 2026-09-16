@@ -44,6 +44,7 @@ func (c *Client) MyEntitlement(ctx context.Context, opts ...LookupOption) (*Enti
 	for _, opt := range opts {
 		opt.applyLookup(&call)
 	}
+	ctx = call.carry(ctx)
 	return withRetry(ctx, call.retries, func() (*Entitlement, error) {
 		res, err := c.api.MyEntitlementWithResponse(ctx)
 		if err != nil {

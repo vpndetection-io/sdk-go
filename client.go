@@ -69,7 +69,7 @@ func New(opts ...Option) (*Client, error) {
 	}
 
 	httpClient := redirectControlled(cfg.httpClient)
-	apiOpts := []api.ClientOption{api.WithHTTPClient(httpClient)}
+	apiOpts := []api.ClientOption{api.WithHTTPClient(timedDoer{client: httpClient})}
 	if cfg.apiKey != "" {
 		apiOpts = append(apiOpts, api.WithRequestEditorFn(bearer(cfg.apiKey)))
 	}
@@ -109,6 +109,7 @@ func (c *Client) Lookup(ctx context.Context, ip string, opts ...LookupOption) (*
 	for _, opt := range opts {
 		opt.applyLookup(&call)
 	}
+	ctx = call.carry(ctx)
 	result, err := withRetry(ctx, call.retries, func() (*Result, error) {
 		res, err := c.api.LookupIPWithResponse(ctx, ip)
 		if err != nil {
@@ -144,6 +145,7 @@ func (c *Client) MyIP(ctx context.Context, opts ...LookupOption) (*Result, error
 	for _, opt := range opts {
 		opt.applyLookup(&call)
 	}
+	ctx = call.carry(ctx)
 	return withRetry(ctx, call.retries, func() (*Result, error) {
 		res, err := c.api.LookupMyIPWithResponse(ctx)
 		if err != nil {
@@ -175,6 +177,7 @@ func (c *Client) LookupBatch(
 	for _, opt := range opts {
 		opt.applyBatch(&call)
 	}
+	ctx = call.carry(ctx)
 
 	unique := dedupe(ips)
 	results := make(map[string]BatchResult, len(unique))
@@ -366,8 +369,8 @@ func WithHTTPClient(client *http.Client) Option {
 	}
 }
 
-// LookupOption overrides a client default for one call. Every LookupOption
-// works on a batch too.
+// LookupOption overrides a client default for one call: Lookup, MyIP,
+// MyEntitlement or a batch, since every LookupOption works on a batch too.
 type LookupOption interface {
 	BatchOption
 	applyLookup(*callConfig)
@@ -392,6 +395,15 @@ func Concurrency(n int) BatchOption {
 	return concurrencyOption(n)
 }
 
+// Timeout overrides the HTTP client's Timeout for this call: 30 seconds unless
+// WithHTTPClient supplied another. It replaces that bound rather than capping
+// it, and like it bounds each ATTEMPT, so a retried call can take longer in
+// total and ctx is what bounds the whole call. On a batch it bounds each
+// chunk's request. Zero or less leaves an attempt unbounded, as on http.Client.
+func Timeout(d time.Duration) LookupOption {
+	return timeoutOption(d)
+}
+
 type config struct {
 	apiKey      string
 	baseURL     string
@@ -406,10 +418,23 @@ type config struct {
 type callConfig struct {
 	retries     int
 	concurrency int
+	// timeout is meaningful only when timed is set; otherwise the HTTP client's
+	// own Timeout applies.
+	timeout time.Duration
+	timed   bool
 }
 
 func (c *Client) callConfig() callConfig {
 	return callConfig{retries: c.retries, concurrency: c.concurrency}
+}
+
+// carry puts a per-call timeout on the context, which is the only thing that
+// reaches timedDoer through the generated client.
+func (c callConfig) carry(ctx context.Context) context.Context {
+	if !c.timed {
+		return ctx
+	}
+	return context.WithValue(ctx, timeoutKey{}, c.timeout)
 }
 
 type retriesOption int
@@ -420,6 +445,30 @@ func (o retriesOption) applyBatch(c *callConfig)  { c.retries = int(o) }
 type concurrencyOption int
 
 func (o concurrencyOption) applyBatch(c *callConfig) { c.concurrency = int(o) }
+
+type timeoutOption time.Duration
+
+func (o timeoutOption) applyLookup(c *callConfig) { c.timeout, c.timed = time.Duration(o), true }
+func (o timeoutOption) applyBatch(c *callConfig)  { c.timeout, c.timed = time.Duration(o), true }
+
+type timeoutKey struct{}
+
+// timedDoer swaps a per-call Timeout in for the client's own. The client-level
+// bound IS http.Client.Timeout, so the override sets that field on a copy: the
+// same per-attempt meaning, the same coverage of the body, the same error.
+type timedDoer struct {
+	client *http.Client
+}
+
+func (t timedDoer) Do(req *http.Request) (*http.Response, error) {
+	timeout, ok := req.Context().Value(timeoutKey{}).(time.Duration)
+	if !ok {
+		return t.client.Do(req)
+	}
+	timed := *t.client
+	timed.Timeout = timeout
+	return timed.Do(req)
+}
 
 func bearer(key string) api.RequestEditorFn {
 	return func(_ context.Context, req *http.Request) error {
