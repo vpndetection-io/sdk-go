@@ -1,5 +1,5 @@
 // The licensed-download half, which only the max key can reach: it is the tier
-// holding dataset licences, and db.download is a scope the other three keys do
+// holding dataset licenses, and db.download is a scope the other three keys do
 // not carry.
 //
 // The transfer is budgeted before it starts. Metadata publishes a size per
@@ -34,7 +34,7 @@ const (
 	// tripping it means the suite is pointed somewhere unintended, which is
 	// exactly when a transfer must not go ahead.
 	ceiling = 8 << 20
-	// A real catalogue id the max organization holds no licence for.
+	// A real catalogue id the max organization holds no license for.
 	unlicensedID = "hosting_ip_v1"
 )
 
@@ -81,7 +81,7 @@ func TestTheLicensedCatalogueAnswersTheSchemaTheClientWasGeneratedFrom(t *testin
 			t.Errorf("%s carries an undocumented standing %q", d.Base, d.Standing)
 		}
 		// List answers the WHOLE catalogue, so an unlicensed family is a normal
-		// row with a nil licence type. Asserting one either way is what tells a
+		// row with a nil license type. Asserting one either way is what tells a
 		// nil apart from a value this client cannot read.
 		switch {
 		case d.Standing == vpndetection.StandingUnlicensed:
@@ -136,7 +136,7 @@ func TestADatasetTheOrganizationDoesNotLicenseIsRefusedCleanly(t *testing.T) {
 		t.Errorf("StatusCode = %d, want 403", apiErr.StatusCode)
 	}
 	if apiErr.Retryable() {
-		t.Error("a licence refusal is not worth retrying")
+		t.Error("a license refusal is not worth retrying")
 	}
 	// The API says which refusal this is (`{"rc":"NOT_LICENSED"}`). Falling back
 	// to the status means the client never read the envelope.
