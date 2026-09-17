@@ -6,7 +6,7 @@
 // and puts this file back afterwards.
 module github.com/vpndetection-io/sdk-go/v5/integration
 
-go 1.24.0
+go 1.26.0
 
 require github.com/vpndetection-io/sdk-go/v5 v5.2.0
 

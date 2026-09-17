@@ -13,7 +13,7 @@ The library helps you query VPNDetection's APIs for anonymity detection includin
 go get github.com/vpndetection-io/sdk-go/v5
 ```
 
-Requires Go 1.24 or newer. The module path ends in `sdk-go`, but the package it declares is `vpndetection`:
+Requires Go 1.26 or newer. The module path ends in `sdk-go`, but the package it declares is `vpndetection`:
 
 ```go
 import vpndetection "github.com/vpndetection-io/sdk-go/v5"
