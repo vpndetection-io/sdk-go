@@ -43,7 +43,7 @@ type Result struct {
 // Go has no `??`, so this is how a caller who only wants to know whether an
 // address is flagged reads a tier-gated member: BoolValue(r.IsHosting). Read
 // the pointer itself wherever absent and false must be told apart, which is the
-// whole reason these are pointers. Same name and behaviour as stripe-go's
+// whole reason these are pointers. Same name and behavior as stripe-go's
 // helper of the same name, so it should already be familiar.
 func BoolValue(v *bool) bool {
 	if v != nil {

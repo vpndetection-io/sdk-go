@@ -34,7 +34,7 @@ const (
 	// tripping it means the suite is pointed somewhere unintended, which is
 	// exactly when a transfer must not go ahead.
 	ceiling = 8 << 20
-	// A real catalogue id the max organization holds no license for.
+	// A real catalog id the max organization holds no license for.
 	unlicensedID = "hosting_ip_v1"
 )
 
@@ -80,7 +80,7 @@ func TestTheLicensedCatalogueAnswersTheSchemaTheClientWasGeneratedFrom(t *testin
 		if !slices.Contains(standings, d.Standing) {
 			t.Errorf("%s carries an undocumented standing %q", d.Base, d.Standing)
 		}
-		// List answers the WHOLE catalogue, so an unlicensed family is a normal
+		// List answers the WHOLE catalog, so an unlicensed family is a normal
 		// row with a nil license type. Asserting one either way is what tells a
 		// nil apart from a value this client cannot read.
 		switch {
@@ -111,12 +111,12 @@ func TestTheLicensedCatalogueAnswersTheSchemaTheClientWasGeneratedFrom(t *testin
 			}
 		}
 	}
-	// The max org holds grants in staging, so an empty list here is the catalogue
+	// The max org holds grants in staging, so an empty list here is the catalog
 	// arriving without any of them rather than a plan that buys nothing.
 	if len(licensed) == 0 {
 		t.Error("the max organization licenses nothing")
 	}
-	t.Logf("catalogue: %d, licensed: %s", len(datasets), strings.Join(licensed, ", "))
+	t.Logf("catalog: %d, licensed: %s", len(datasets), strings.Join(licensed, ", "))
 }
 
 func TestADatasetTheOrganizationDoesNotLicenseIsRefusedCleanly(t *testing.T) {

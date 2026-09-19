@@ -1,5 +1,5 @@
 // Asserts the middleware half of the shared conformance corpus, which every
-// framework middleware in every language asserts. A behaviour that drifts here
+// framework middleware in every language asserts. A behavior that drifts here
 // fails here rather than surfacing as two adapters quietly disagreeing about
 // the same answer.
 
