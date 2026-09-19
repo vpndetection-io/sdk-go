@@ -1008,7 +1008,7 @@ type ClientInterface interface {
 
 	// ListDatabases List
 	//
-	// Every database this organization may SEE, with where its licence stands.
+	// Every database this organization may SEE, with where its license stands.
 	// Not just the ones you hold: a customer with one grant should be able to
 	// tell what else is published without asking. `standing` is the
 	// difference - `licensed`, `expired`, or `unlicensed` for one never
@@ -1402,7 +1402,7 @@ func (c *Client) ListDownloads(ctx context.Context, params *ListDownloadsParams,
 
 // ListDatabases List
 //
-// Every database this organization may SEE, with where its licence stands.
+// Every database this organization may SEE, with where its license stands.
 // Not just the ones you hold: a customer with one grant should be able to
 // tell what else is published without asking. `standing` is the
 // difference - `licensed`, `expired`, or `unlicensed` for one never
@@ -2931,7 +2931,7 @@ type ClientWithResponsesInterface interface {
 
 	// ListDatabasesWithResponse List
 	//
-	// Every database this organization may SEE, with where its licence stands.
+	// Every database this organization may SEE, with where its license stands.
 	// Not just the ones you hold: a customer with one grant should be able to
 	// tell what else is published without asking. `standing` is the
 	// difference - `licensed`, `expired`, or `unlicensed` for one never
@@ -4669,7 +4669,7 @@ func (c *ClientWithResponses) ListDownloadsWithResponse(ctx context.Context, par
 
 // ListDatabasesWithResponse List
 //
-// Every database this organization may SEE, with where its licence stands.
+// Every database this organization may SEE, with where its license stands.
 // Not just the ones you hold: a customer with one grant should be able to
 // tell what else is published without asking. `standing` is the
 // difference - `licensed`, `expired`, or `unlicensed` for one never
