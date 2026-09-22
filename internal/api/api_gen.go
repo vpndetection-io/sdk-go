@@ -309,7 +309,7 @@ type ClassDetail struct {
 	Provider *string `json:"provider,omitempty"`
 }
 
-// Database One database FAMILY your organization is licensed for. A license covers
+// Database One database FAMILY, with your organization's license beside it. A license covers
 // the family, while a download names a specific version, so the ids you
 // pass to the download and checksum endpoints come from `versions`.
 type Database struct {
