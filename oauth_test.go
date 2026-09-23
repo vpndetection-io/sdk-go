@@ -164,6 +164,40 @@ func TestOauthResponsesDecode(t *testing.T) {
 	}
 }
 
+// No corpus case: every response there decodes. One member left out per case,
+// since a body missing two at once let a defaulting decoder survive elsewhere.
+func TestOauthAnAnswerMissingARequiredMemberFails(t *testing.T) {
+	required := map[string][]string{
+		"metadata":            {"issuer", "authorization_endpoint", "token_endpoint"},
+		"deviceAuthorization": {"device_code", "user_code", "verification_uri", "expires_in", "interval"},
+		"exchangeDeviceCode":  {"access_token", "token_type", "expires_in"},
+	}
+	for operation, members := range required {
+		for _, member := range members {
+			t.Run(operation+"/"+member, func(t *testing.T) {
+				var body map[string]json.RawMessage
+				if err := json.Unmarshal([]byte(everyRequiredMember), &body); err != nil {
+					t.Fatal(err)
+				}
+				delete(body, member)
+				raw, _ := json.Marshal(body)
+				stub := &oauthStub{replies: []oauthReply{{Status: 200, Body: raw}}}
+				client := newOauthClient(t, stub, WithRetries(0))
+				err := callOauth(t.Context(), client, operation,
+					oauthArgs{ClientID: "vpndetection-cli", DeviceCode: "mo_dc_x"})
+				var apiErr *Error
+				var refused *OauthError
+				if !errors.As(err, &apiErr) || errors.As(err, &refused) {
+					t.Fatalf("error was %v, want the ordinary *Error", err)
+				}
+				if apiErr.Kind != KindServerError || apiErr.StatusCode != 200 {
+					t.Errorf("Kind %q, StatusCode %d, want server_error and 200", apiErr.Kind, apiErr.StatusCode)
+				}
+			})
+		}
+	}
+}
+
 func TestOauthErrorsAreClassified(t *testing.T) {
 	for _, ec := range oauthCorpusData(t).Errors.Cases {
 		t.Run(ec.Name, func(t *testing.T) {
