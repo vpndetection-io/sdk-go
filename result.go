@@ -51,11 +51,3 @@ func BoolValue(v *bool) bool {
 	}
 	return false
 }
-
-func deref[T any](p *T) T {
-	var zero T
-	if p == nil {
-		return zero
-	}
-	return *p
-}
