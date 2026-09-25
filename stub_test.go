@@ -19,6 +19,7 @@ type stubTransport struct {
 	delay    time.Duration
 	mu       sync.Mutex
 	calls    []string
+	batched  [][]string
 	inFlight int
 	peak     int
 }
@@ -40,8 +41,14 @@ func (s *stubTransport) client() *http.Client {
 func (s *stubTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 	s.enter(req.URL.String())
 	defer s.leave()
+	// A real transport gives up when the request's context does, and a test of
+	// who runs the request under whose context needs that.
 	if s.delay > 0 {
-		time.Sleep(s.delay)
+		select {
+		case <-time.After(s.delay):
+		case <-req.Context().Done():
+			return nil, req.Context().Err()
+		}
 	}
 
 	if req.Method == http.MethodPost && req.URL.Path == "/batch" {
@@ -78,6 +85,9 @@ func (s *stubTransport) batch(req *http.Request) stubRoute {
 		raw, _ := io.ReadAll(req.Body)
 		_ = json.Unmarshal(raw, &in)
 	}
+	s.mu.Lock()
+	s.batched = append(s.batched, in.IPs)
+	s.mu.Unlock()
 	results := map[string]any{}
 	failures := map[string]any{}
 	for _, ip := range in.IPs {

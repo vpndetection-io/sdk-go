@@ -48,8 +48,12 @@ type Client struct {
 	// keys. Its requests never carry this client's key.
 	Oauth *OauthAPI
 
-	api         *api.ClientWithResponses
-	cache       *expirable.LRU[string, Result]
+	api   *api.ClientWithResponses
+	cache *expirable.LRU[string, Result]
+	// The addresses with a request in flight, shared by Lookup and LookupBatch.
+	// Only a client that caches shares them: without a cache every lookup is
+	// served, as WithoutCache promises.
+	flights     flights
 	concurrency int
 	retries     int
 }
@@ -104,22 +108,60 @@ func New(opts ...Option) (*Client, error) {
 // A bogon is answered locally and never reaches the network. Everything else is
 // served, then cached for this client. Treat the answer as read only: repeat
 // lookups of one address hand back the same cached pointers.
+//
+// Calls that miss the cache while a request for their address is in flight, a
+// batch's included, await that request rather than sending their own, and take
+// its answer, sent under the options of the call that led it. The request runs
+// detached from any one caller's context, so a caller giving up fails nobody
+// else: it returns at once, and the answer is cached for the next.
 func (c *Client) Lookup(ctx context.Context, ip string, opts ...LookupOption) (*Result, error) {
 	if IsBogon(ip) {
 		return bogonResult(ip), nil
 	}
-	if c.cache != nil {
-		if hit, ok := c.cache.Get(ip); ok {
-			return &hit, nil
-		}
-	}
-
 	call := c.callConfig()
 	for _, opt := range opts {
 		opt.applyLookup(&call)
 	}
 	ctx = call.carry(ctx)
-	result, err := withRetry(ctx, call.retries, func() (*Result, error) {
+	if c.cache == nil {
+		return c.serve(ctx, ip, call.retries)
+	}
+	if hit, ok := c.cache.Get(ip); ok {
+		return &hit, nil
+	}
+
+	led, joined := c.flights.board([]string{ip})
+	fl, leads := led[ip]
+	if leads {
+		go c.fly(context.WithoutCancel(ctx), ip, fl, call.retries)
+	} else {
+		fl = joined[ip]
+	}
+	select {
+	case <-fl.done:
+		return fl.answer()
+	case <-ctx.Done():
+		return nil, errorFromTransport(ctx.Err())
+	}
+}
+
+// fly sends one address's request and lands it. A request that landed between
+// the caller's miss and its boarding cached its answer first, so it is found
+// here rather than asked for again.
+func (c *Client) fly(ctx context.Context, ip string, fl *flight, retries int) {
+	if hit, ok := c.cache.Get(ip); ok {
+		c.flights.land(ip, fl, &hit, nil)
+		return
+	}
+	result, err := c.serve(ctx, ip, retries)
+	if err == nil {
+		c.cache.Add(ip, *result)
+	}
+	c.flights.land(ip, fl, result, err)
+}
+
+func (c *Client) serve(ctx context.Context, ip string, retries int) (*Result, error) {
+	return withRetry(ctx, retries, func() (*Result, error) {
 		res, err := c.api.LookupIPWithResponse(ctx, ip)
 		if err != nil {
 			return nil, errorFromTransport(err)
@@ -129,14 +171,6 @@ func (c *Client) Lookup(ctx context.Context, ip string, opts ...LookupOption) (*
 		}
 		return &Result{LookupResponse: *res.JSON200}, nil
 	})
-	if err != nil {
-		return nil, err
-	}
-
-	if c.cache != nil {
-		c.cache.Add(ip, *result)
-	}
-	return result, nil
 }
 
 // MyIP classifies the address this client is calling from.
@@ -169,9 +203,11 @@ func (c *Client) MyIP(ctx context.Context, opts ...LookupOption) (*Result, error
 
 // LookupBatch classifies many addresses in as few requests as possible.
 //
-// Bogons are answered locally and cached answers are reused; whatever is left
-// goes to POST /batch in chunks of up to 1000, with at most `concurrency`
-// chunks in flight. The answers are keyed by address rather than positional,
+// Bogons are answered locally and cached answers are reused, and an address
+// with a request already in flight, a Lookup's or another batch's, awaits that
+// request; whatever is left goes to POST /batch in chunks of up to 1000, with at
+// most `concurrency` chunks in flight, and a Lookup arriving meanwhile awaits
+// this batch's answer for its address. The answers are keyed by address rather than positional,
 // so duplicates in the input collapse to a single entry and the caller never
 // has to line two lists up. An address that fails carries its error as its
 // value, so one bad entry cannot lose the rest of the answers: the API reports
@@ -210,6 +246,13 @@ func (c *Client) LookupBatch(
 		}
 		pending = append(pending, ip)
 	}
+	if c.cache != nil {
+		c.shareBatch(ctx, call, pending, results)
+		if err := ctx.Err(); err != nil {
+			return results, fmt.Errorf("vpndetection: batch: %w", err)
+		}
+		return results, nil
+	}
 
 	// One map of answers per chunk, written by index so the workers need no
 	// lock, and merged afterwards.
@@ -235,6 +278,57 @@ func (c *Client) LookupBatch(
 		return results, fmt.Errorf("vpndetection: batch: %w", err)
 	}
 	return results, nil
+}
+
+// shareBatch answers a caching client's pending addresses through the board:
+// each joins the request in flight for it, or this batch leads one. The chunks
+// run detached from ctx, as a Lookup's request does, so a batch given up part
+// way fails no Lookup that joined it; ctx ends only this call's wait, and an
+// address still unanswered then carries that error.
+func (c *Client) shareBatch(ctx context.Context, call callConfig, pending []string, results map[string]BatchResult) {
+	led, joined := c.flights.board(pending)
+	var send []string
+	for _, ip := range pending {
+		fl, ok := led[ip]
+		if !ok {
+			continue
+		}
+		// Landed since the cache was read, and cached before it landed.
+		if hit, ok := c.cache.Get(ip); ok {
+			c.flights.land(ip, fl, &hit, nil)
+			continue
+		}
+		send = append(send, ip)
+	}
+
+	detached := context.WithoutCancel(ctx)
+	go func() {
+		group := new(errgroup.Group)
+		group.SetLimit(call.concurrency)
+		for _, addrs := range chunk(send, batchMax) {
+			group.Go(func() error {
+				for ip, answer := range c.lookupChunk(detached, addrs, call.retries) {
+					c.flights.land(ip, led[ip], answer.Result, answer.Err)
+				}
+				return nil
+			})
+		}
+		_ = group.Wait()
+	}()
+
+	for _, ip := range pending {
+		fl, ok := led[ip]
+		if !ok {
+			fl = joined[ip]
+		}
+		select {
+		case <-fl.done:
+			result, err := fl.answer()
+			results[ip] = BatchResult{Result: result, Err: err}
+		case <-ctx.Done():
+			results[ip] = BatchResult{Err: errorFromTransport(ctx.Err())}
+		}
+	}
 }
 
 // lookupChunk sends one POST /batch and maps its answer back onto the
