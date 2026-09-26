@@ -174,6 +174,21 @@ func TestATransferThatDiesPartWayLeavesNothingAtTheDestination(t *testing.T) {
 	}
 }
 
+// The declared length is the server's word, so it sizes nothing unchecked:
+// make([]byte, 1<<62) panicked with "makeslice: len out of range" in the
+// caller's goroutine (v5.3.2, measured 2026-09-26). The call fails instead.
+func TestDownloadBytesFailsALengthNoProcessCanHold(t *testing.T) {
+	origin := newOrigin(t, originConfig{blobBytes: 1 << 62, dieAfterBytes: 1 << 20})
+
+	got, err := origin.client.Database.DownloadBytes(t.Context(), "cdn_ip_v1", FormatCSVGZ)
+	if err == nil {
+		t.Fatalf("a 4 EiB promise came back as %d byte(s)", len(got))
+	}
+	if n := origin.blobRequests(); n != 1 {
+		t.Errorf("object storage was asked %d time(s), want 1", n)
+	}
+}
+
 // The half of the .part guard a cleanup step cannot fake: a destination opened
 // directly is truncated before the first byte arrives, so yesterday's good copy
 // is gone whether or not the refresh then succeeds.
