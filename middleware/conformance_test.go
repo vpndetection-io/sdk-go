@@ -174,7 +174,7 @@ func corpus(t *testing.T) corpusData {
 		t.Fatalf("parsing the corpus: %v", err)
 	}
 	if len(data.Middleware.Conditions) == 0 {
-		t.Fatal("no middleware corpus - run emit.mjs in sdk/common")
+		t.Fatal("no middleware corpus in testdata/")
 	}
 	return data
 }
