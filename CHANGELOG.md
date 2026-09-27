@@ -2,6 +2,12 @@
 
 What each release changed for you, newest first. Each line is a commit's summary, linked to its full description and diff. Releases before 5.3.2 are described by their release commits.
 
+## 5.4.0 - 2026-09-27
+
+### Features
+
+- Surface client_id_metadata_document_supported on OauthMetadata ([`6b8f639`](https://github.com/vpndetection-io/sdk-go/commit/6b8f63930b095e112385b2ceb35fbbf26f7e5e1a))
+
 ## 5.3.4 - 2026-09-27
 
 ### Fixes
