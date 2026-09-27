@@ -142,9 +142,6 @@ func TestOauthResponsesDecode(t *testing.T) {
 					return
 				}
 				members := surfacedMembers(t, decoded)
-				// Still listed by the corpus, but gone from the pinned spec and from
-				// oauth.md's OauthMetadata: the server stopped advertising it.
-				delete(rc.Expect.Present, "client_id_metadata_document_supported")
 				for name, want := range rc.Expect.Present {
 					got, ok := members[name]
 					if !ok {
