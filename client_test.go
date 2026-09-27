@@ -10,6 +10,8 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
+	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -275,6 +277,88 @@ func TestARateLimitIsRetriedAfterTheServerSuppliedWait(t *testing.T) {
 	// The header, not the backoff schedule, decides the wait.
 	if waited := time.Since(start); waited < time.Second {
 		t.Errorf("waited %s before retrying, want at least the 1s Retry-After", waited)
+	}
+}
+
+// A Retry-After past 2^31 - 1 ms is still a throttle, but the server's word is
+// not held to: the call waits the client's own backoff and stays rate_limited.
+// Through v5.3.3 2147484 held a call ~24.8 days and a year-9999 date for good,
+// 2^63 - 1 seconds multiplied out wrapped to -1s, a spent quota, and
+// 18446744074 to a 290ms wait. The generated lookup response binds the header
+// as the spec's integer, so an HTTP date never reaches this classification from
+// a lookup; object storage's, read as sent, pins that form.
+func TestARetryAfterTooLongToHoldWaitsTheBackoff(t *testing.T) {
+	for _, header := range []string{"2147484", "9223372036", "9223372036854775807", "18446744074"} {
+		t.Run(header, func(t *testing.T) {
+			stub := newStub(map[string]stubRoute{
+				"9.9.9.9": {
+					status:  http.StatusTooManyRequests,
+					body:    map[string]string{"error": "rate limit exceeded"},
+					headers: map[string]string{"Retry-After": header},
+				},
+			})
+			client := newTestClient(t, stub, WithoutCache(), WithRetries(1))
+			ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
+			defer cancel()
+
+			_, err := client.Lookup(ctx, "9.9.9.9")
+
+			var apiErr *Error
+			if !errors.As(err, &apiErr) || apiErr.Kind != KindRateLimited {
+				t.Fatalf("error was %v, want rate_limited after one retry", err)
+			}
+			if stub.count() != 2 {
+				t.Errorf("issued %d request(s), want 2", stub.count())
+			}
+		})
+	}
+}
+
+// Every path the client appends starts with a slash. The generated client kept
+// one trailing slash off it, but through v5.3.3 a second doubled into every
+// call's path (//8.8.8.8, //api/v1/database/download), which the API answers
+// with a redirect this client never follows, so every call failed.
+func TestEveryTrailingSlashOnTheBaseURLIsDropped(t *testing.T) {
+	for _, suffix := range []string{"/", "//", "///"} {
+		t.Run(suffix, func(t *testing.T) {
+			routes := okRoutes("8.8.8.8", "9.9.9.9")
+			routes["myip"] = stubRoute{body: map[string]any{"ip": "8.8.4.4", "is_vpn": false}}
+			routes["/api/v1/database/download"] = stubRoute{
+				status:  http.StatusFound,
+				headers: map[string]string{"Location": "https://s3.example.test/x?signature=abc"},
+			}
+			routes[".well-known/oauth-authorization-server"] = stubRoute{body: map[string]string{
+				"issuer":                 "https://api.example.test",
+				"authorization_endpoint": "https://api.example.test/oauth/authorize",
+				"token_endpoint":         "https://api.example.test/oauth/token",
+			}}
+			stub := newStub(routes)
+			client := newTestClient(t, stub,
+				WithBaseURL("https://api.example.test"+suffix), WithAPIKey("key"), WithRetries(0))
+
+			if _, err := client.Lookup(t.Context(), "8.8.8.8"); err != nil {
+				t.Errorf("Lookup: %v", err)
+			}
+			if _, err := client.LookupBatch(t.Context(), []string{"9.9.9.9"}); err != nil {
+				t.Errorf("LookupBatch: %v", err)
+			}
+			if _, err := client.MyIP(t.Context()); err != nil {
+				t.Errorf("MyIP: %v", err)
+			}
+			if _, err := client.Database.DownloadURL(t.Context(), "vpn_ip_v1", FormatCSVGZ); err != nil {
+				t.Errorf("DownloadURL: %v", err)
+			}
+			if _, err := client.Oauth.Metadata(t.Context()); err != nil {
+				t.Errorf("Oauth.Metadata: %v", err)
+			}
+			stub.mu.Lock()
+			defer stub.mu.Unlock()
+			for _, call := range stub.calls {
+				if parsed, err := url.Parse(call); err != nil || strings.HasPrefix(parsed.Path, "//") {
+					t.Errorf("sent %s", call)
+				}
+			}
+		})
 	}
 }
 
