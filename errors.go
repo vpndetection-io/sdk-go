@@ -3,6 +3,7 @@ package vpndetection
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"math"
 	"net/http"
 	"strconv"
@@ -95,6 +96,19 @@ func errorFromResponse(status int, header http.Header, body []byte) *Error {
 		return &Error{Kind: KindBadRequest, Message: message, StatusCode: status}
 	}
 	return &Error{Kind: KindServerError, Message: message, StatusCode: status}
+}
+
+// A failed lookup or batch, read from the response itself. Their generated
+// parsers bind a 429's Retry-After as the spec's integer, which refuses an HTTP
+// date, and anything past 2^31 - 1 where int is 32 bits, failing the call as a
+// network error before it is classified; parseRetryAfter reads both.
+func errorFromRaw(rsp *http.Response) *Error {
+	defer rsp.Body.Close()
+	body, err := io.ReadAll(rsp.Body)
+	if err != nil {
+		return errorFromTransport(err)
+	}
+	return errorFromResponse(rsp.StatusCode, rsp.Header, body)
 }
 
 // A failure with no response of its own: a refused connection, a timeout, a

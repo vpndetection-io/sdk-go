@@ -284,11 +284,14 @@ func TestARateLimitIsRetriedAfterTheServerSuppliedWait(t *testing.T) {
 // not held to: the call waits the client's own backoff and stays rate_limited.
 // Through v5.3.3 2147484 held a call ~24.8 days and a year-9999 date for good,
 // 2^63 - 1 seconds multiplied out wrapped to -1s, a spent quota, and
-// 18446744074 to a 290ms wait. The generated lookup response binds the header
-// as the spec's integer, so an HTTP date never reaches this classification from
-// a lookup; object storage's, read as sent, pins that form.
+// 18446744074 to a 290ms wait. Through v5.4.0 the generated parser bound the
+// header as the spec's integer before anything classified it, so a date failed
+// the call as a network error, and so did every value here but 2147484 where
+// int is 32 bits.
 func TestARetryAfterTooLongToHoldWaitsTheBackoff(t *testing.T) {
-	for _, header := range []string{"2147484", "9223372036", "9223372036854775807", "18446744074"} {
+	for _, header := range []string{
+		"2147484", "9223372036", "9223372036854775807", "18446744074", "Fri, 31 Dec 9999 23:59:59 GMT",
+	} {
 		t.Run(header, func(t *testing.T) {
 			stub := newStub(map[string]stubRoute{
 				"9.9.9.9": {
@@ -313,6 +316,48 @@ func TestARetryAfterTooLongToHoldWaitsTheBackoff(t *testing.T) {
 		})
 	}
 }
+
+// A batch chunk's 429 is read from the response as a lookup's is: through v5.4.0
+// its generated parser failed a date, and anything past 2^31 - 1 where int is
+// 32 bits, as a network error.
+func TestABatchChunksRetryAfterIsReadFromTheResponse(t *testing.T) {
+	for _, header := range []string{"9223372036", "Fri, 31 Dec 9999 23:59:59 GMT"} {
+		t.Run(header, func(t *testing.T) {
+			var requests atomic.Int32
+			transport := roundTripFunc(func(req *http.Request) (*http.Response, error) {
+				requests.Add(1)
+				return &http.Response{
+					StatusCode: http.StatusTooManyRequests,
+					Header:     http.Header{"Content-Type": {"application/json"}, "Retry-After": {header}},
+					Body:       io.NopCloser(strings.NewReader(`{"error":"rate limit exceeded"}`)),
+					Request:    req,
+				}, nil
+			})
+			client, err := New(WithHTTPClient(&http.Client{Transport: transport}), WithoutCache(), WithRetries(1))
+			if err != nil {
+				t.Fatalf("New: %v", err)
+			}
+			ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
+			defer cancel()
+
+			results, err := client.LookupBatch(ctx, []string{"9.9.9.9"})
+			if err != nil {
+				t.Fatalf("LookupBatch: %v", err)
+			}
+			var apiErr *Error
+			if got := results["9.9.9.9"].Err; !errors.As(got, &apiErr) || apiErr.Kind != KindRateLimited {
+				t.Fatalf("error was %v, want rate_limited after one retry", got)
+			}
+			if requests.Load() != 2 {
+				t.Errorf("issued %d request(s), want 2", requests.Load())
+			}
+		})
+	}
+}
+
+type roundTripFunc func(*http.Request) (*http.Response, error)
+
+func (f roundTripFunc) RoundTrip(req *http.Request) (*http.Response, error) { return f(req) }
 
 // Every path the client appends starts with a slash. The generated client kept
 // one trailing slash off it, but through v5.3.3 a second doubled into every

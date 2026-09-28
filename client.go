@@ -168,12 +168,19 @@ func (c *Client) fly(ctx context.Context, ip string, fl *flight, retries int) {
 
 func (c *Client) serve(ctx context.Context, ip string, retries int) (*Result, error) {
 	return withRetry(ctx, retries, func() (*Result, error) {
-		res, err := c.api.LookupIPWithResponse(ctx, ip)
+		rsp, err := c.api.LookupIP(ctx, ip)
 		if err != nil {
 			return nil, errorFromTransport(err)
 		}
-		if res.StatusCode() != http.StatusOK || res.JSON200 == nil {
-			return nil, errorFromResponse(res.StatusCode(), res.HTTPResponse.Header, res.Body)
+		if rsp.StatusCode != http.StatusOK {
+			return nil, errorFromRaw(rsp)
+		}
+		res, err := api.ParseLookupIPResponse(rsp)
+		if err != nil {
+			return nil, errorFromTransport(err)
+		}
+		if res.JSON200 == nil {
+			return nil, errorFromResponse(res.StatusCode(), rsp.Header, res.Body)
 		}
 		return &Result{LookupResponse: *res.JSON200}, nil
 	})
@@ -344,12 +351,19 @@ func (c *Client) shareBatch(ctx context.Context, call callConfig, pending []stri
 func (c *Client) lookupChunk(ctx context.Context, addrs []string, retries int) map[string]BatchResult {
 	out := make(map[string]BatchResult, len(addrs))
 	body, err := withRetry(ctx, retries, func() (*api.BatchLookupResponse, error) {
-		res, err := c.api.LookupBatchWithResponse(ctx, api.BatchLookupRequest{Ips: addrs})
+		rsp, err := c.api.LookupBatch(ctx, api.BatchLookupRequest{Ips: addrs})
 		if err != nil {
 			return nil, errorFromTransport(err)
 		}
-		if res.StatusCode() != http.StatusOK || res.JSON200 == nil {
-			return nil, errorFromResponse(res.StatusCode(), res.HTTPResponse.Header, res.Body)
+		if rsp.StatusCode != http.StatusOK {
+			return nil, errorFromRaw(rsp)
+		}
+		res, err := api.ParseLookupBatchResponse(rsp)
+		if err != nil {
+			return nil, errorFromTransport(err)
+		}
+		if res.JSON200 == nil {
+			return nil, errorFromResponse(res.StatusCode(), rsp.Header, res.Body)
 		}
 		return res.JSON200, nil
 	})
