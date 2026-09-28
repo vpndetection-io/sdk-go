@@ -2,6 +2,13 @@
 
 What each release changed for you, newest first. Each line is a commit's summary, linked to its full description and diff. Releases before 5.3.2 are described by their release commits.
 
+## 5.4.1 - 2026-09-28
+
+### Fixes
+
+- Compile on 32-bit platforms again ([`19bcb5d`](https://github.com/vpndetection-io/sdk-go/commit/19bcb5d393ffb23e7907edbe373708cbb59dbdbf))
+- Read a lookup's and a batch's Retry-After from the response ([`ba31e01`](https://github.com/vpndetection-io/sdk-go/commit/ba31e010f62e88dd8b298b98630c89b2ecc46372))
+
 ## 5.4.0 - 2026-09-27
 
 ### Features
