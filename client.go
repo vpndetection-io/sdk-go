@@ -120,7 +120,11 @@ func New(opts ...Option) (*Client, error) {
 // its answer, sent under the options of the call that led it. The request runs
 // detached from any one caller's context, so a caller giving up fails nobody
 // else: it returns at once, and the answer is cached for the next.
+//
+// An IPv4-mapped address (::ffff:8.8.8.8) is the IPv4 address it carries:
+// judged, sent and cached as that, so the answer names 8.8.8.8.
 func (c *Client) Lookup(ctx context.Context, ip string, opts ...LookupOption) (*Result, error) {
+	ip = unmapped(ip)
 	if IsBogon(ip) {
 		return bogonResult(ip), nil
 	}
@@ -243,7 +247,34 @@ func (c *Client) LookupBatch(
 	}
 	ctx = call.carry(ctx)
 
-	unique := dedupe(ips)
+	// An IPv4-mapped address is looked up as the IPv4 address it carries, once,
+	// and its answer keyed as the caller passed it.
+	asked := dedupe(ips)
+	wire := make([]string, len(asked))
+	mapped := false
+	for i, ip := range asked {
+		wire[i] = unmapped(ip)
+		mapped = mapped || wire[i] != ip
+	}
+	unique := asked
+	if mapped {
+		unique = dedupe(wire)
+	}
+	results, err := c.lookupBatch(ctx, call, unique)
+	if !mapped {
+		return results, err
+	}
+	out := make(map[string]BatchResult, len(asked))
+	for i, ip := range asked {
+		if answer, ok := results[wire[i]]; ok {
+			out[ip] = answer
+		}
+	}
+	return out, err
+}
+
+// lookupBatch answers LookupBatch's addresses, each already the form it is sent in.
+func (c *Client) lookupBatch(ctx context.Context, call callConfig, unique []string) (map[string]BatchResult, error) {
 	results := make(map[string]BatchResult, len(unique))
 	var pending []string
 	for _, ip := range unique {

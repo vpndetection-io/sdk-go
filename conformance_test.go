@@ -26,6 +26,60 @@ func TestIsBogonMatchesTheCanonicalRanges(t *testing.T) {
 	}
 }
 
+// A server listening on :: can see an IPv4 visitor as ::ffff:a.b.c.d, which
+// read whole is inside ::ffff:0:0/96: through v5.4.1 each was answered as a
+// bogon with no request made.
+func TestAnIPv4MappedAddressIsTheIPv4AddressItCarries(t *testing.T) {
+	for _, c := range corpus(t).IPv4Mapped {
+		t.Run(c.IP, func(t *testing.T) {
+			if got := IsBogon(c.IP); got != c.Expect {
+				t.Fatalf("IsBogon(%q) = %v, want %v (%s)", c.IP, got, c.Expect, c.Why)
+			}
+			wantSent := []string{c.Carries}
+			if c.Expect {
+				wantSent = nil
+			}
+
+			stub := newStub(okRoutes(c.Carries))
+			client := newTestClient(t, stub)
+			r, err := client.Lookup(t.Context(), c.IP)
+			if err != nil {
+				t.Fatalf("Lookup(%q): %v", c.IP, err)
+			}
+			if r.IsBogon != c.Expect || r.IP != c.Carries {
+				t.Errorf("Lookup(%q) answered %s, bogon %v; want %s, bogon %v", c.IP, r.IP, r.IsBogon, c.Carries, c.Expect)
+			}
+			if _, err := client.Lookup(t.Context(), c.Carries); err != nil {
+				t.Fatalf("Lookup(%q): %v", c.Carries, err)
+			}
+			if stub.count() != len(wantSent) {
+				t.Errorf("issued %d request(s), want %d: one, cached under the carried address", stub.count(), len(wantSent))
+			}
+
+			batchStub := newStub(okRoutes(c.Carries))
+			uncached := newTestClient(t, batchStub, WithoutCache())
+			asked := dedupe([]string{c.IP, c.Carries})
+			results, err := uncached.LookupBatch(t.Context(), asked)
+			if err != nil {
+				t.Fatalf("LookupBatch: %v", err)
+			}
+			if len(results) != len(asked) {
+				t.Errorf("batch answered %d address(es), want %d, keyed as asked", len(results), len(asked))
+			}
+			if got := results[c.IP]; got.Err != nil || got.Result == nil || got.Result.IP != c.Carries {
+				t.Errorf("batch answered %q with %+v, want %s", c.IP, got, c.Carries)
+			}
+			var sent []string
+			for _, addrs := range batchStub.batched {
+				sent = append(sent, addrs...)
+			}
+			if !slices.Equal(sent, wantSent) {
+				t.Errorf("batch sent %v, want %v", sent, wantSent)
+			}
+		})
+	}
+}
+
 func TestBogonIsAnsweredLocallyInTheFullMaxShape(t *testing.T) {
 	data := corpus(t)
 	stub := newStub(nil)
@@ -442,6 +496,12 @@ type corpusData struct {
 		Expect bool   `json:"expect"`
 		Why    string `json:"why"`
 	} `json:"isBogon"`
+	IPv4Mapped []struct {
+		IP      string `json:"ip"`
+		Carries string `json:"carries"`
+		Expect  bool   `json:"expect"`
+		Why     string `json:"why"`
+	} `json:"ipv4Mapped"`
 	BogonResponse struct {
 		FlagsFalse   []string `json:"flagsFalse"`
 		EmptyObjects []string `json:"emptyObjects"`

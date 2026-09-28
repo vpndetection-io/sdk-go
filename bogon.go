@@ -12,12 +12,14 @@ import (
 //
 // These can never be VPN or proxy infrastructure, so the client answers them
 // itself and they never cost a request. Client.IsBogon is the same check, for
-// code that already holds a client.
+// code that already holds a client. An IPv4-mapped address (::ffff:8.8.8.8) is
+// judged as the IPv4 address it carries.
 func IsBogon(ip string) bool {
 	addr, err := netip.ParseAddr(ip)
 	if err != nil {
 		return false
 	}
+	addr = addr.Unmap()
 	prefixes := bogonPrefixesV6
 	if addr.Is4() {
 		prefixes = bogonPrefixesV4
@@ -28,6 +30,18 @@ func IsBogon(ip string) bool {
 		}
 	}
 	return false
+}
+
+// unmapped is the IPv4 address an IPv4-mapped IPv6 address carries, dotted, and
+// any other string as given. A server listening on :: can see an IPv4 visitor
+// in the mapped form, which read whole is inside ::ffff:0:0/96 and so would be
+// answered as a bogon with no request made.
+func unmapped(ip string) string {
+	addr, err := netip.ParseAddr(ip)
+	if err != nil || !addr.Is4In6() {
+		return ip
+	}
+	return addr.Unmap().String()
 }
 
 // The answer a bogon gets: the full shape the API serves on its widest plan,
