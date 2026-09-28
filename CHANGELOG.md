@@ -2,6 +2,12 @@
 
 What each release changed for you, newest first. Each line is a commit's summary, linked to its full description and diff. Releases before 5.3.2 are described by their release commits.
 
+## 5.4.2 - 2026-09-28
+
+### Fixes
+
+- Judge an IPv4-mapped address as the IPv4 address it carries ([`41d1255`](https://github.com/vpndetection-io/sdk-go/commit/41d12555463afdd0430e9a44375c107abc17a3d3))
+
 ## 5.4.1 - 2026-09-28
 
 ### Fixes
