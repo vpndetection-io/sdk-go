@@ -2,6 +2,12 @@
 
 What each release changed for you, newest first. Each line is a commit's summary, linked to its full description and diff. Releases before 5.3.2 are described by their release commits.
 
+## 5.4.4 - 2026-10-04
+
+### Fixes
+
+- Re-pin the spec to 2026.10.03: metadata needs no license ([`51f44a9`](https://github.com/vpndetection-io/sdk-go/commit/51f44a9eebd5d44bc1b76977edd66fb9b4c23b55))
+
 ## 5.4.3 - 2026-09-29
 
 ### Fixes
