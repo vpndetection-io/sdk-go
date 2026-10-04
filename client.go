@@ -98,7 +98,7 @@ func New(opts ...Option) (*Client, error) {
 
 	client := &Client{
 		Database:    &DatabaseAPI{api: inner, transfer: untimed(httpClient), retries: cfg.retries},
-		Oauth:       &OauthAPI{api: keyless, retries: cfg.retries, sleep: sleep, now: time.Now},
+		Oauth:       &OauthAPI{api: keyless, baseURL: cfg.baseURL, retries: cfg.retries, sleep: sleep, now: time.Now},
 		api:         inner,
 		concurrency: cfg.concurrency,
 		retries:     cfg.retries,

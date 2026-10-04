@@ -210,6 +210,23 @@ keyed, err := vpndetection.New(vpndetection.WithAPIKey(*token.Apikey))
 
 A denied sign-in satisfies `errors.Is(err, vpndetection.ErrOauthAccessDenied)` and a code that ran out `errors.Is(err, vpndetection.ErrOauthExpiredToken)`, and client IDs are issued on request from support@vpndetection.io. `client.Oauth.Revoke(ctx, "your-client-id", *token.RefreshToken)` signs the machine out again.
 
+### Sign in with OAuth (authorization code)
+
+An app that can take a browser redirect signs the person in there instead, with a PKCE pair made for that one sign-in:
+
+```go
+client, err := vpndetection.New()
+redirectURI := "http://127.0.0.1:8765/callback"
+pkce := client.Oauth.CreatePkce()
+
+authURL, err := client.Oauth.AuthorizationURL("your-client-id", redirectURI, pkce.Challenge,
+    vpndetection.AuthorizationURLOptions{Scope: "apikeys.use", State: "your-state"})
+// Open authURL in the browser. Its redirect to redirectURI carries code and state.
+token, err := client.Oauth.ExchangeAuthorizationCode(ctx, "your-client-id", code, pkce.Verifier, redirectURI)
+```
+
+Check that `state` came back as you sent it before you exchange `code`, which works once. The client ID can also be the https URL of a client metadata document your app serves, and such an app is never handed a key, so `token.Apikey` stays nil.
+
 ### Absent is not false
 
 Every field beyond `IP` and `IsVpn` is a pointer, because your plan decides which of them the API sends. A `nil` pointer means "not in your plan", not "checked, and no".
