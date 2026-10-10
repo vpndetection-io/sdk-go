@@ -69,7 +69,8 @@ type Options[Req any] struct {
 	Client *vpndetection.Client
 	// APIKey is ignored when Client is set.
 	APIKey string
-	// BaseURL is ignored when Client is set.
+	// BaseURL is ignored when Client is set. Defaults to
+	// vpndetection.DefaultBaseURL.
 	BaseURL string
 	// Timeout is how long a lookup may hold the request. Defaults to 2500ms,
 	// a much tighter bound than the client's own 30s.
@@ -118,11 +119,15 @@ func New[Req any](options Options[Req], defaultIPSelector IPSelector[Req]) (*Cor
 	}
 	client := options.Client
 	if client == nil {
+		// WithBaseURL refuses an empty URL, so an unset BaseURL must leave the
+		// client's default alone. Through v5.5.0 it was always passed, and New
+		// failed for every caller who set only an APIKey.
+		clientOptions := []vpndetection.Option{vpndetection.WithAPIKey(options.APIKey)}
+		if options.BaseURL != "" {
+			clientOptions = append(clientOptions, vpndetection.WithBaseURL(options.BaseURL))
+		}
 		var err error
-		client, err = vpndetection.New(
-			vpndetection.WithAPIKey(options.APIKey),
-			vpndetection.WithBaseURL(options.BaseURL),
-		)
+		client, err = vpndetection.New(clientOptions...)
 		if err != nil {
 			return nil, err
 		}
