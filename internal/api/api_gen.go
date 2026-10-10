@@ -1114,7 +1114,9 @@ type ClientInterface interface {
 	// AccountRotateApikey Rotate
 	//
 	// Replaces the secret behind a key, keeping its id, name and settings.
-	// The previous secret stops working immediately.
+	// The previous secret stops working immediately. The new secret comes
+	// back in the answer, so this needs `apikeys.reveal` as well as
+	// `apikeys.manage`.
 	//
 	// Corresponds with POST /api/v1/iam/apikeys/{id}/rotate (the `AccountRotateApikey` operationId).
 	AccountRotateApikey(ctx context.Context, id ApikeyIDParam, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -1605,7 +1607,9 @@ func (c *Client) AccountRevokeApikey(ctx context.Context, id ApikeyIDParam, reqE
 // AccountRotateApikey Rotate
 //
 // Replaces the secret behind a key, keeping its id, name and settings.
-// The previous secret stops working immediately.
+// The previous secret stops working immediately. The new secret comes
+// back in the answer, so this needs `apikeys.reveal` as well as
+// `apikeys.manage`.
 //
 // Corresponds with POST /api/v1/iam/apikeys/{id}/rotate (the `AccountRotateApikey` operationId).
 func (c *Client) AccountRotateApikey(ctx context.Context, id ApikeyIDParam, reqEditors ...RequestEditorFn) (*http.Response, error) {
@@ -3079,7 +3083,9 @@ type ClientWithResponsesInterface interface {
 	// AccountRotateApikeyWithResponse Rotate
 	//
 	// Replaces the secret behind a key, keeping its id, name and settings.
-	// The previous secret stops working immediately.
+	// The previous secret stops working immediately. The new secret comes
+	// back in the answer, so this needs `apikeys.reveal` as well as
+	// `apikeys.manage`.
 	//
 	// Returns a wrapper object for the known response body format(s).
 	//
@@ -4875,7 +4881,9 @@ func (c *ClientWithResponses) AccountRevokeApikeyWithResponse(ctx context.Contex
 // AccountRotateApikeyWithResponse Rotate
 //
 // Replaces the secret behind a key, keeping its id, name and settings.
-// The previous secret stops working immediately.
+// The previous secret stops working immediately. The new secret comes
+// back in the answer, so this needs `apikeys.reveal` as well as
+// `apikeys.manage`.
 //
 // Returns a wrapper object for the known response body format(s).
 //
