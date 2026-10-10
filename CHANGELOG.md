@@ -2,6 +2,13 @@
 
 What each release changed for you, newest first. Each line is a commit's summary, linked to its full description and diff. Releases before 5.3.2 are described by their release commits.
 
+## 5.5.1 - 2026-10-10
+
+### Fixes
+
+- Start the middleware with only an API key ([`0fd1613`](https://github.com/vpndetection-io/sdk-go/commit/0fd1613c0e7891848710b83e829adbe06f0a7865))
+- Read a Retry-After as digits or an HTTP date, and nothing else ([`d6d9e9b`](https://github.com/vpndetection-io/sdk-go/commit/d6d9e9bfbf22a8cec3f6c097913a854573f46c07))
+
 ## 5.5.0 - 2026-10-04
 
 ### Features
