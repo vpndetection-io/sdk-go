@@ -8,6 +8,7 @@ package vpndetection
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -172,21 +173,11 @@ func (c *Client) fly(ctx context.Context, ip string, fl *flight, retries int) {
 
 func (c *Client) serve(ctx context.Context, ip string, retries int) (*Result, error) {
 	return withRetry(ctx, retries, func() (*Result, error) {
-		rsp, err := c.api.LookupIP(ctx, ip)
+		answer, err := decodeAnswer[api.LookupResponse](c.api.LookupIP(ctx, ip))
 		if err != nil {
-			return nil, errorFromTransport(err)
+			return nil, err
 		}
-		if rsp.StatusCode != http.StatusOK {
-			return nil, errorFromRaw(rsp)
-		}
-		res, err := api.ParseLookupIPResponse(rsp)
-		if err != nil {
-			return nil, errorFromTransport(err)
-		}
-		if res.JSON200 == nil {
-			return nil, errorFromResponse(res.StatusCode(), rsp.Header, res.Body)
-		}
-		return &Result{LookupResponse: *res.JSON200}, nil
+		return &Result{LookupResponse: *answer}, nil
 	})
 }
 
@@ -207,14 +198,11 @@ func (c *Client) MyIP(ctx context.Context, opts ...LookupOption) (*Result, error
 	}
 	ctx = call.carry(ctx)
 	return withRetry(ctx, call.retries, func() (*Result, error) {
-		res, err := c.api.LookupMyIPWithResponse(ctx)
+		answer, err := decodeAnswer[api.LookupResponse](c.api.LookupMyIP(ctx))
 		if err != nil {
-			return nil, errorFromTransport(err)
+			return nil, err
 		}
-		if res.StatusCode() != http.StatusOK || res.JSON200 == nil {
-			return nil, errorFromResponse(res.StatusCode(), res.HTTPResponse.Header, res.Body)
-		}
-		return &Result{LookupResponse: *res.JSON200}, nil
+		return &Result{LookupResponse: *answer}, nil
 	})
 }
 
@@ -381,22 +369,8 @@ func (c *Client) shareBatch(ctx context.Context, call callConfig, pending []stri
 // exactly as it would have been had each been looked up alone.
 func (c *Client) lookupChunk(ctx context.Context, addrs []string, retries int) map[string]BatchResult {
 	out := make(map[string]BatchResult, len(addrs))
-	body, err := withRetry(ctx, retries, func() (*api.BatchLookupResponse, error) {
-		rsp, err := c.api.LookupBatch(ctx, api.BatchLookupRequest{Ips: addrs})
-		if err != nil {
-			return nil, errorFromTransport(err)
-		}
-		if rsp.StatusCode != http.StatusOK {
-			return nil, errorFromRaw(rsp)
-		}
-		res, err := api.ParseLookupBatchResponse(rsp)
-		if err != nil {
-			return nil, errorFromTransport(err)
-		}
-		if res.JSON200 == nil {
-			return nil, errorFromResponse(res.StatusCode(), rsp.Header, res.Body)
-		}
-		return res.JSON200, nil
+	body, err := withRetry(ctx, retries, func() (*batchAnswer, error) {
+		return decodeBatch(c.api.LookupBatch(ctx, api.BatchLookupRequest{Ips: addrs}))
 	})
 	if err != nil {
 		for _, ip := range addrs {
@@ -405,23 +379,61 @@ func (c *Client) lookupChunk(ctx context.Context, addrs []string, retries int) m
 		return out
 	}
 	for _, ip := range addrs {
-		if served, ok := body.Results[ip]; ok {
-			result := &Result{LookupResponse: served}
+		if raw, ok := body.Results[ip]; ok {
+			served, ok := decodeComplete[api.LookupResponse](raw)
+			if !ok {
+				out[ip] = BatchResult{Err: unreadable(body.status, "the batch answer for "+ip+" was not a lookup answer")}
+				continue
+			}
+			result := &Result{LookupResponse: *served}
 			if c.cache != nil {
 				c.cache.Add(ip, *result)
 			}
 			out[ip] = BatchResult{Result: result}
 			continue
 		}
-		if failed, ok := body.Errors[ip]; ok {
+		if raw, ok := body.Errors[ip]; ok {
+			failed, ok := decodeComplete[api.BatchLookupError](raw)
+			if !ok {
+				out[ip] = BatchResult{Err: unreadable(body.status, "the batch error for "+ip+" was not one")}
+				continue
+			}
 			out[ip] = BatchResult{Err: errorFromEntry(failed.Status, failed.Error)}
 			continue
 		}
-		out[ip] = BatchResult{Err: &Error{
-			Kind: KindServerError, Message: "the batch answer did not include " + ip, StatusCode: http.StatusOK,
-		}}
+		out[ip] = BatchResult{Err: unreadable(body.status, "the batch answer did not include "+ip)}
 	}
 	return out
+}
+
+// A batch answer, its entries kept raw so each is read on its own: one entry
+// the client cannot read is that address's error alone, where through v5.5.2
+// it failed every address in the chunk as a network error.
+type batchAnswer struct {
+	Results map[string]json.RawMessage `json:"results"`
+	Errors  map[string]json.RawMessage `json:"errors"`
+	status  int
+}
+
+// Reads a chunk's answer as decodeAnswer reads any other, except that only its
+// envelope must be whole: an answer holding neither map, or one that is not a
+// map, is unreadable, retried like a 5xx and carrying its status.
+func decodeBatch(res *http.Response, err error) (*batchAnswer, error) {
+	if err != nil {
+		return nil, errorFromTransport(err)
+	}
+	body, err := readBody(res)
+	if err != nil {
+		return nil, err
+	}
+	if res.StatusCode < 200 || res.StatusCode > 299 {
+		return nil, errorFromResponse(res.StatusCode, res.Header, body)
+	}
+	answer := batchAnswer{status: res.StatusCode}
+	if json.Unmarshal(body, &answer) != nil || (answer.Results == nil && answer.Errors == nil) {
+		return nil, unreadable(res.StatusCode, "the response was not a batch answer")
+	}
+	return &answer, nil
 }
 
 // IsBogon reports whether an address is answered locally rather than served.

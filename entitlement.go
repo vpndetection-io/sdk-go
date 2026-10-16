@@ -2,7 +2,6 @@ package vpndetection
 
 import (
 	"context"
-	"net/http"
 
 	"github.com/vpndetection-io/sdk-go/v5/internal/api"
 )
@@ -46,13 +45,6 @@ func (c *Client) MyEntitlement(ctx context.Context, opts ...LookupOption) (*Enti
 	}
 	ctx = call.carry(ctx)
 	return withRetry(ctx, call.retries, func() (*Entitlement, error) {
-		res, err := c.api.MyEntitlementWithResponse(ctx)
-		if err != nil {
-			return nil, errorFromTransport(err)
-		}
-		if res.StatusCode() != http.StatusOK || res.JSON200 == nil {
-			return nil, errorFromResponse(res.StatusCode(), res.HTTPResponse.Header, res.Body)
-		}
-		return res.JSON200, nil
+		return decodeAnswer[Entitlement](c.api.MyEntitlement(ctx))
 	})
 }

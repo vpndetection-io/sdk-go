@@ -24,14 +24,11 @@ type DatabaseAPI struct {
 // ids Download and Checksums take come from Database.Versions.
 func (d *DatabaseAPI) List(ctx context.Context) ([]Database, error) {
 	return withRetry(ctx, d.retries, func() ([]Database, error) {
-		res, err := d.api.ListDatabasesWithResponse(ctx)
+		answer, err := decodeAnswer[databaseList](d.api.ListDatabases(ctx))
 		if err != nil {
-			return nil, errorFromTransport(err)
+			return nil, err
 		}
-		if res.StatusCode() != http.StatusOK || res.JSON200 == nil {
-			return nil, errorFromResponse(res.StatusCode(), res.HTTPResponse.Header, res.Body)
-		}
-		return res.JSON200.Databases, nil
+		return answer.Databases, nil
 	})
 }
 
@@ -40,14 +37,7 @@ func (d *DatabaseAPI) List(ctx context.Context) ([]Database, error) {
 // to decide whether today's build is worth fetching.
 func (d *DatabaseAPI) Metadata(ctx context.Context, id string) (*DatabaseMetadata, error) {
 	return withRetry(ctx, d.retries, func() (*DatabaseMetadata, error) {
-		res, err := d.api.DatabaseMetadataWithResponse(ctx, &api.DatabaseMetadataParams{ID: id})
-		if err != nil {
-			return nil, errorFromTransport(err)
-		}
-		if res.StatusCode() != http.StatusOK || res.JSON200 == nil {
-			return nil, errorFromResponse(res.StatusCode(), res.HTTPResponse.Header, res.Body)
-		}
-		return res.JSON200, nil
+		return decodeAnswer[DatabaseMetadata](d.api.DatabaseMetadata(ctx, &api.DatabaseMetadataParams{ID: id}))
 	})
 }
 
@@ -57,17 +47,14 @@ func (d *DatabaseAPI) Checksums(ctx context.Context, id string, format Format) (
 		return nil, err
 	}
 	return withRetry(ctx, d.retries, func() (*Checksums, error) {
-		res, err := d.api.DatabaseChecksumWithResponse(ctx, &api.DatabaseChecksumParams{
+		answer, err := decodeAnswer[checksumsAnswer](d.api.DatabaseChecksum(ctx, &api.DatabaseChecksumParams{
 			ID:     id,
 			Format: api.DatabaseFormat(format),
-		})
+		}))
 		if err != nil {
-			return nil, errorFromTransport(err)
+			return nil, err
 		}
-		if res.StatusCode() != http.StatusOK || res.JSON200 == nil {
-			return nil, errorFromResponse(res.StatusCode(), res.HTTPResponse.Header, res.Body)
-		}
-		sums := res.JSON200.Checksums
+		sums := answer.Checksums
 		return &Checksums{
 			MD5:    sums.Md5,
 			SHA1:   sums.Sha1,
@@ -85,16 +72,28 @@ func (d *DatabaseAPI) Downloads(ctx context.Context, limit int) ([]Download, err
 		if limit > 0 {
 			params.Limit = &limit
 		}
-		res, err := d.api.ListDownloadsWithResponse(ctx, params)
+		answer, err := decodeAnswer[downloadList](d.api.ListDownloads(ctx, params))
 		if err != nil {
-			return nil, errorFromTransport(err)
+			return nil, err
 		}
-		if res.StatusCode() != http.StatusOK || res.JSON200 == nil {
-			return nil, errorFromResponse(res.StatusCode(), res.HTTPResponse.Header, res.Body)
-		}
-		return res.JSON200.Downloads, nil
+		return answer.Downloads, nil
 	})
 }
+
+// The envelopes three answers arrive in, as the generated client declares them.
+type (
+	databaseList struct {
+		Databases []Database `json:"databases"`
+	}
+	downloadList struct {
+		Downloads []Download `json:"downloads"`
+	}
+	checksumsAnswer struct {
+		Checksums api.DBChecksums `json:"checksums"`
+		Format    string          `json:"format"`
+		ID        string          `json:"id"`
+	}
+)
 
 // DownloadURL is the time-limited URL for one dataset file.
 //
@@ -108,24 +107,35 @@ func (d *DatabaseAPI) DownloadURL(ctx context.Context, id string, format Format)
 	}
 	ctx = withoutRedirects(ctx)
 	return withRetry(ctx, d.retries, func() (string, error) {
-		res, err := d.api.DownloadDatabaseWithResponse(ctx, &api.DownloadDatabaseParams{
+		res, err := d.api.DownloadDatabase(ctx, &api.DownloadDatabaseParams{
 			ID:     id,
 			Format: api.DatabaseFormat(format),
 		})
 		if err != nil {
 			return "", errorFromTransport(err)
 		}
-		if res.StatusCode() != http.StatusFound {
-			return "", errorFromResponse(res.StatusCode(), res.HTTPResponse.Header, res.Body)
+		body, err := readBody(res)
+		if err != nil {
+			return "", err
 		}
-		if res.Headers302 == nil || res.Headers302.Location == nil {
+		// A 2xx is not the redirect this call returns: through v5.5.2 it was a
+		// bad_request sent once. Any other status is classified before its body
+		// is read, so a proxy's JSON-labeled HTML 401 is not a decoding failure.
+		switch {
+		case res.StatusCode >= 200 && res.StatusCode <= 299:
+			return "", unreadable(res.StatusCode, "the API answered with no redirect to the file")
+		case res.StatusCode != http.StatusFound:
+			return "", errorFromResponse(res.StatusCode, res.Header, body)
+		}
+		location := res.Header.Get("Location")
+		if location == "" {
 			return "", &Error{
 				Kind:       KindServerError,
 				Message:    "redirect carried no Location header",
-				StatusCode: res.StatusCode(),
+				StatusCode: res.StatusCode,
 			}
 		}
-		return *res.Headers302.Location, nil
+		return location, nil
 	})
 }
 

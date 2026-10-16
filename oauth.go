@@ -403,20 +403,22 @@ func decodeOauth[T any](res *http.Response, err error, required ...string) (*T, 
 	if res.StatusCode < 200 || res.StatusCode > 299 {
 		return nil, oauthFailure(res, body)
 	}
+	// A 2xx that is not the answer is the server's fault, carrying its status:
+	// through v5.5.2 an HTML page, `[]` or a member of the wrong type was a
+	// network error with none, and a required member sent as null was read as
+	// its zero value.
 	var members map[string]json.RawMessage
-	if err := json.Unmarshal(body, &members); err != nil {
-		return nil, errorFromTransport(err)
+	if json.Unmarshal(body, &members) != nil {
+		return nil, unreadable(res.StatusCode, "the response was not the answer this call returns")
 	}
 	for _, name := range required {
-		if _, ok := members[name]; !ok {
-			return nil, &Error{
-				Kind: KindServerError, Message: "the answer carried no " + name, StatusCode: res.StatusCode,
-			}
+		if value, ok := members[name]; !ok || string(value) == "null" {
+			return nil, unreadable(res.StatusCode, "the answer carried no "+name)
 		}
 	}
 	var out T
-	if err := json.Unmarshal(body, &out); err != nil {
-		return nil, errorFromTransport(err)
+	if json.Unmarshal(body, &out) != nil {
+		return nil, unreadable(res.StatusCode, "the response was not the answer this call returns")
 	}
 	return &out, nil
 }
