@@ -2,6 +2,14 @@
 
 What each release changed for you, newest first. Each line is a commit's summary, linked to its full description and diff. Releases before 5.3.2 are described by their release commits.
 
+## 5.5.3 - 2026-10-16
+
+### Fixes
+
+- Re-pin the spec to 2026.10.15: descriptions in US spelling ([`c923fdd`](https://github.com/vpndetection-io/sdk-go/commit/c923fdd2675312a9dce7d8130c309352112ed068))
+- Retry an answer a call cannot read, as a server error with its status ([`d358979`](https://github.com/vpndetection-io/sdk-go/commit/d358979d9ee8775a427e0b9c78fa912fd4fecefa))
+- Trim the API key, and refuse one holding a control character ([`bbd0a53`](https://github.com/vpndetection-io/sdk-go/commit/bbd0a53333d9e408dcaaa512e7007920c8c94903))
+
 ## 5.5.2 - 2026-10-10
 
 ### Fixes
