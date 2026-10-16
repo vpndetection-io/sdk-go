@@ -600,3 +600,44 @@ func TestMyEntitlementIsNotCached(t *testing.T) {
 		t.Errorf("issued %d request(s), want 3 - the answer was cached", stub.count())
 	}
 }
+
+// A key pasted with blanks around it, a line ending above all, is the key; a key
+// of blanks alone is no key. Through v5.5.2 a blank key went out as a bare
+// "Bearer" and a padded one padded.
+func TestTheKeyIsTrimmedAndBlanksAloneAreNoKey(t *testing.T) {
+	cases := map[string]string{
+		" a-real-key\r\n": "Bearer a-real-key",
+		"\ta-real-key ":   "Bearer a-real-key",
+		"   ":             "",
+		"\r\n":            "",
+	}
+	for key, want := range cases {
+		t.Run(key, func(t *testing.T) {
+			transport := &fixedTransport{status: http.StatusOK, contentType: "application/json", body: `{"ip":"45.83.91.1","is_vpn":false}`}
+			if _, err := fixedClient(t, transport, WithAPIKey(key)).Lookup(t.Context(), "45.83.91.1"); err != nil {
+				t.Fatalf("Lookup: %v", err)
+			}
+			if got := transport.auth[0]; got != want {
+				t.Errorf("Authorization = %q, want %q", got, want)
+			}
+		})
+	}
+}
+
+// A control character inside the key is refused where it is set, before any
+// request is built from it. Through v5.5.2 a tab went out on the wire, and a
+// CR, LF, NUL or DEL failed every call as a retried network error with nothing
+// sent.
+func TestNewRefusesAKeyHoldingAControlCharacter(t *testing.T) {
+	for _, key := range []string{"key\r\nX-Injected: 1", "ke\ty", "key\x00", "key\x7f", "k\ney"} {
+		t.Run(key, func(t *testing.T) {
+			_, err := New(WithAPIKey(key))
+			if err == nil {
+				t.Fatal("New should have refused the key")
+			}
+			if strings.Contains(err.Error(), "key\r") || strings.Contains(err.Error(), "ke\t") {
+				t.Errorf("the error quotes the key: %v", err)
+			}
+		})
+	}
+}
