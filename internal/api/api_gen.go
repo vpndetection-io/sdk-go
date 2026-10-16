@@ -170,7 +170,7 @@ type AccountCreateApikeyRequest struct {
 	// AllowedScopes What the new key may do. Omit for a key that carries no named scope, which is the safe default.
 	AllowedScopes *[]string `json:"allowed_scopes,omitempty"`
 
-	// Name A label you will recognise later. Shown wherever the key is listed.
+	// Name A label you will recognize later. Shown wherever the key is listed.
 	Name string `json:"name"`
 }
 
@@ -234,7 +234,7 @@ type ApikeyDetail struct {
 	Expires       *time.Time         `json:"expires,omitempty"`
 	ID            openapi_types.UUID `json:"id"`
 
-	// KeyPrefix The leading, non-secret part, so a key is recognisable without storing it.
+	// KeyPrefix The leading, non-secret part, so a key is recognizable without storing it.
 	KeyPrefix  string     `json:"key_prefix"`
 	LastUsedAt *time.Time `json:"last_used_at,omitempty"`
 	Name       string     `json:"name"`
@@ -362,7 +362,7 @@ type DatabaseFormat string
 type DatabaseFormatSize struct {
 	// Bytes Size of the published file, or null when it has not been published
 	// yet. int64 because it is not hypothetical: resproxy_ip_14d's MMDB is
-	// 4.58 GB, so a 32-bit field cannot carry the catalogue and `list`
+	// 4.58 GB, so a 32-bit field cannot carry the catalog and `list`
 	// throws for every caller rather than for that one entry.
 	Bytes *int64 `json:"bytes"`
 
@@ -801,7 +801,7 @@ type VpnDetail struct {
 	// valid server response. `scrape` - the operator published the address
 	// through its own API, client or configuration. `registry` - public
 	// registration or naming records attribute it to the operator.
-	// `infer` - the address was extrapolated from confirmed neighbours in
+	// `infer` - the address was extrapolated from confirmed neighbors in
 	// the same block.
 	//
 	//
@@ -853,7 +853,7 @@ type DownloadDatabaseParams struct {
 	ID string `form:"id" json:"id"`
 
 	// Format Not every database is built in every format. The `_provider`
-	// catalogues are keyed by provider id rather than by IP range, so no
+	// catalogs are keyed by provider id rather than by IP range, so no
 	// MMDB exists for them.
 	Format DatabaseFormat `form:"format" json:"format"`
 }
@@ -1154,7 +1154,7 @@ type ClientInterface interface {
 	// AccountOrgMembers Members
 	//
 	// Read-only. Adding or removing a member is an invitation flow with email
-	// in the middle rather than a POST, and modelling it as one here would
+	// in the middle rather than a POST, and modeling it as one here would
 	// promise something this API does not do.
 	//
 	// Corresponds with GET /api/v1/iam/org/members (the `AccountOrgMembers` operationId).
@@ -1677,7 +1677,7 @@ func (c *Client) AccountOrg(ctx context.Context, reqEditors ...RequestEditorFn) 
 // AccountOrgMembers Members
 //
 // Read-only. Adding or removing a member is an invitation flow with email
-// in the middle rather than a POST, and modelling it as one here would
+// in the middle rather than a POST, and modeling it as one here would
 // promise something this API does not do.
 //
 // Corresponds with GET /api/v1/iam/org/members (the `AccountOrgMembers` operationId).
@@ -3129,7 +3129,7 @@ type ClientWithResponsesInterface interface {
 	// AccountOrgMembersWithResponse Members
 	//
 	// Read-only. Adding or removing a member is an invitation flow with email
-	// in the middle rather than a POST, and modelling it as one here would
+	// in the middle rather than a POST, and modeling it as one here would
 	// promise something this API does not do.
 	//
 	// Returns a wrapper object for the known response body format(s).
@@ -4945,7 +4945,7 @@ func (c *ClientWithResponses) AccountOrgWithResponse(ctx context.Context, reqEdi
 // AccountOrgMembersWithResponse Members
 //
 // Read-only. Adding or removing a member is an invitation flow with email
-// in the middle rather than a POST, and modelling it as one here would
+// in the middle rather than a POST, and modeling it as one here would
 // promise something this API does not do.
 //
 // Returns a wrapper object for the known response body format(s).
