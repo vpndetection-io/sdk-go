@@ -48,7 +48,7 @@ fmt.Println(result.IsVpn)               // true
 fmt.Println(vpndetection.BoolValue(result.IsHosting))  // true
 
 if vpn := result.Vpn; vpn != nil && vpn.Provider != nil {
-    fmt.Println(*vpn.Provider)          // mullvad
+    fmt.Println(*vpn.Provider)          // nordvpn
 }
 ```
 
