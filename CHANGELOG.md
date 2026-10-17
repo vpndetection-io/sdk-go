@@ -2,6 +2,12 @@
 
 What each release changed for you, newest first. Each line is a commit's summary, linked to its full description and diff. Releases before 5.3.2 are described by their release commits.
 
+## 5.6.0 - 2026-10-17
+
+### Features
+
+- Re-pin the spec to 2026.10.16: dynamic client registration ([`40ec43a`](https://github.com/vpndetection-io/sdk-go/commit/40ec43a908163dd40fdbcf1a56cc0aa5cfed0106))
+
 ## 5.5.3 - 2026-10-16
 
 ### Fixes
