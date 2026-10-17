@@ -309,6 +309,46 @@ type ClassDetail struct {
 	Provider *string `json:"provider,omitempty"`
 }
 
+// ClientRegistration defines model for ClientRegistration.
+type ClientRegistration struct {
+	ClientID string `json:"client_id"`
+
+	// ClientIDIssuedAt Unix seconds.
+	ClientIDIssuedAt int `json:"client_id_issued_at"`
+
+	// ClientName As the person will see it.
+	ClientName string `json:"client_name"`
+
+	// GrantTypes `authorization_code` and `refresh_token`.
+	GrantTypes    *[]string `json:"grant_types,omitempty"`
+	RedirectUris  []string  `json:"redirect_uris"`
+	ResponseTypes *[]string `json:"response_types,omitempty"`
+
+	// Scope The most this client may be granted: `apikeys.use`.
+	Scope *string `json:"scope,omitempty"`
+
+	// TokenEndpointAuthMethod Always `none`.
+	TokenEndpointAuthMethod string `json:"token_endpoint_auth_method"`
+}
+
+// ClientRegistrationRequest defines model for ClientRegistrationRequest.
+type ClientRegistrationRequest struct {
+	// ClientName Shown to the person as your client's own claim, marked unverified, beside where its redirect goes.
+	ClientName *string `json:"client_name,omitempty"`
+
+	// GrantTypes Must include `authorization_code` when given.
+	GrantTypes *[]string `json:"grant_types,omitempty"`
+
+	// RedirectUris One to ten, each matched exactly, apart from a loopback one's port.
+	RedirectUris []string `json:"redirect_uris"`
+
+	// ResponseTypes Must include `code` when given.
+	ResponseTypes *[]string `json:"response_types,omitempty"`
+
+	// TokenEndpointAuthMethod Read as `none`, whatever is sent.
+	TokenEndpointAuthMethod *string `json:"token_endpoint_auth_method,omitempty"`
+}
+
 // Database One database FAMILY, with your organization's license beside it. A license covers
 // the family, while a download names a specific version, so the ids you
 // pass to the download and checksum endpoints come from `versions`.
@@ -657,11 +697,14 @@ type OauthMetadata struct {
 	DeviceAuthorizationEndpoint       *string   `json:"device_authorization_endpoint,omitempty"`
 	GrantTypesSupported               *[]string `json:"grant_types_supported,omitempty"`
 	Issuer                            string    `json:"issuer"`
-	ResponseTypesSupported            *[]string `json:"response_types_supported,omitempty"`
-	RevocationEndpoint                *string   `json:"revocation_endpoint,omitempty"`
-	ScopesSupported                   *[]string `json:"scopes_supported,omitempty"`
-	ServiceDocumentation              *string   `json:"service_documentation,omitempty"`
-	TokenEndpoint                     string    `json:"token_endpoint"`
+
+	// RegistrationEndpoint RFC 7591 dynamic client registration, for a client that cannot serve its own metadata.
+	RegistrationEndpoint   *string   `json:"registration_endpoint,omitempty"`
+	ResponseTypesSupported *[]string `json:"response_types_supported,omitempty"`
+	RevocationEndpoint     *string   `json:"revocation_endpoint,omitempty"`
+	ScopesSupported        *[]string `json:"scopes_supported,omitempty"`
+	ServiceDocumentation   *string   `json:"service_documentation,omitempty"`
+	TokenEndpoint          string    `json:"token_endpoint"`
 
 	// TokenEndpointAuthMethodsSupported Always `none`. Every client is public and has no secret.
 	TokenEndpointAuthMethodsSupported *[]string `json:"token_endpoint_auth_methods_supported,omitempty"`
@@ -753,7 +796,8 @@ type TokenResponse struct {
 	ExpiresIn int `json:"expires_in"`
 
 	// MslmApikey Not part of OAuth, and only for our own clients: a client that signed
-	// in with a Client ID Metadata Document never receives a key. The API
+	// in with a Client ID Metadata Document or registered itself never
+	// receives a key. The API
 	// key itself, so a device ends up holding an ordinary key. Returned by
 	// the device code and authorization code grants only, never by a
 	// refresh, and only alongside
@@ -904,6 +948,9 @@ type LookupBatchJSONRequestBody = BatchLookupRequest
 
 // OauthDeviceAuthorizationFormdataRequestBody defines body for OauthDeviceAuthorization for application/x-www-form-urlencoded ContentType.
 type OauthDeviceAuthorizationFormdataRequestBody = DeviceAuthorizationRequest
+
+// OauthRegisterJSONRequestBody defines body for OauthRegister for application/json ContentType.
+type OauthRegisterJSONRequestBody = ClientRegistrationRequest
 
 // OauthRevokeFormdataRequestBody defines body for OauthRevoke for application/x-www-form-urlencoded ContentType.
 type OauthRevokeFormdataRequestBody = RevokeRequest
@@ -1235,13 +1282,18 @@ type ClientInterface interface {
 	// with `token_endpoint_auth_method` `none` and your `redirect_uris`. An
 	// https redirect URI must be on the same origin as the `client_id`; a
 	// loopback one (`http://127.0.0.1`, `http://[::1]`, `http://localhost`)
-	// matches on any port. Such a client is granted `apikeys.use` at most.
+	// matches on any port. Such a client is granted `apikeys.use` at most. A
+	// client registered at `/oauth/register` uses the `client_id` it was
+	// given and one of the `redirect_uris` it registered.
 	//
 	// An unknown `client_id` or an unregistered `redirect_uri` is shown to the
-	// USER and never redirected, because sending an error to an address we
-	// have not verified belongs to you is how an open redirector works.
-	// Everything else comes back to your `redirect_uri` with `error`, your
-	// `state`, and `iss`.
+	// person and never redirected, because sending an error to an address we
+	// have not verified belongs to you is how an open redirector works. Any
+	// other error in the request is shown to the person too: anyone can make a
+	// client, so its `redirect_uri` is verified only as its own (RFC 9700
+	// section 4.11.2). Only the person's answer comes back to your
+	// `redirect_uri`: a `code`, or `error` `access_denied`, each with your
+	// `state` and `iss`.
 	//
 	// Corresponds with GET /oauth/authorize (the `OauthAuthorize` operationId).
 	OauthAuthorize(ctx context.Context, params *OauthAuthorizeParams, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -1271,6 +1323,60 @@ type ClientInterface interface {
 	//
 	// Corresponds with POST /oauth/device_authorization (the `OauthDeviceAuthorization` operationId).
 	OauthDeviceAuthorizationWithFormdataBody(ctx context.Context, body OauthDeviceAuthorizationFormdataRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// OauthRegisterWithBody Register
+	//
+	// RFC 7591 dynamic client registration, for a client that cannot use a
+	// Client ID Metadata Document. Post your client's metadata as JSON, then
+	// use the `client_id` in the answer at `/oauth/authorize` and
+	// `/oauth/token`. Nothing is kept until a person approves your client, so
+	// registering again costs nothing and leaves nothing to clean up.
+	//
+	// Each redirect URI must be https on a public host name, or http on a
+	// loopback address (`127.0.0.1`, `[::1]`, `localhost`), which then
+	// matches on any port. A custom URI scheme is refused: use a loopback
+	// redirect instead. So is a host on one of our own domains.
+	//
+	// `client_name` is shown to the person as your client's own claim, with
+	// where its redirect goes beside it. A name that renders blank, or mixes
+	// Latin letters with Cyrillic or Greek ones, is shown as an unnamed
+	// application.
+	//
+	// The client is public whatever you ask for: `token_endpoint_auth_method`
+	// comes back `none`, there is no client secret, and every authorization
+	// proves itself with PKCE. It may be granted `apikeys.use` at most.
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with POST /oauth/register (the `OauthRegister` operationId).
+	OauthRegisterWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// OauthRegister Register
+	//
+	// RFC 7591 dynamic client registration, for a client that cannot use a
+	// Client ID Metadata Document. Post your client's metadata as JSON, then
+	// use the `client_id` in the answer at `/oauth/authorize` and
+	// `/oauth/token`. Nothing is kept until a person approves your client, so
+	// registering again costs nothing and leaves nothing to clean up.
+	//
+	// Each redirect URI must be https on a public host name, or http on a
+	// loopback address (`127.0.0.1`, `[::1]`, `localhost`), which then
+	// matches on any port. A custom URI scheme is refused: use a loopback
+	// redirect instead. So is a host on one of our own domains.
+	//
+	// `client_name` is shown to the person as your client's own claim, with
+	// where its redirect goes beside it. A name that renders blank, or mixes
+	// Latin letters with Cyrillic or Greek ones, is shown as an unnamed
+	// application.
+	//
+	// The client is public whatever you ask for: `token_endpoint_auth_method`
+	// comes back `none`, there is no client secret, and every authorization
+	// proves itself with PKCE. It may be granted `apikeys.use` at most.
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with POST /oauth/register (the `OauthRegister` operationId).
+	OauthRegister(ctx context.Context, body OauthRegisterJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// OauthRevokeWithBody Revoke
 	//
@@ -1798,13 +1904,18 @@ func (c *Client) LookupMyIP(ctx context.Context, reqEditors ...RequestEditorFn) 
 // with `token_endpoint_auth_method` `none` and your `redirect_uris`. An
 // https redirect URI must be on the same origin as the `client_id`; a
 // loopback one (`http://127.0.0.1`, `http://[::1]`, `http://localhost`)
-// matches on any port. Such a client is granted `apikeys.use` at most.
+// matches on any port. Such a client is granted `apikeys.use` at most. A
+// client registered at `/oauth/register` uses the `client_id` it was
+// given and one of the `redirect_uris` it registered.
 //
 // An unknown `client_id` or an unregistered `redirect_uri` is shown to the
-// USER and never redirected, because sending an error to an address we
-// have not verified belongs to you is how an open redirector works.
-// Everything else comes back to your `redirect_uri` with `error`, your
-// `state`, and `iss`.
+// person and never redirected, because sending an error to an address we
+// have not verified belongs to you is how an open redirector works. Any
+// other error in the request is shown to the person too: anyone can make a
+// client, so its `redirect_uri` is verified only as its own (RFC 9700
+// section 4.11.2). Only the person's answer comes back to your
+// `redirect_uri`: a `code`, or `error` `access_denied`, each with your
+// `state` and `iss`.
 //
 // Corresponds with GET /oauth/authorize (the `OauthAuthorize` operationId).
 func (c *Client) OauthAuthorize(ctx context.Context, params *OauthAuthorizeParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
@@ -1855,6 +1966,80 @@ func (c *Client) OauthDeviceAuthorizationWithBody(ctx context.Context, contentTy
 // Corresponds with POST /oauth/device_authorization (the `OauthDeviceAuthorization` operationId).
 func (c *Client) OauthDeviceAuthorizationWithFormdataBody(ctx context.Context, body OauthDeviceAuthorizationFormdataRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewOauthDeviceAuthorizationRequestWithFormdataBody(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// OauthRegisterWithBody Register
+//
+// RFC 7591 dynamic client registration, for a client that cannot use a
+// Client ID Metadata Document. Post your client's metadata as JSON, then
+// use the `client_id` in the answer at `/oauth/authorize` and
+// `/oauth/token`. Nothing is kept until a person approves your client, so
+// registering again costs nothing and leaves nothing to clean up.
+//
+// Each redirect URI must be https on a public host name, or http on a
+// loopback address (`127.0.0.1`, `[::1]`, `localhost`), which then
+// matches on any port. A custom URI scheme is refused: use a loopback
+// redirect instead. So is a host on one of our own domains.
+//
+// `client_name` is shown to the person as your client's own claim, with
+// where its redirect goes beside it. A name that renders blank, or mixes
+// Latin letters with Cyrillic or Greek ones, is shown as an unnamed
+// application.
+//
+// The client is public whatever you ask for: `token_endpoint_auth_method`
+// comes back `none`, there is no client secret, and every authorization
+// proves itself with PKCE. It may be granted `apikeys.use` at most.
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with POST /oauth/register (the `OauthRegister` operationId).
+func (c *Client) OauthRegisterWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewOauthRegisterRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// OauthRegister Register
+//
+// RFC 7591 dynamic client registration, for a client that cannot use a
+// Client ID Metadata Document. Post your client's metadata as JSON, then
+// use the `client_id` in the answer at `/oauth/authorize` and
+// `/oauth/token`. Nothing is kept until a person approves your client, so
+// registering again costs nothing and leaves nothing to clean up.
+//
+// Each redirect URI must be https on a public host name, or http on a
+// loopback address (`127.0.0.1`, `[::1]`, `localhost`), which then
+// matches on any port. A custom URI scheme is refused: use a loopback
+// redirect instead. So is a host on one of our own domains.
+//
+// `client_name` is shown to the person as your client's own claim, with
+// where its redirect goes beside it. A name that renders blank, or mixes
+// Latin letters with Cyrillic or Greek ones, is shown as an unnamed
+// application.
+//
+// The client is public whatever you ask for: `token_endpoint_auth_method`
+// comes back `none`, there is no client secret, and every authorization
+// proves itself with PKCE. It may be granted `apikeys.use` at most.
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with POST /oauth/register (the `OauthRegister` operationId).
+func (c *Client) OauthRegister(ctx context.Context, body OauthRegisterJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewOauthRegisterRequest(c.Server, body)
 	if err != nil {
 		return nil, err
 	}
@@ -2776,6 +2961,46 @@ func NewOauthDeviceAuthorizationRequestWithBody(server string, contentType strin
 	return req, nil
 }
 
+// NewOauthRegisterRequest calls the generic OauthRegister builder with application/json body
+func NewOauthRegisterRequest(server string, body OauthRegisterJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewOauthRegisterRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewOauthRegisterRequestWithBody constructs an http.Request for the OauthRegister method, with any body, and a specified content type
+func NewOauthRegisterRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/oauth/register")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
 // NewOauthRevokeRequestWithFormdataBody calls the generic OauthRevoke builder with application/x-www-form-urlencoded body
 func NewOauthRevokeRequestWithFormdataBody(server string, body OauthRevokeFormdataRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
@@ -3214,13 +3439,18 @@ type ClientWithResponsesInterface interface {
 	// with `token_endpoint_auth_method` `none` and your `redirect_uris`. An
 	// https redirect URI must be on the same origin as the `client_id`; a
 	// loopback one (`http://127.0.0.1`, `http://[::1]`, `http://localhost`)
-	// matches on any port. Such a client is granted `apikeys.use` at most.
+	// matches on any port. Such a client is granted `apikeys.use` at most. A
+	// client registered at `/oauth/register` uses the `client_id` it was
+	// given and one of the `redirect_uris` it registered.
 	//
 	// An unknown `client_id` or an unregistered `redirect_uri` is shown to the
-	// USER and never redirected, because sending an error to an address we
-	// have not verified belongs to you is how an open redirector works.
-	// Everything else comes back to your `redirect_uri` with `error`, your
-	// `state`, and `iss`.
+	// person and never redirected, because sending an error to an address we
+	// have not verified belongs to you is how an open redirector works. Any
+	// other error in the request is shown to the person too: anyone can make a
+	// client, so its `redirect_uri` is verified only as its own (RFC 9700
+	// section 4.11.2). Only the person's answer comes back to your
+	// `redirect_uri`: a `code`, or `error` `access_denied`, each with your
+	// `state` and `iss`.
 	//
 	// Returns a wrapper object for the known response body format(s).
 	//
@@ -3252,6 +3482,60 @@ type ClientWithResponsesInterface interface {
 	//
 	// Corresponds with POST /oauth/device_authorization (the `OauthDeviceAuthorization` operationId).
 	OauthDeviceAuthorizationWithFormdataBodyWithResponse(ctx context.Context, body OauthDeviceAuthorizationFormdataRequestBody, reqEditors ...RequestEditorFn) (*OauthDeviceAuthorizationResponse, error)
+
+	// OauthRegisterWithBodyWithResponse Register
+	//
+	// RFC 7591 dynamic client registration, for a client that cannot use a
+	// Client ID Metadata Document. Post your client's metadata as JSON, then
+	// use the `client_id` in the answer at `/oauth/authorize` and
+	// `/oauth/token`. Nothing is kept until a person approves your client, so
+	// registering again costs nothing and leaves nothing to clean up.
+	//
+	// Each redirect URI must be https on a public host name, or http on a
+	// loopback address (`127.0.0.1`, `[::1]`, `localhost`), which then
+	// matches on any port. A custom URI scheme is refused: use a loopback
+	// redirect instead. So is a host on one of our own domains.
+	//
+	// `client_name` is shown to the person as your client's own claim, with
+	// where its redirect goes beside it. A name that renders blank, or mixes
+	// Latin letters with Cyrillic or Greek ones, is shown as an unnamed
+	// application.
+	//
+	// The client is public whatever you ask for: `token_endpoint_auth_method`
+	// comes back `none`, there is no client secret, and every authorization
+	// proves itself with PKCE. It may be granted `apikeys.use` at most.
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /oauth/register (the `OauthRegister` operationId).
+	OauthRegisterWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*OauthRegisterResponse, error)
+
+	// OauthRegisterWithResponse Register
+	//
+	// RFC 7591 dynamic client registration, for a client that cannot use a
+	// Client ID Metadata Document. Post your client's metadata as JSON, then
+	// use the `client_id` in the answer at `/oauth/authorize` and
+	// `/oauth/token`. Nothing is kept until a person approves your client, so
+	// registering again costs nothing and leaves nothing to clean up.
+	//
+	// Each redirect URI must be https on a public host name, or http on a
+	// loopback address (`127.0.0.1`, `[::1]`, `localhost`), which then
+	// matches on any port. A custom URI scheme is refused: use a loopback
+	// redirect instead. So is a host on one of our own domains.
+	//
+	// `client_name` is shown to the person as your client's own claim, with
+	// where its redirect goes beside it. A name that renders blank, or mixes
+	// Latin letters with Cyrillic or Greek ones, is shown as an unnamed
+	// application.
+	//
+	// The client is public whatever you ask for: `token_endpoint_auth_method`
+	// comes back `none`, there is no client secret, and every authorization
+	// proves itself with PKCE. It may be granted `apikeys.use` at most.
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /oauth/register (the `OauthRegister` operationId).
+	OauthRegisterWithResponse(ctx context.Context, body OauthRegisterJSONRequestBody, reqEditors ...RequestEditorFn) (*OauthRegisterResponse, error)
 
 	// OauthRevokeWithBodyWithResponse Revoke
 	//
@@ -4481,6 +4765,54 @@ func (r OauthDeviceAuthorizationResponse) ContentType() string {
 	return ""
 }
 
+type OauthRegisterResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON201 the response for an HTTP 201 `application/json` response
+	JSON201 *ClientRegistration
+	// JSON400 the response for an HTTP 400 `application/json` response
+	JSON400 *OauthError
+}
+
+// GetJSON201 returns the response for an HTTP 201 `application/json` response
+func (r OauthRegisterResponse) GetJSON201() *ClientRegistration {
+	return r.JSON201
+}
+
+// GetJSON400 returns the response for an HTTP 400 `application/json` response
+func (r OauthRegisterResponse) GetJSON400() *OauthError {
+	return r.JSON400
+}
+
+// GetBody returns the raw response body bytes
+func (r OauthRegisterResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r OauthRegisterResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r OauthRegisterResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r OauthRegisterResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 type OauthRevokeResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -5054,13 +5386,18 @@ func (c *ClientWithResponses) LookupMyIPWithResponse(ctx context.Context, reqEdi
 // with `token_endpoint_auth_method` `none` and your `redirect_uris`. An
 // https redirect URI must be on the same origin as the `client_id`; a
 // loopback one (`http://127.0.0.1`, `http://[::1]`, `http://localhost`)
-// matches on any port. Such a client is granted `apikeys.use` at most.
+// matches on any port. Such a client is granted `apikeys.use` at most. A
+// client registered at `/oauth/register` uses the `client_id` it was
+// given and one of the `redirect_uris` it registered.
 //
 // An unknown `client_id` or an unregistered `redirect_uri` is shown to the
-// USER and never redirected, because sending an error to an address we
-// have not verified belongs to you is how an open redirector works.
-// Everything else comes back to your `redirect_uri` with `error`, your
-// `state`, and `iss`.
+// person and never redirected, because sending an error to an address we
+// have not verified belongs to you is how an open redirector works. Any
+// other error in the request is shown to the person too: anyone can make a
+// client, so its `redirect_uri` is verified only as its own (RFC 9700
+// section 4.11.2). Only the person's answer comes back to your
+// `redirect_uri`: a `code`, or `error` `access_denied`, each with your
+// `state` and `iss`.
 //
 // Returns a wrapper object for the known response body format(s).
 //
@@ -5109,6 +5446,72 @@ func (c *ClientWithResponses) OauthDeviceAuthorizationWithFormdataBodyWithRespon
 		return nil, err
 	}
 	return ParseOauthDeviceAuthorizationResponse(rsp)
+}
+
+// OauthRegisterWithBodyWithResponse Register
+//
+// RFC 7591 dynamic client registration, for a client that cannot use a
+// Client ID Metadata Document. Post your client's metadata as JSON, then
+// use the `client_id` in the answer at `/oauth/authorize` and
+// `/oauth/token`. Nothing is kept until a person approves your client, so
+// registering again costs nothing and leaves nothing to clean up.
+//
+// Each redirect URI must be https on a public host name, or http on a
+// loopback address (`127.0.0.1`, `[::1]`, `localhost`), which then
+// matches on any port. A custom URI scheme is refused: use a loopback
+// redirect instead. So is a host on one of our own domains.
+//
+// `client_name` is shown to the person as your client's own claim, with
+// where its redirect goes beside it. A name that renders blank, or mixes
+// Latin letters with Cyrillic or Greek ones, is shown as an unnamed
+// application.
+//
+// The client is public whatever you ask for: `token_endpoint_auth_method`
+// comes back `none`, there is no client secret, and every authorization
+// proves itself with PKCE. It may be granted `apikeys.use` at most.
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /oauth/register (the `OauthRegister` operationId).
+func (c *ClientWithResponses) OauthRegisterWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*OauthRegisterResponse, error) {
+	rsp, err := c.OauthRegisterWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseOauthRegisterResponse(rsp)
+}
+
+// OauthRegisterWithResponse Register
+//
+// RFC 7591 dynamic client registration, for a client that cannot use a
+// Client ID Metadata Document. Post your client's metadata as JSON, then
+// use the `client_id` in the answer at `/oauth/authorize` and
+// `/oauth/token`. Nothing is kept until a person approves your client, so
+// registering again costs nothing and leaves nothing to clean up.
+//
+// Each redirect URI must be https on a public host name, or http on a
+// loopback address (`127.0.0.1`, `[::1]`, `localhost`), which then
+// matches on any port. A custom URI scheme is refused: use a loopback
+// redirect instead. So is a host on one of our own domains.
+//
+// `client_name` is shown to the person as your client's own claim, with
+// where its redirect goes beside it. A name that renders blank, or mixes
+// Latin letters with Cyrillic or Greek ones, is shown as an unnamed
+// application.
+//
+// The client is public whatever you ask for: `token_endpoint_auth_method`
+// comes back `none`, there is no client secret, and every authorization
+// proves itself with PKCE. It may be granted `apikeys.use` at most.
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /oauth/register (the `OauthRegister` operationId).
+func (c *ClientWithResponses) OauthRegisterWithResponse(ctx context.Context, body OauthRegisterJSONRequestBody, reqEditors ...RequestEditorFn) (*OauthRegisterResponse, error) {
+	rsp, err := c.OauthRegister(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseOauthRegisterResponse(rsp)
 }
 
 // OauthRevokeWithBodyWithResponse Revoke
@@ -6080,6 +6483,39 @@ func ParseOauthDeviceAuthorizationResponse(rsp *http.Response) (*OauthDeviceAuth
 			return nil, err
 		}
 		response.JSON401 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseOauthRegisterResponse parses an HTTP response from a OauthRegisterWithResponse call
+func ParseOauthRegisterResponse(rsp *http.Response) (*OauthRegisterResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &OauthRegisterResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest ClientRegistration
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest OauthError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
 
 	}
 
