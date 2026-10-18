@@ -2,6 +2,12 @@
 
 What each release changed for you, newest first. Each line is a commit's summary, linked to its full description and diff. Releases before 5.3.2 are described by their release commits.
 
+## 5.7.0 - 2026-10-18
+
+### Features
+
+- Re-pin the spec to 2026.10.18: is_pubproxy and the pubproxy detail ([`f4da8a6`](https://github.com/vpndetection-io/sdk-go/commit/f4da8a6dc9ac2268d3b5ccbb9c5d97e0d8b85594))
+
 ## 5.6.0 - 2026-10-17
 
 ### Features
