@@ -13,6 +13,7 @@ type (
 	VpnDetail      = api.VpnDetail
 	ClassDetail    = api.ClassDetail
 	ProxyDetail    = api.ProxyDetail
+	PubproxyDetail = api.PubproxyDetail
 	// Date is a calendar date with no time of day, as `last_seen` and
 	// `first_seen` carry.
 	Date = types.Date

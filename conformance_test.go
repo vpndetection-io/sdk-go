@@ -144,6 +144,7 @@ func TestLookupPreservesAbsentVersusFalseAcrossEveryPlanShape(t *testing.T) {
 			assertObject(t, result, "vpn", c.Expect.Vpn)
 			assertObject(t, result, "hosting", c.Expect.Hosting)
 			assertObject(t, result, "dcproxy", c.Expect.Dcproxy)
+			assertObject(t, result, "pubproxy", c.Expect.Pubproxy)
 		})
 	}
 }
@@ -519,6 +520,7 @@ type corpusData struct {
 			Vpn          json.RawMessage `json:"vpn"`
 			Hosting      json.RawMessage `json:"hosting"`
 			Dcproxy      json.RawMessage `json:"dcproxy"`
+			Pubproxy     json.RawMessage `json:"pubproxy"`
 		} `json:"expect"`
 	} `json:"lookup"`
 	Errors []struct {

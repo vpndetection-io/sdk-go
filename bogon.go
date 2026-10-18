@@ -63,6 +63,7 @@ func bogonResult(ip string) *Result {
 			IsResproxy: ptr(false),
 			IsDcproxy:  ptr(false),
 			IsMobproxy: ptr(false),
+			IsPubproxy: ptr(false),
 			Vpn:        &VpnDetail{},
 			Hosting:    &ClassDetail{},
 			Relay:      &ClassDetail{},
@@ -71,6 +72,7 @@ func bogonResult(ip string) *Result {
 			Resproxy:   &ProxyDetail{},
 			Dcproxy:    &ProxyDetail{},
 			Mobproxy:   &ProxyDetail{},
+			Pubproxy:   &PubproxyDetail{},
 		},
 	}
 }

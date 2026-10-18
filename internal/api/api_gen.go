@@ -647,7 +647,10 @@ type LookupResponse struct {
 	// IsMobproxy Whether the address was seen in a mobile proxy pool. Scale and above.
 	IsMobproxy *bool `json:"is_mobproxy,omitempty"`
 
-	// IsRelay Whether the address is a privacy relay egress. Starter and above.
+	// IsPubproxy Whether a public proxy, one anyone can connect through, listens on the address or sends its traffic out from it. Scale and above.
+	IsPubproxy *bool `json:"is_pubproxy,omitempty"`
+
+	// IsRelay Whether the address is privacy relay or enterprise web gateway egress, such as iCloud Private Relay or Zscaler. Starter and above.
 	IsRelay *bool `json:"is_relay,omitempty"`
 
 	// IsResproxy Whether the address was seen in a residential proxy pool. Scale and above.
@@ -663,6 +666,9 @@ type LookupResponse struct {
 
 	// Mobproxy Detail for `is_mobproxy`. Empty when false. Max only.
 	Mobproxy *ProxyDetail `json:"mobproxy,omitempty"`
+
+	// Pubproxy Detail for `is_pubproxy`. Empty when false. Max only.
+	Pubproxy *PubproxyDetail `json:"pubproxy,omitempty"`
 
 	// Relay Detail for `is_relay`. Empty when false. Scale and above.
 	Relay *ClassDetail `json:"relay,omitempty"`
@@ -746,6 +752,44 @@ type ProxyDetail struct {
 	//
 	// Example: 2
 	ProvidersNum *int `json:"providers_num,omitempty"`
+}
+
+// PubproxyDetail The address in Public Proxy IP, open proxies anyone can connect
+// through, over a rolling 90 day window. It covers both ends of a proxy:
+// the address it listens on and the address its traffic leaves from.
+// Every key is present when the object is populated; the object is `{}`
+// when `is_pubproxy` is false.
+type PubproxyDetail struct {
+	// Entry Whether a public proxy listens on this address.
+	//
+	// Example: true
+	Entry *bool `json:"entry,omitempty"`
+
+	// Exit Whether a public proxy's traffic leaves from this address.
+	//
+	// Example: false
+	Exit *bool `json:"exit,omitempty"`
+
+	// LastSeen The most recent date within the window a proxy on this address was seen.
+	//
+	// Example: 2026-10-17
+	LastSeen *openapi_types.Date `json:"last_seen,omitempty"`
+
+	// LastUsable The most recent date within the window a request through a proxy on
+	// this address was answered, as YYYY-MM-DD, or an empty string when
+	// none was.
+	//
+	//
+	// Example: 2026-10-17
+	LastUsable *string `json:"last_usable,omitempty"`
+
+	// Protocols The protocols of the proxies listening on or leaving from this
+	// address: `http`, `https` (an HTTP proxy that also tunnels HTTPS),
+	// `socks4` or `socks5`. Empty where only the address is known.
+	//
+	//
+	// Example: ["http","https"]
+	Protocols *[]string `json:"protocols,omitempty"`
 }
 
 // RevokeRequest defines model for RevokeRequest.
