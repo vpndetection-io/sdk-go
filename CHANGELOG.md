@@ -2,6 +2,12 @@
 
 What each release changed for you, newest first. Each line is a commit's summary, linked to its full description and diff. Releases before 5.3.2 are described by their release commits.
 
+## 5.8.0 - 2026-10-19
+
+### Features
+
+- Re-pin the spec to 2026.10.19: num_ports and num_proxies in the pubproxy detail ([`fdc8607`](https://github.com/vpndetection-io/sdk-go/commit/fdc8607d0e10d6a381dfc3cccdbdb34b8027d112))
+
 ## 5.7.0 - 2026-10-18
 
 ### Features
