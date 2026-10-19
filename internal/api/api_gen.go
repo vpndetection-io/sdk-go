@@ -313,8 +313,8 @@ type ClassDetail struct {
 type ClientRegistration struct {
 	ClientID string `json:"client_id"`
 
-	// ClientIDIssuedAt Unix seconds.
-	ClientIDIssuedAt int `json:"client_id_issued_at"`
+	// ClientIDIssuedAt Unix seconds. 64-bit, since 32 bits run out on 2038-01-19.
+	ClientIDIssuedAt int64 `json:"client_id_issued_at"`
 
 	// ClientName As the person will see it.
 	ClientName string `json:"client_name"`
@@ -755,10 +755,10 @@ type ProxyDetail struct {
 }
 
 // PubproxyDetail The address in Public Proxy IP, open proxies anyone can connect
-// through, over a rolling 90 day window. It covers both ends of a proxy:
-// the address it listens on and the address its traffic leaves from.
-// Every key is present when the object is populated; the object is `{}`
-// when `is_pubproxy` is false.
+// through, measured over a rolling 90 day window. An address is either
+// end of a proxy, or both: where it listens, and where its traffic
+// leaves from. Every key is present when the object is populated; the
+// object is `{}` when `is_pubproxy` is false.
 type PubproxyDetail struct {
 	// Entry Whether a public proxy listens on this address.
 	//
@@ -782,6 +782,20 @@ type PubproxyDetail struct {
 	//
 	// Example: 2026-10-17
 	LastUsable *string `json:"last_usable,omitempty"`
+
+	// NumPorts How many distinct ports a public proxy listens on at this address;
+	// 0 when it is only an exit, or its port is not known.
+	//
+	//
+	// Example: 1
+	NumPorts *int `json:"num_ports,omitempty"`
+
+	// NumProxies How many distinct public proxies' traffic left from this address;
+	// 0 when it is only an entry.
+	//
+	//
+	// Example: 0
+	NumProxies *int `json:"num_proxies,omitempty"`
 
 	// Protocols The protocols of the proxies listening on or leaving from this
 	// address: `http`, `https` (an HTTP proxy that also tunnels HTTPS),
