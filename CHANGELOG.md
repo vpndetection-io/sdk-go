@@ -2,6 +2,13 @@
 
 What each release changed for you, newest first. Each line is a commit's summary, linked to its full description and diff. Releases before 5.3.2 are described by their release commits.
 
+## 5.9.0 - 2026-10-20
+
+### Features
+
+- Add Location and Asn to lookup results, a bogon's included ([`567de5d`](https://github.com/vpndetection-io/sdk-go/commit/567de5d1f2cbced4caa2bd2f0087ab8385cd39f9))
+- Read open on databases and downloads, and mark vpn.method deprecated ([`4f8a532`](https://github.com/vpndetection-io/sdk-go/commit/4f8a53214ee800ac81fe4c9c7979b51e9b65fed0))
+
 ## 5.8.0 - 2026-10-19
 
 ### Features
