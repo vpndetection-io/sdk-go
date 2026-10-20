@@ -250,6 +250,36 @@ type ApikeyList struct {
 	Rc   string         `json:"rc"`
 }
 
+// Asn The autonomous system that announces the address. Free and paid plans.
+// Each field is present whenever the object is: `asn` is 0 and the rest
+// empty where no announcement covers the address.
+type Asn struct {
+	// Asn The AS number, 0 when no announcement covers the address.
+	//
+	// Example: 9009
+	Asn int `json:"asn"`
+
+	// Domain The AS operator's own registrable domain.
+	//
+	// Example: m247global.com
+	Domain string `json:"domain"`
+
+	// Name Name of the organization that operates the AS.
+	//
+	// Example: M247 Europe SRL
+	Name string `json:"name"`
+
+	// Prefix The announced BGP prefix that covers the address, the most specific when several do.
+	//
+	// Example: 146.70.116.0/24
+	Prefix string `json:"prefix"`
+
+	// Type The kind of network the AS runs: isp, hosting, education, government or business.
+	//
+	// Example: hosting
+	Type string `json:"type"`
+}
+
 // BatchLookupError Why one entry of a batch was not answered, as the single lookup would have reported it.
 type BatchLookupError struct {
 	// Error The same message the single lookup carries for that status.
@@ -374,6 +404,13 @@ type Database struct {
 
 	// NoticeDueAt The last day notice of non-renewal can be given for the term ending at renews_at. Null whenever renews_at is, and when the agreement records no notice period.
 	NoticeDueAt *time.Time `json:"notice_due_at"`
+
+	// Open An Open database: free under CC BY-SA 4.0 (credit VPNDetection,
+	// https://vpndetection.io, and share what you build from it under the
+	// same license). Every organization holds a `standard` license to it
+	// from the start, which `standing` and `license_type` report like any
+	// other.
+	Open bool `json:"open"`
 
 	// RenewsAt When a rolling license next renews. Null when the license has no defined term, when expires sets a hard stop instead, and when there is no license.
 	RenewsAt *time.Time `json:"renews_at"`
@@ -509,13 +546,16 @@ type Download struct {
 	// presigned redirect straight to object storage, so we never observe it.
 	// int64 for the same reason as DatabaseFormatSize.bytes - it is the
 	// size of the same object.
-	Bytes      *int64          `json:"bytes"`
-	ClientIP   *string         `json:"client_ip"`
-	Created    time.Time       `json:"created"`
-	DatasetID  string          `json:"dataset_id"`
-	Format     string          `json:"format"`
-	HTTPStatus *int            `json:"http_status"`
-	Outcome    DownloadOutcome `json:"outcome"`
+	Bytes      *int64    `json:"bytes"`
+	ClientIP   *string   `json:"client_ip"`
+	Created    time.Time `json:"created"`
+	DatasetID  string    `json:"dataset_id"`
+	Format     string    `json:"format"`
+	HTTPStatus *int      `json:"http_status"`
+
+	// Open A download of an Open database.
+	Open    bool            `json:"open"`
+	Outcome DownloadOutcome `json:"outcome"`
 
 	// Sample The evaluation sample rather than the database itself.
 	Sample    bool    `json:"sample"`
@@ -608,6 +648,62 @@ type Identity struct {
 	User   AccountUser `json:"user"`
 }
 
+// Location Where the address is, to the country: the fields of our IP Country
+// database. Free and paid plans. Each field is present whenever the
+// object is, so an address in no country, or a private one, answers
+// empty strings.
+type Location struct {
+	// Continent Continent code: AF, AN (Antarctica), AS, EU, NA, OC or SA.
+	//
+	// Example: EU
+	Continent string `json:"continent"`
+
+	// ContinentName Continent name.
+	//
+	// Example: Europe
+	ContinentName string `json:"continent_name"`
+
+	// Country ISO 3166-1 alpha-2 country code.
+	//
+	// Example: AT
+	Country string `json:"country"`
+
+	// CountryName Country name.
+	//
+	// Example: Austria
+	CountryName string `json:"country_name"`
+
+	// CurrencyCode ISO 4217 code of the country's currency, where there is one.
+	//
+	// Example: EUR
+	CurrencyCode string `json:"currency_code"`
+
+	// CurrencyName Name of the country's currency, where there is one.
+	//
+	// Example: Euro
+	CurrencyName string `json:"currency_name"`
+
+	// CurrencySymbol Symbol of the country's currency, where known.
+	//
+	// Example: €
+	CurrencySymbol string `json:"currency_symbol"`
+
+	// FlagEmoji The country's flag, as an emoji.
+	//
+	// Example: 🇦🇹
+	FlagEmoji string `json:"flag_emoji"`
+
+	// FlagUnicode The Unicode code points of the flag emoji.
+	//
+	// Example: U+1F1E6 U+1F1F9
+	FlagUnicode string `json:"flag_unicode"`
+
+	// Timezone IANA timezone of the address.
+	//
+	// Example: Europe/Vienna
+	Timezone string `json:"timezone"`
+}
+
 // LookupError Every non-2xx response carries this shape.
 type LookupError struct {
 	// Error A human-readable explanation of the failure.
@@ -621,13 +717,18 @@ type LookupError struct {
 // otherwise. A client that must work across plans should treat an absent
 // flag as unknown rather than as `false`.
 type LookupResponse struct {
-	// Cdn Detail for `is_cdn`. Empty when false. Scale and above.
+	// Asn The autonomous system that announces the address. Free and paid plans.
+	// Each field is present whenever the object is: `asn` is 0 and the rest
+	// empty where no announcement covers the address.
+	Asn *Asn `json:"asn,omitempty"`
+
+	// Cdn Detail for `is_cdn`. Empty when false. Paid plans.
 	Cdn *ClassDetail `json:"cdn,omitempty"`
 
-	// Dcproxy Detail for `is_dcproxy`. Empty when false. Max only.
+	// Dcproxy Detail for `is_dcproxy`. Empty when false. Paid plans.
 	Dcproxy *ProxyDetail `json:"dcproxy,omitempty"`
 
-	// Hosting Detail for `is_hosting`. Empty when false. Scale and above.
+	// Hosting Detail for `is_hosting`. Empty when false. Paid plans.
 	Hosting *ClassDetail `json:"hosting,omitempty"`
 
 	// IP The address that was looked up, normalized.
@@ -635,28 +736,28 @@ type LookupResponse struct {
 	// Example: 1.1.1.1
 	IP string `json:"ip"`
 
-	// IsCdn Whether the address belongs to a CDN. Starter and above.
+	// IsCdn Whether the address belongs to a CDN. Paid plans.
 	IsCdn *bool `json:"is_cdn,omitempty"`
 
-	// IsDcproxy Whether the address was seen in a datacenter proxy pool. Scale and above.
+	// IsDcproxy Whether the address was seen in a datacenter proxy pool. Paid plans.
 	IsDcproxy *bool `json:"is_dcproxy,omitempty"`
 
-	// IsHosting Whether the address belongs to a hosting or cloud provider. Starter and above.
+	// IsHosting Whether the address belongs to a hosting or cloud provider. Paid plans.
 	IsHosting *bool `json:"is_hosting,omitempty"`
 
-	// IsMobproxy Whether the address was seen in a mobile proxy pool. Scale and above.
+	// IsMobproxy Whether the address was seen in a mobile proxy pool. Paid plans.
 	IsMobproxy *bool `json:"is_mobproxy,omitempty"`
 
-	// IsPubproxy Whether a public proxy, one anyone can connect through, listens on the address or sends its traffic out from it. Scale and above.
+	// IsPubproxy Whether a public proxy, one anyone can connect through, listens on the address or sends its traffic out from it. Paid plans.
 	IsPubproxy *bool `json:"is_pubproxy,omitempty"`
 
-	// IsRelay Whether the address is privacy relay or enterprise web gateway egress, such as iCloud Private Relay or Zscaler. Starter and above.
+	// IsRelay Whether the address is privacy relay or enterprise web gateway egress, such as iCloud Private Relay or Zscaler. Free and paid plans.
 	IsRelay *bool `json:"is_relay,omitempty"`
 
-	// IsResproxy Whether the address was seen in a residential proxy pool. Scale and above.
+	// IsResproxy Whether the address was seen in a residential proxy pool. Paid plans.
 	IsResproxy *bool `json:"is_resproxy,omitempty"`
 
-	// IsTor Whether the address is a Tor node. Starter and above.
+	// IsTor Whether the address is a Tor node. Free and paid plans.
 	IsTor *bool `json:"is_tor,omitempty"`
 
 	// IsVpn Whether the address is VPN infrastructure. Keys off presence in the
@@ -664,23 +765,29 @@ type LookupResponse struct {
 	// `true`.
 	IsVpn bool `json:"is_vpn"`
 
-	// Mobproxy Detail for `is_mobproxy`. Empty when false. Max only.
+	// Location Where the address is, to the country: the fields of our IP Country
+	// database. Free and paid plans. Each field is present whenever the
+	// object is, so an address in no country, or a private one, answers
+	// empty strings.
+	Location *Location `json:"location,omitempty"`
+
+	// Mobproxy Detail for `is_mobproxy`. Empty when false. Paid plans.
 	Mobproxy *ProxyDetail `json:"mobproxy,omitempty"`
 
-	// Pubproxy Detail for `is_pubproxy`. Empty when false. Max only.
+	// Pubproxy Detail for `is_pubproxy`. Empty when false. Paid plans.
 	Pubproxy *PubproxyDetail `json:"pubproxy,omitempty"`
 
-	// Relay Detail for `is_relay`. Empty when false. Scale and above.
+	// Relay Detail for `is_relay`. Empty when false. Free and paid plans.
 	Relay *ClassDetail `json:"relay,omitempty"`
 
-	// Resproxy Detail for `is_resproxy`. Empty when false. Max only.
+	// Resproxy Detail for `is_resproxy`. Empty when false. Paid plans.
 	Resproxy *ProxyDetail `json:"resproxy,omitempty"`
 
-	// Tor Detail for `is_tor`. Empty when false. Scale and above. The tor
+	// Tor Detail for `is_tor`. Empty when false. Free and paid plans. The tor
 	// dataset carries no provider, so `provider` is always an empty string.
 	Tor *ClassDetail `json:"tor,omitempty"`
 
-	// Vpn Detail for `is_vpn`. Empty when `is_vpn` is false. Starter and above.
+	// Vpn Detail for `is_vpn`. Empty when `is_vpn` is false. Paid plans.
 	Vpn *VpnDetail `json:"vpn,omitempty"`
 }
 
@@ -883,10 +990,9 @@ type TokenResponse struct {
 
 // VpnDetail What is known about the VPN attribution. Every key is present when the
 // object is populated, empty values included; the object is `{}` when
-// `is_vpn` is false. `confidence` and `method` are max only, so on a lower
-// plan they are absent from a populated object rather than empty.
+// `is_vpn` is false.
 type VpnDetail struct {
-	// Confidence How strongly the attribution is supported. Max only.
+	// Confidence How strongly the attribution is supported.
 	//
 	// Example: high
 	Confidence *string `json:"confidence,omitempty"`
@@ -896,18 +1002,10 @@ type VpnDetail struct {
 	// Example: 2026-09-02
 	LastSeen *openapi_types.Date `json:"last_seen,omitempty"`
 
-	// Method The class of evidence the attribution rests on, one of four values.
-	// Max only.
-	//
-	// `scan` - we spoke the VPN protocol to the address ourselves and got a
-	// valid server response. `scrape` - the operator published the address
-	// through its own API, client or configuration. `registry` - public
-	// registration or naming records attribute it to the operator.
-	// `infer` - the address was extrapolated from confirmed neighbors in
-	// the same block.
-	//
-	//
-	// Example: scan
+	// Method Never returned since 2026-10-20: no plan is answered with the class of
+	// evidence an attribution rests on. Declared so that a client typed
+	// against it keeps compiling; read `confidence` instead.
+	// Deprecated: this property has been marked as deprecated upstream, but no `x-deprecated-reason` was set
 	Method *string `json:"method,omitempty"`
 
 	// Provider The VPN provider, or an empty string for an unattributed range.
@@ -1318,9 +1416,9 @@ type ClientInterface interface {
 	// LookupMyIP My IP
 	//
 	// Answers what is known about the address this request came from, which is
-	// the same answer `GET /{ip}` gives for that address: the plan behind the
-	// presented key decides which fields come back, and the request counts
-	// against the same allowance.
+	// the same answer `GET /{ip}` gives for that address: the presented key
+	// decides which fields come back, and the request counts against the same
+	// allowance.
 	//
 	// The address is the one our edge observed, so a request through a proxy
 	// or a VPN reports the exit it left through rather than the machine that
@@ -1515,8 +1613,8 @@ type ClientInterface interface {
 	// LookupIP Lookup
 	//
 	// Answers what is known about a single IPv4 or IPv6 address. Which fields
-	// come back is decided by the plan behind the presented key; with no key
-	// the answer is `ip` and `is_vpn`.
+	// come back is decided by the presented key; with no key the answer is
+	// `ip` and `is_vpn`.
 	//
 	// Corresponds with GET /{ip} (the `LookupIP` operationId).
 	LookupIP(ctx context.Context, ip string, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -1930,9 +2028,9 @@ func (c *Client) LookupBatch(ctx context.Context, body LookupBatchJSONRequestBod
 // LookupMyIP My IP
 //
 // Answers what is known about the address this request came from, which is
-// the same answer `GET /{ip}` gives for that address: the plan behind the
-// presented key decides which fields come back, and the request counts
-// against the same allowance.
+// the same answer `GET /{ip}` gives for that address: the presented key
+// decides which fields come back, and the request counts against the same
+// allowance.
 //
 // The address is the one our edge observed, so a request through a proxy
 // or a VPN reports the exit it left through rather than the machine that
@@ -2227,8 +2325,8 @@ func (c *Client) OauthTokenWithFormdataBody(ctx context.Context, body OauthToken
 // LookupIP Lookup
 //
 // Answers what is known about a single IPv4 or IPv6 address. Which fields
-// come back is decided by the plan behind the presented key; with no key
-// the answer is `ip` and `is_vpn`.
+// come back is decided by the presented key; with no key the answer is
+// `ip` and `is_vpn`.
 //
 // Corresponds with GET /{ip} (the `LookupIP` operationId).
 func (c *Client) LookupIP(ctx context.Context, ip string, reqEditors ...RequestEditorFn) (*http.Response, error) {
@@ -3473,9 +3571,9 @@ type ClientWithResponsesInterface interface {
 	// LookupMyIPWithResponse My IP
 	//
 	// Answers what is known about the address this request came from, which is
-	// the same answer `GET /{ip}` gives for that address: the plan behind the
-	// presented key decides which fields come back, and the request counts
-	// against the same allowance.
+	// the same answer `GET /{ip}` gives for that address: the presented key
+	// decides which fields come back, and the request counts against the same
+	// allowance.
 	//
 	// The address is the one our edge observed, so a request through a proxy
 	// or a VPN reports the exit it left through rather than the machine that
@@ -3674,8 +3772,8 @@ type ClientWithResponsesInterface interface {
 	// LookupIPWithResponse Lookup
 	//
 	// Answers what is known about a single IPv4 or IPv6 address. Which fields
-	// come back is decided by the plan behind the presented key; with no key
-	// the answer is `ip` and `is_vpn`.
+	// come back is decided by the presented key; with no key the answer is
+	// `ip` and `is_vpn`.
 	//
 	// Returns a wrapper object for the known response body format(s).
 	//
@@ -5414,9 +5512,9 @@ func (c *ClientWithResponses) LookupBatchWithResponse(ctx context.Context, body 
 // LookupMyIPWithResponse My IP
 //
 // Answers what is known about the address this request came from, which is
-// the same answer `GET /{ip}` gives for that address: the plan behind the
-// presented key decides which fields come back, and the request counts
-// against the same allowance.
+// the same answer `GET /{ip}` gives for that address: the presented key
+// decides which fields come back, and the request counts against the same
+// allowance.
 //
 // The address is the one our edge observed, so a request through a proxy
 // or a VPN reports the exit it left through rather than the machine that
@@ -5675,8 +5773,8 @@ func (c *ClientWithResponses) OauthTokenWithFormdataBodyWithResponse(ctx context
 // LookupIPWithResponse Lookup
 //
 // Answers what is known about a single IPv4 or IPv6 address. Which fields
-// come back is decided by the plan behind the presented key; with no key
-// the answer is `ip` and `is_vpn`.
+// come back is decided by the presented key; with no key the answer is
+// `ip` and `is_vpn`.
 //
 // Returns a wrapper object for the known response body format(s).
 //
