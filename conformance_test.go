@@ -102,6 +102,8 @@ func TestBogonIsAnsweredLocallyInTheFullMaxShape(t *testing.T) {
 	for _, name := range data.BogonResponse.EmptyObjects {
 		assertEmptyObject(t, result, name)
 	}
+	assertObject(t, result, "location", data.BogonResponse.Location)
+	assertObject(t, result, "asn", data.BogonResponse.Asn)
 	if stub.count() != 0 {
 		t.Errorf("a bogon must not reach the network, got %d request(s)", stub.count())
 	}
@@ -145,6 +147,8 @@ func TestLookupPreservesAbsentVersusFalseAcrossEveryPlanShape(t *testing.T) {
 			assertObject(t, result, "hosting", c.Expect.Hosting)
 			assertObject(t, result, "dcproxy", c.Expect.Dcproxy)
 			assertObject(t, result, "pubproxy", c.Expect.Pubproxy)
+			assertObject(t, result, "location", c.Expect.Location)
+			assertObject(t, result, "asn", c.Expect.Asn)
 		})
 	}
 }
@@ -504,8 +508,10 @@ type corpusData struct {
 		Why     string `json:"why"`
 	} `json:"ipv4Mapped"`
 	BogonResponse struct {
-		FlagsFalse   []string `json:"flagsFalse"`
-		EmptyObjects []string `json:"emptyObjects"`
+		FlagsFalse   []string        `json:"flagsFalse"`
+		EmptyObjects []string        `json:"emptyObjects"`
+		Location     json.RawMessage `json:"location"`
+		Asn          json.RawMessage `json:"asn"`
 	} `json:"bogonResponse"`
 	Lookup []struct {
 		Name   string          `json:"name"`
@@ -521,6 +527,8 @@ type corpusData struct {
 			Hosting      json.RawMessage `json:"hosting"`
 			Dcproxy      json.RawMessage `json:"dcproxy"`
 			Pubproxy     json.RawMessage `json:"pubproxy"`
+			Location     json.RawMessage `json:"location"`
+			Asn          json.RawMessage `json:"asn"`
 		} `json:"expect"`
 	} `json:"lookup"`
 	Errors []struct {

@@ -21,7 +21,7 @@ import vpndetection "github.com/vpndetection-io/sdk-go/v5"
 
 ## Usage
 
-**No API key needed to start.** The free tier answers `ip` and `is_vpn`, and allows 1000 requests per day per source address.
+**No API key needed to start.** Without a key, a lookup answers `ip` and `is_vpn`, up to 1000 a day per source address.
 
 ```go
 client, err := vpndetection.New()
@@ -38,14 +38,20 @@ fmt.Println(result.IsVpn)   // true
 
 ### With an API key
 
-An API key raises your quota, and raises your features on a paid plan. Create one in the [console](https://app.vpndetection.io), then pass it in:
+A free key adds Tor and relay detection, where the address is and the AS that announces it. Every paid plan answers every field, the same on each, and the plans differ only in how many lookups they include. Create a key in the [console](https://app.vpndetection.io), then pass it in:
 
 ```go
 client, err := vpndetection.New(vpndetection.WithAPIKey(os.Getenv("VPNDETECTION_API_KEY")))
 
 result, err := client.Lookup(ctx, "45.83.91.1")
 fmt.Println(result.IsVpn)               // true
-fmt.Println(vpndetection.BoolValue(result.IsHosting))  // true
+if loc := result.Location; loc != nil {
+    fmt.Println(loc.Country)            // the ISO 3166 country code
+}
+if asn := result.Asn; asn != nil {
+    fmt.Println(asn.Name)               // who runs the announcing network
+}
+fmt.Println(vpndetection.BoolValue(result.IsHosting))  // true, on a paid plan
 
 if vpn := result.Vpn; vpn != nil && vpn.Provider != nil {
     fmt.Println(*vpn.Provider)          // nordvpn

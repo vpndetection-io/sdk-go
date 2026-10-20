@@ -45,8 +45,9 @@ func unmapped(ip string) string {
 }
 
 // The answer a bogon gets: the full shape the API serves on its widest plan,
-// every flag present and false and every detail object present and empty, plus
-// the IsBogon marker that tells a computed answer from a served one.
+// every flag present and false, every detail object present and empty, and
+// Location and Asn with every field empty as the API answers a bogon, plus the
+// IsBogon marker that tells a computed answer from a served one.
 //
 // Deliberately the WIDEST shape whatever plan you are on, so a caller must not
 // infer which fields their plan includes from a bogon answer.
@@ -73,6 +74,8 @@ func bogonResult(ip string) *Result {
 			Dcproxy:    &ProxyDetail{},
 			Mobproxy:   &ProxyDetail{},
 			Pubproxy:   &PubproxyDetail{},
+			Location:   &Location{},
+			Asn:        &Asn{},
 		},
 	}
 }
