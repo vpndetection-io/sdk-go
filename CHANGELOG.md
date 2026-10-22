@@ -2,6 +2,16 @@
 
 What each release changed for you, newest first. Each line is a commit's summary, linked to its full description and diff. Releases before 5.3.2 are described by their release commits.
 
+## 5.10.0 - 2026-10-22
+
+### Features
+
+- Add Oauth.Register, for RFC 7591 dynamic client registration ([`5a89877`](https://github.com/vpndetection-io/sdk-go/commit/5a89877d02c49d47758bcd9dd3abb4aa944177d7))
+
+### Fixes
+
+- Read a Retry-After date and a date-time only in the zones they allow ([`0968762`](https://github.com/vpndetection-io/sdk-go/commit/0968762c21c9f4805c162e61adcb7ee1ebe02acc))
+
 ## 5.9.0 - 2026-10-20
 
 ### Features
