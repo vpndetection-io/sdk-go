@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"sync"
@@ -113,6 +114,50 @@ func assertKind(t *testing.T, err error, kind ErrorKind, status int) {
 	}
 	if apiErr.Kind != kind || apiErr.StatusCode != status {
 		t.Errorf("err = %s with status %d, want %s with status %d", apiErr.Kind, apiErr.StatusCode, kind, status)
+	}
+}
+
+// A date-time is read only with a zone RFC 3339 allows. time.Time reads an
+// offset hour of 24 and a minute of 60 too, so through v5.9.0 +24:00 was a date
+// a day off; every other made-up date it already refused.
+func TestADateTimeIsReadOnlyWithAZoneRFC3339Allows(t *testing.T) {
+	read := map[string]bool{
+		"2026-10-05T10:00:00Z": true, "2026-10-05T10:00:00.123Z": true, "2026-10-05T10:00:00+23:59": true,
+		"2026-10-05T10:00:00-00:00": true, "2026-10-05T10:00:00+05:30": true,
+		"2026-10-05T10:00:00+24:00": false, "2026-10-05T10:00:00-24:00": false, "2026-10-05T10:00:00+24:59": false,
+		"2026-10-05T10:00:00+05:60": false, "2026-10-05T10:00:00+0500": false, "2026-10-05T10:00:00": false,
+	}
+	answers := map[string]struct {
+		body string
+		call func(ctx context.Context, c *Client) error
+	}{
+		"Database.List": {
+			`{"databases":[{"name":"vpn_ip","base":"vpn_ip","summary":"s","open":false,"in_term":true,` +
+				`"standing":"licensed","license_type":"standard","starts":%q,"expires":null,` +
+				`"renews_at":null,"notice_due_at":null,"versions":[]}]}`,
+			answeringCalls["Database.List"],
+		},
+		"Database.Downloads": {
+			`{"downloads":[{"dataset_id":"vpn_ip","format":"mmdb","outcome":"ok","sample":false,"open":false,` +
+				`"bytes":760,"http_status":302,"apikey_id":"ak_1","client_ip":null,"user_agent":null,"created":%q}]}`,
+			answeringCalls["Database.Downloads"],
+		},
+	}
+	for value, want := range read {
+		for name, answer := range answers {
+			t.Run(name+" given "+value, func(t *testing.T) {
+				t.Parallel()
+				transport := &fixedTransport{status: http.StatusOK, contentType: "application/json",
+					body: fmt.Sprintf(answer.body, value)}
+				err := answer.call(t.Context(), fixedClient(t, transport, WithRetries(0)))
+				switch {
+				case want && err != nil:
+					t.Errorf("%v, want the date read", err)
+				case !want:
+					assertKind(t, err, KindServerError, http.StatusOK)
+				}
+			})
+		}
 	}
 }
 

@@ -280,8 +280,8 @@ func TestARateLimitIsRetriedAfterTheServerSuppliedWait(t *testing.T) {
 	}
 }
 
-// Seconds as digits, or an HTTP date in any of its three forms, and nothing
-// else: through v5.5.0 ParseInt read +1 as a second.
+// Seconds as digits, or an HTTP date in any of its three forms, in GMT, and
+// nothing else: through v5.5.0 ParseInt read +1 as a second.
 func TestARetryAfterIsDigitsOrAnHTTPDate(t *testing.T) {
 	at := time.Now().UTC().Add(time.Hour)
 	cases := map[string]ErrorKind{
@@ -289,6 +289,11 @@ func TestARetryAfterIsDigitsOrAnHTTPDate(t *testing.T) {
 		"1.5": KindQuotaExceeded, "-1": KindQuotaExceeded, "x": KindQuotaExceeded, "tomorrow": KindQuotaExceeded,
 		"120": KindRateLimited, at.Format(http.TimeFormat): KindRateLimited,
 		at.Format("Monday, 02-Jan-06 15:04:05 GMT"): KindRateLimited, at.Format(time.ANSIC): KindRateLimited,
+		// Through v5.9.0 RFC 850's form was read in any zone.
+		at.Format("Monday, 02-Jan-06 15:04:05 PST"):  KindQuotaExceeded,
+		at.Format("Monday, 02-Jan-06 15:04:05 XYZ"):  KindQuotaExceeded,
+		at.Format("Mon, 02 Jan 2006 15:04:05 PST"):   KindQuotaExceeded,
+		at.Format("Mon, 02 Jan 2006 15:04:05 +0000"): KindQuotaExceeded,
 	}
 	for value, want := range cases {
 		got := errorFromResponse(http.StatusTooManyRequests, http.Header{"Retry-After": {value}}, nil)
