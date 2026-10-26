@@ -2,6 +2,12 @@
 
 What each release changed for you, newest first. Each line is a commit's summary, linked to its full description and diff. Releases before 5.3.2 are described by their release commits.
 
+## 5.10.1 - 2026-10-26
+
+### Fixes
+
+- Re-pin the spec to 2026.10.25: Retry-After on myip's 429 ([`411bb6c`](https://github.com/vpndetection-io/sdk-go/commit/411bb6c81364f7975c7714318e67a3f608a56835))
+
 ## 5.10.0 - 2026-10-22
 
 ### Features
