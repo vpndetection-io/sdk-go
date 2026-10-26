@@ -4763,6 +4763,11 @@ func (r LookupBatchResponse) ContentType() string {
 	return ""
 }
 
+// LookupMyIPResponse429Headers the declared response headers of an HTTP 429 response for LookupMyIP
+type LookupMyIPResponse429Headers struct {
+	RetryAfter *int
+}
+
 type LookupMyIPResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -4776,6 +4781,8 @@ type LookupMyIPResponse struct {
 	JSON429 *LookupError
 	// JSON500 the response for an HTTP 500 `application/json` response
 	JSON500 *LookupError
+	// Headers429 the parsed response headers for an HTTP 429 response
+	Headers429 *LookupMyIPResponse429Headers
 }
 
 // GetJSON200 returns the response for an HTTP 200 `application/json` response
@@ -6584,6 +6591,19 @@ func ParseLookupMyIPResponse(rsp *http.Response) (*LookupMyIPResponse, error) {
 		}
 		response.JSON500 = &dest
 
+	}
+
+	switch {
+	case rsp.StatusCode == 429:
+		var headers LookupMyIPResponse429Headers
+		if values := rsp.Header.Values("Retry-After"); len(values) > 0 {
+			var value int
+			if err := runtime.BindStyledParameterWithOptions("simple", "Retry-After", values[0], &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "integer", Format: ""}); err != nil {
+				return nil, err
+			}
+			headers.RetryAfter = &value
+		}
+		response.Headers429 = &headers
 	}
 
 	return response, nil
