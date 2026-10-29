@@ -2,6 +2,12 @@
 
 What each release changed for you, newest first. Each line is a commit's summary, linked to its full description and diff. Releases before 5.3.2 are described by their release commits.
 
+## 5.10.2 - 2026-10-29
+
+### Fixes
+
+- Read a lowercase t or z in a date-time, and refuse negative per-call retries ([`213f659`](https://github.com/vpndetection-io/sdk-go/commit/213f6590d9e92ef1199725a2fbfe44f29219cd88))
+
 ## 5.10.1 - 2026-10-26
 
 ### Fixes
