@@ -236,6 +236,59 @@ func TestRetriesAreConfigurablePerCall(t *testing.T) {
 	}
 }
 
+// A negative per-call count is refused where it is set, as WithRetries refuses
+// one, before a bogon, a cached address or a bogon-only batch can answer it.
+// Through v5.10.1 it was read as none, and those answered it.
+func TestANegativePerCallRetryCountIsRefusedBeforeAnythingAnswers(t *testing.T) {
+	stub := newStub(map[string]stubRoute{"9.9.9.9": {status: http.StatusOK, body: map[string]any{"ip": "9.9.9.9", "is_vpn": false}}})
+	client := newTestClient(t, stub)
+	if _, err := client.Lookup(t.Context(), "9.9.9.9"); err != nil {
+		t.Fatal(err)
+	}
+	calls := map[string]func(ctx context.Context) error{
+		"a bogon": func(ctx context.Context) error {
+			_, err := client.Lookup(ctx, "10.0.0.1", Retries(-1))
+			return err
+		},
+		"a cached address": func(ctx context.Context) error {
+			_, err := client.Lookup(ctx, "9.9.9.9", Retries(-1))
+			return err
+		},
+		"an address not yet asked": func(ctx context.Context) error {
+			_, err := client.Lookup(ctx, "45.83.91.1", Retries(-1))
+			return err
+		},
+		"MyIP": func(ctx context.Context) error {
+			_, err := client.MyIP(ctx, Retries(-1))
+			return err
+		},
+		"MyEntitlement": func(ctx context.Context) error {
+			_, err := client.MyEntitlement(ctx, Retries(-1))
+			return err
+		},
+		"a bogon-only batch": func(ctx context.Context) error {
+			_, err := client.LookupBatch(ctx, []string{"10.0.0.1"}, Retries(-1))
+			return err
+		},
+		"a batch": func(ctx context.Context) error {
+			_, err := client.LookupBatch(ctx, []string{"9.9.9.9", "45.83.91.1"}, Retries(-1))
+			return err
+		},
+	}
+	for name, call := range calls {
+		t.Run(name, func(t *testing.T) {
+			sent := stub.count()
+			assertKind(t, call(t.Context()), KindBadRequest, 0)
+			if stub.count() != sent {
+				t.Errorf("sent %d request(s), want none", stub.count()-sent)
+			}
+		})
+	}
+	if _, err := client.Lookup(t.Context(), "10.0.0.1", Retries(0)); err != nil {
+		t.Errorf("Retries(0): %v", err)
+	}
+}
+
 // A 429 with no Retry-After is a spent allowance, and retrying it is hammering
 // a quota that will not recover until its window rolls over.
 func TestASpentQuotaIsNeverRetried(t *testing.T) {

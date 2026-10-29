@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"sync"
 	"testing"
+	"time"
 )
 
 // Answers every request with one fixed response, its body bytes exactly as
@@ -158,6 +159,103 @@ func TestADateTimeIsReadOnlyWithAZoneRFC3339Allows(t *testing.T) {
 				}
 			})
 		}
+	}
+}
+
+// RFC 3339 lets the T and the Z be lowercase, and time.Time does not, so through
+// v5.10.1 a lowercase t or z failed every date-time member as unreadable, while
+// a one-digit hour and a comma before the fraction, which RFC 3339 does not
+// have, were read as dates.
+func TestADateTimeIsReadInRFC3339sFormAlone(t *testing.T) {
+	at := time.Date(2026, 10, 5, 10, 0, 0, 0, time.UTC)
+	read := map[string]time.Time{
+		"2026-10-05t10:00:00z": at, "2026-10-05t10:00:00Z": at, "2026-10-05T10:00:00z": at,
+		"2026-10-05t15:30:00.5+05:30": at.Add(500 * time.Millisecond),
+	}
+	refused := []string{
+		"2026-10-05T1:00:00Z", "2026-10-05T10:00:00,5Z", "2026-10-05T10:00:00.Z", "2026-10-05T10:00Z",
+		"2026-10-05 10:00:00Z", " 2026-10-05T10:00:00Z", "2026-10-05T10:00:00Z\n", "\u0662026-10-05T10:00:00Z",
+	}
+	answers := map[string]struct {
+		body string
+		read func(ctx context.Context, c *Client) (time.Time, error)
+	}{
+		"Database.List": {
+			`{"databases":[{"name":"vpn_ip","base":"vpn_ip","summary":"s","open":false,"in_term":true,` +
+				`"standing":"licensed","license_type":"standard","starts":%q,"expires":null,` +
+				`"renews_at":null,"notice_due_at":null,"versions":[]}]}`,
+			func(ctx context.Context, c *Client) (time.Time, error) {
+				list, err := c.Database.List(ctx)
+				if err != nil {
+					return time.Time{}, err
+				}
+				return *list[0].Starts, nil
+			},
+		},
+		"Database.Downloads": {
+			`{"downloads":[{"dataset_id":"vpn_ip","format":"mmdb","outcome":"ok","sample":false,"open":false,` +
+				`"bytes":760,"http_status":302,"apikey_id":"ak_1","client_ip":null,"user_agent":null,"created":%q}]}`,
+			func(ctx context.Context, c *Client) (time.Time, error) {
+				downloads, err := c.Database.Downloads(ctx, 1)
+				if err != nil {
+					return time.Time{}, err
+				}
+				return downloads[0].Created, nil
+			},
+		},
+		"MyEntitlement": {
+			`{"org_id":"85bb51e4-2eb6-4a31-8e4d-02ba8b98fe61","apikey":{"id":"0ab424cc-7619-4dad-b027-afacdc2cedb0",` +
+				`"expires":null,"allowed_cidrs":[]},"plan":{"key":"max","tier":"max"},"usage":{"requests":5,` +
+				`"quota":50,"hard_limit":null,"window_start":%q,"window_end":"2026-10-04T07:00:00Z"}}`,
+			func(ctx context.Context, c *Client) (time.Time, error) {
+				entitlement, err := c.MyEntitlement(ctx)
+				if err != nil {
+					return time.Time{}, err
+				}
+				return entitlement.Usage.WindowStart, nil
+			},
+		},
+	}
+	for name, answer := range answers {
+		for value, want := range read {
+			t.Run(name+" reads "+value, func(t *testing.T) {
+				t.Parallel()
+				transport := &fixedTransport{status: http.StatusOK, contentType: "application/json",
+					body: fmt.Sprintf(answer.body, value)}
+				got, err := answer.read(t.Context(), fixedClient(t, transport, WithRetries(0)))
+				if err != nil || !got.Equal(want) {
+					t.Errorf("read %v, %v; want %v", got, err, want)
+				}
+			})
+		}
+		for _, value := range refused {
+			t.Run(name+" refuses "+value, func(t *testing.T) {
+				t.Parallel()
+				transport := &fixedTransport{status: http.StatusOK, contentType: "application/json",
+					body: fmt.Sprintf(answer.body, value)}
+				_, err := answer.read(t.Context(), fixedClient(t, transport, WithRetries(1)))
+				assertKind(t, err, KindServerError, http.StatusOK)
+				if sent := transport.sent(); sent != 2 {
+					t.Errorf("sent %d request(s), want 2", sent)
+				}
+			})
+		}
+	}
+}
+
+// A number keeps every digit through the walk that respells a date-time.
+func TestANumberPastAFloatsPrecisionIsReadExactly(t *testing.T) {
+	transport := &fixedTransport{status: http.StatusOK, contentType: "application/json",
+		body: `{"databases":[{"name":"vpn_ip","base":"vpn_ip","summary":"s","open":false,"in_term":true,` +
+			`"standing":"licensed","license_type":null,"starts":"2026-10-05t10:00:00z","expires":null,` +
+			`"renews_at":null,"notice_due_at":null,"versions":[{"id":"vpn_ip_v1","version":1,` +
+			`"formats":[{"format":"mmdb","bytes":9007199254740993}]}]}]}`}
+	list, err := fixedClient(t, transport, WithRetries(0)).Database.List(t.Context())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := *list[0].Versions[0].Formats[0].Bytes; got != 9007199254740993 {
+		t.Errorf("read %d bytes, want 9007199254740993", got)
 	}
 }
 

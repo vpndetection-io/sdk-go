@@ -43,6 +43,9 @@ func (c *Client) MyEntitlement(ctx context.Context, opts ...LookupOption) (*Enti
 	for _, opt := range opts {
 		opt.applyLookup(&call)
 	}
+	if err := call.refused(); err != nil {
+		return nil, err
+	}
 	ctx = call.carry(ctx)
 	return withRetry(ctx, call.retries, func() (*Entitlement, error) {
 		return decodeAnswer[Entitlement](c.api.MyEntitlement(ctx))

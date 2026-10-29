@@ -76,6 +76,7 @@ type Options[Req any] struct {
 	// a much tighter bound than the client's own 30s.
 	Timeout time.Duration
 	// Retries for a transient failure. Defaults to 0, unlike the client's 2.
+	// New refuses a negative count.
 	Retries *int
 	// IPSelector decides the client address. Defaults to the framework's own
 	// accessor.
@@ -143,6 +144,11 @@ func New[Req any](options Options[Req], defaultIPSelector IPSelector[Req]) (*Cor
 	retries := DefaultRetries
 	if options.Retries != nil {
 		retries = *options.Retries
+	}
+	// Refused here, as WithRetries refuses one: every lookup would refuse it
+	// instead, and the middleware fail open on every request.
+	if retries < 0 {
+		return nil, fmt.Errorf("vpndetection: retries cannot be negative, got %d", retries)
 	}
 	action := options.OnMissingField
 	if action == "" {

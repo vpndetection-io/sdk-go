@@ -125,13 +125,16 @@ func New(opts ...Option) (*Client, error) {
 // An IPv4-mapped address (::ffff:8.8.8.8) is the IPv4 address it carries:
 // judged, sent and cached as that, so the answer names 8.8.8.8.
 func (c *Client) Lookup(ctx context.Context, ip string, opts ...LookupOption) (*Result, error) {
-	ip = unmapped(ip)
-	if IsBogon(ip) {
-		return bogonResult(ip), nil
-	}
 	call := c.callConfig()
 	for _, opt := range opts {
 		opt.applyLookup(&call)
+	}
+	if err := call.refused(); err != nil {
+		return nil, err
+	}
+	ip = unmapped(ip)
+	if IsBogon(ip) {
+		return bogonResult(ip), nil
 	}
 	ctx = call.carry(ctx)
 	if c.cache == nil {
@@ -196,6 +199,9 @@ func (c *Client) MyIP(ctx context.Context, opts ...LookupOption) (*Result, error
 	for _, opt := range opts {
 		opt.applyLookup(&call)
 	}
+	if err := call.refused(); err != nil {
+		return nil, err
+	}
 	ctx = call.carry(ctx)
 	return withRetry(ctx, call.retries, func() (*Result, error) {
 		answer, err := decodeAnswer[api.LookupResponse](c.api.LookupMyIP(ctx))
@@ -219,7 +225,7 @@ func (c *Client) MyIP(ctx context.Context, opts ...LookupOption) (*Result, error
 // a per-entry failure with the status the single lookup would have answered,
 // and a chunk that fails as a whole marks every address in it. The returned
 // error is reserved for the batch as a whole failing: the context canceled, or
-// a Concurrency below 1, refused before any request.
+// a Concurrency below 1 or negative Retries, refused before any request.
 func (c *Client) LookupBatch(
 	ctx context.Context, ips []string, opts ...BatchOption,
 ) (map[string]BatchResult, error) {
@@ -232,6 +238,9 @@ func (c *Client) LookupBatch(
 		return nil, &Error{
 			Kind: KindBadRequest, Message: fmt.Sprintf("concurrency must be at least 1, got %d", call.concurrency),
 		}
+	}
+	if err := call.refused(); err != nil {
+		return nil, err
 	}
 	ctx = call.carry(ctx)
 
@@ -568,7 +577,9 @@ type BatchOption interface {
 	applyBatch(*callConfig)
 }
 
-// Retries overrides the client's retry count for this call.
+// Retries overrides the client's retry count for this call. A negative count is
+// refused with a bad_request *Error before anything answers the call, a bogon
+// or a cached address included.
 func Retries(n int) LookupOption {
 	return retriesOption(n)
 }
@@ -607,6 +618,16 @@ type callConfig struct {
 	// own Timeout applies.
 	timeout time.Duration
 	timed   bool
+}
+
+// refused is the bad_request a per-call option earns, as WithRetries refuses a
+// negative count where it is set. Through v5.10.1 Retries(-1) was read as none,
+// and a bogon, a cached address or a bogon-only batch answered it.
+func (c callConfig) refused() error {
+	if c.retries < 0 {
+		return &Error{Kind: KindBadRequest, Message: fmt.Sprintf("retries cannot be negative, got %d", c.retries)}
+	}
+	return nil
 }
 
 func (c *Client) callConfig() callConfig {

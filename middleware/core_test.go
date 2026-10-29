@@ -33,6 +33,19 @@ func TestNewStartsWithNoOptions(t *testing.T) {
 	}
 }
 
+// Refused where it is set: every lookup would refuse it, and the middleware
+// fail open on every request.
+func TestNewRefusesANegativeRetryCount(t *testing.T) {
+	retries := -1
+	if _, err := middleware.New(middleware.Options[string]{Retries: &retries}, selectorOf(publicIP)); err == nil {
+		t.Fatal("New took Retries of -1")
+	}
+	retries = 0
+	if _, err := middleware.New(middleware.Options[string]{Retries: &retries}, selectorOf(publicIP)); err != nil {
+		t.Fatalf("New with Retries of 0: %v", err)
+	}
+}
+
 func TestNewSendsToTheBaseURL(t *testing.T) {
 	var requests atomic.Int32
 	origin := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
