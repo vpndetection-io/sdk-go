@@ -12,7 +12,7 @@ type (
 	// Entitlement is what a key is entitled to and what it has spent.
 	Entitlement = api.Entitlement
 	// EntitlementApikey is the credential itself. The key is never echoed back -
-	// only its id, which is what the console shows.
+	// only its ID, which is what the console shows.
 	EntitlementApikey = api.EntitlementApikey
 	// EntitlementPlan is the plan behind the key, and the field tier that decides
 	// how much of a lookup answer comes back.

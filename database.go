@@ -21,7 +21,7 @@ type DatabaseAPI struct {
 
 // List is the dataset families your organization is licensed to download. A
 // license covers a family, while a download names one of its versions, so the
-// ids Download and Checksums take come from Database.Versions.
+// IDs Download and Checksums take come from Database.Versions.
 func (d *DatabaseAPI) List(ctx context.Context) ([]Database, error) {
 	return withRetry(ctx, d.retries, func() ([]Database, error) {
 		answer, err := decodeAnswer[databaseList](d.api.ListDatabases(ctx))
@@ -264,7 +264,7 @@ func (d *DatabaseAPI) fetchFile(
 }
 
 // Format is a format a dataset is published in. Not every dataset is built in
-// every format: the _provider catalogs are keyed by provider id rather than
+// every format: the _provider catalogs are keyed by provider ID rather than
 // by IP range, so no MMDB exists for them.
 type Format string
 
