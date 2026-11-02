@@ -290,7 +290,7 @@ func TestAnEntryErrorIsClassifiedByItsStatus(t *testing.T) {
 	routes := okRoutes("1.1.1.1")
 	routes["8.8.8.8"] = stubRoute{
 		status: http.StatusTooManyRequests,
-		body:   map[string]string{"error": "request allowance exceeded; raise or remove your overage limit"},
+		body:   map[string]string{"error": "monthly request allowance spent; upgrade your plan for more lookups"},
 	}
 	routes["9.9.9.9"] = stubRoute{
 		status: http.StatusInternalServerError,
