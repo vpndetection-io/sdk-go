@@ -89,7 +89,7 @@ func errorFromResponse(status int, header http.Header, body []byte) *Error {
 		return &Error{Kind: KindForbidden, Message: message, StatusCode: status}
 	}
 	// Any other 4xx is a CLIENT error. Falling through to the server_error
-	// default would make it retryable, so a bad dataset id would be retried
+	// default would make it retryable, so a bad dataset ID would be retried
 	// twice before failing. Only 5xx and transport failures are worth a retry.
 	if status < http.StatusInternalServerError {
 		return &Error{Kind: KindBadRequest, Message: message, StatusCode: status}

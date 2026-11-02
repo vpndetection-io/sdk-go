@@ -4,7 +4,7 @@
 //
 // The transfer is budgeted before it starts. Metadata publishes a size per
 // format, and that size is checked against the ceiling below FIRST, so a
-// mistaken dataset id can never quietly pull one of the gigabyte datasets
+// mistaken dataset ID can never quietly pull one of the gigabyte datasets
 // through CI.
 
 package integration
@@ -34,7 +34,7 @@ const (
 	// tripping it means the suite is pointed somewhere unintended, which is
 	// exactly when a transfer must not go ahead.
 	ceiling = 8 << 20
-	// A real catalog id the max organization holds no license for.
+	// A real catalog ID the max organization holds no license for.
 	unlicensedID = "hosting_ip_v1"
 )
 
@@ -96,7 +96,7 @@ func TestTheLicensedCatalogueAnswersTheSchemaTheClientWasGeneratedFrom(t *testin
 			licensed = append(licensed, d.Base)
 		}
 		// The point of the family shape: a license covers the family, and these
-		// are the ids the download and checksum calls take. Before the spec was
+		// are the IDs the download and checksum calls take. Before the spec was
 		// corrected this list did not exist, so List could not tell a caller what
 		// to download.
 		if len(d.Versions) == 0 {
