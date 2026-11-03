@@ -380,7 +380,7 @@ type ClientRegistrationRequest struct {
 }
 
 // Database One database FAMILY, with your organization's license beside it. A license covers
-// the family, while a download names a specific version, so the ids you
+// the family, while a download names a specific version, so the IDs you
 // pass to the download and checksum endpoints come from `versions`.
 type Database struct {
 	// Base The database family, e.g. `vpn_ip`. What the license is held against.
@@ -484,7 +484,7 @@ type DatabaseMetadataColumn struct {
 type DatabaseVersion struct {
 	Formats []DatabaseFormatSize `json:"formats"`
 
-	// ID The versioned database id, e.g. `vpn_ip_v1`. Pass this to download.
+	// ID The versioned database ID, e.g. `vpn_ip_v1`. Pass this to download.
 	//
 	// Example: vpn_ip_v1
 	ID string `json:"id"`
@@ -567,7 +567,7 @@ type DownloadOutcome string
 
 // Entitlement defines model for Entitlement.
 type Entitlement struct {
-	// Apikey The credential itself. The key is never echoed - only its id, which is
+	// Apikey The credential itself. The key is never echoed - only its ID, which is
 	// what the console shows and what you can act on.
 	Apikey EntitlementApikey `json:"apikey"`
 
@@ -577,7 +577,7 @@ type Entitlement struct {
 	Usage EntitlementUsage   `json:"usage"`
 }
 
-// EntitlementApikey The credential itself. The key is never echoed - only its id, which is
+// EntitlementApikey The credential itself. The key is never echoed - only its ID, which is
 // what the console shows and what you can act on.
 type EntitlementApikey struct {
 	// AllowedCidrs The source addresses this key may be used from. EMPTY means
@@ -1049,11 +1049,11 @@ type DatabaseChecksumParams struct {
 
 // DownloadDatabaseParams defines parameters for DownloadDatabase.
 type DownloadDatabaseParams struct {
-	// ID Dataset id, e.g. vpn_ip_extended_v1
+	// ID Dataset ID, e.g. vpn_ip_extended_v1
 	ID string `form:"id" json:"id"`
 
 	// Format Not every database is built in every format. The `_provider`
-	// catalogs are keyed by provider id rather than by IP range, so no
+	// catalogs are keyed by provider ID rather than by IP range, so no
 	// MMDB exists for them.
 	Format DatabaseFormat `form:"format" json:"format"`
 }
@@ -1316,7 +1316,7 @@ type ClientInterface interface {
 
 	// AccountRotateApikey Rotate
 	//
-	// Replaces the secret behind a key, keeping its id, name and settings.
+	// Replaces the secret behind a key, keeping its ID, name and settings.
 	// The previous secret stops working immediately. The new secret comes
 	// back in the answer, so this needs `apikeys.reveal` as well as
 	// `apikeys.manage`.
@@ -1868,7 +1868,7 @@ func (c *Client) AccountRevokeApikey(ctx context.Context, id ApikeyIDParam, reqE
 
 // AccountRotateApikey Rotate
 //
-// Replaces the secret behind a key, keeping its id, name and settings.
+// Replaces the secret behind a key, keeping its ID, name and settings.
 // The previous secret stops working immediately. The new secret comes
 // back in the answer, so this needs `apikeys.reveal` as well as
 // `apikeys.manage`.
@@ -3463,7 +3463,7 @@ type ClientWithResponsesInterface interface {
 
 	// AccountRotateApikeyWithResponse Rotate
 	//
-	// Replaces the secret behind a key, keeping its id, name and settings.
+	// Replaces the secret behind a key, keeping its ID, name and settings.
 	// The previous secret stops working immediately. The new secret comes
 	// back in the answer, so this needs `apikeys.reveal` as well as
 	// `apikeys.manage`.
@@ -5375,7 +5375,7 @@ func (c *ClientWithResponses) AccountRevokeApikeyWithResponse(ctx context.Contex
 
 // AccountRotateApikeyWithResponse Rotate
 //
-// Replaces the secret behind a key, keeping its id, name and settings.
+// Replaces the secret behind a key, keeping its ID, name and settings.
 // The previous secret stops working immediately. The new secret comes
 // back in the answer, so this needs `apikeys.reveal` as well as
 // `apikeys.manage`.
