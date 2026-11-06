@@ -829,25 +829,32 @@ type OauthMetadata struct {
 // `last_seen` is what says how recent they are. Every key is present when
 // the object is populated; the object is `{}` when its flag is false.
 type ProxyDetail struct {
-	// FirstSeen The earliest date within the window this address was seen in the pool.
+	// FirstSeen The earliest date within the window this address was seen in the
+	// pool, as of its last day in the window once it has left.
+	//
 	//
 	// Example: 2026-06-14
 	FirstSeen *openapi_types.Date `json:"first_seen,omitempty"`
 
-	// Hits How many times the address was observed in the pool during the window.
+	// Hits How many times the address was observed in the pool during the
+	// window, as of its last day in it once it has left.
+	//
 	//
 	// Example: 42
 	Hits *int `json:"hits,omitempty"`
 
-	// HitsDaysPct The share of days in the window on which the address was seen, as a
-	// percentage. A high value means a stable pool member rather than a
-	// one-off sighting.
+	// HitsDaysPct The percentage of days in the window on which the address was seen,
+	// as of its last day in it once it has left. A high value means a
+	// stable pool member rather than a one-off sighting.
 	//
 	//
 	// Example: 63
 	HitsDaysPct *int `json:"hits_days_pct,omitempty"`
 
-	// LastSeen The most recent date within the window this address was seen in the pool.
+	// LastSeen The most recent date this address was seen in the pool. An address
+	// that leaves the window keeps its flag, so this date is what says how
+	// recent the sighting is.
+	//
 	//
 	// Example: 2026-09-02
 	LastSeen *openapi_types.Date `json:"last_seen,omitempty"`
@@ -881,14 +888,17 @@ type PubproxyDetail struct {
 	// Example: false
 	Exit *bool `json:"exit,omitempty"`
 
-	// LastSeen The most recent date within the window a proxy on this address was seen.
+	// LastSeen The most recent date a proxy on this address was seen. An address
+	// that leaves the window keeps its flag, so this date is what says how
+	// recent the sighting is.
+	//
 	//
 	// Example: 2026-10-17
 	LastSeen *openapi_types.Date `json:"last_seen,omitempty"`
 
 	// LastUsable The most recent date within the window a request through a proxy on
 	// this address was answered, as YYYY-MM-DD, or an empty string when
-	// none was.
+	// none was, as of its last day in the window once it has left.
 	//
 	//
 	// Example: 2026-10-17
@@ -1060,6 +1070,11 @@ type DownloadDatabaseParams struct {
 	// catalogs are keyed by provider ID rather than by IP range, so no
 	// MMDB exists for them.
 	Format DatabaseFormat `form:"format" json:"format"`
+
+	// Build One build of the database, by the name a `database.updated` webhook
+	// gives it, so the file is the one whose `sha256` the webhook carries.
+	// Without it, the build that is live.
+	Build *string `form:"build,omitempty" json:"build,omitempty"`
 }
 
 // ListDownloadsParams defines parameters for ListDownloads.
@@ -2472,6 +2487,18 @@ func NewDownloadDatabaseRequest(server string, params *DownloadDatabaseParams) (
 			for _, qp := range strings.Split(queryFrag, "&") {
 				rawQueryFragments = append(rawQueryFragments, qp)
 			}
+		}
+
+		if params.Build != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "build", *params.Build, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
 		}
 
 		if encoded := queryValues.Encode(); encoded != "" {
@@ -3928,6 +3955,8 @@ type DownloadDatabaseResponse struct {
 	JSON403 *Error
 	// JSON404 the response for an HTTP 404 `application/json` response
 	JSON404 *Error
+	// JSON410 the response for an HTTP 410 `application/json` response
+	JSON410 *Error
 	// JSON503 the response for an HTTP 503 `application/json` response
 	JSON503 *Error
 	// Headers302 the parsed response headers for an HTTP 302 response
@@ -3952,6 +3981,11 @@ func (r DownloadDatabaseResponse) GetJSON403() *Error {
 // GetJSON404 returns the response for an HTTP 404 `application/json` response
 func (r DownloadDatabaseResponse) GetJSON404() *Error {
 	return r.JSON404
+}
+
+// GetJSON410 returns the response for an HTTP 410 `application/json` response
+func (r DownloadDatabaseResponse) GetJSON410() *Error {
+	return r.JSON410
 }
 
 // GetJSON503 returns the response for an HTTP 503 `application/json` response
@@ -5934,6 +5968,13 @@ func ParseDownloadDatabaseResponse(rsp *http.Response) (*DownloadDatabaseRespons
 			return nil, err
 		}
 		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 410:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON410 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 503:
 		var dest Error
