@@ -2,6 +2,19 @@
 
 What each release changed for you, newest first. Each line is a commit's summary, linked to its full description and diff. Releases before 5.3.2 are described by their release commits.
 
+## 5.11.0 - 2026-11-07
+
+### Features
+
+- Download the build a database.updated webhook names ([`552b9ef`](https://github.com/vpndetection-io/sdk-go/commit/552b9ef3f5fd78014582362855d98e8251298967))
+
+### Fixes
+
+- Re-pin the spec to 2026.11.05: the download's build parameter ([`a8d1264`](https://github.com/vpndetection-io/sdk-go/commit/a8d1264685ed53b8cd0b2c7a0026732342753316))
+- Re-pin the spec to 2026.11.03: a proxy flag keeps its last values ([`1a6f2ef`](https://github.com/vpndetection-io/sdk-go/commit/1a6f2ef585ccaa54134d9af9318aa45934831ea1))
+- Re-pin the spec to 2026.11.02: ID and IDs in its descriptions ([`70c4835`](https://github.com/vpndetection-io/sdk-go/commit/70c4835f7b3a1121b1075282cd8d19eefe17c1bd))
+- Re-pin the spec to 2026.11.02: two spent-allowance messages ([`47500f9`](https://github.com/vpndetection-io/sdk-go/commit/47500f94a86e070ca363ff1f0436ec4a129e80a0))
+
 ## 5.10.2 - 2026-10-29
 
 ### Fixes
