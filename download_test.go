@@ -15,6 +15,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"strings"
 	"sync"
 	"testing"
@@ -81,6 +82,60 @@ func TestDownloadBytesReturnsTheBytes(t *testing.T) {
 // The key authorizes the API call that mints the link. The link is presigned and
 // authorizes itself, so forwarding the key on would hand a credential to a host
 // that has no business seeing it.
+func TestEachDownloadAsksForTheBuildItIsGiven(t *testing.T) {
+	o := newOrigin(t, originConfig{})
+	ctx := context.Background()
+	build := Build("20261105.0t53s5")
+
+	if _, err := o.client.Database.DownloadURL(ctx, "cdn_ip_v1", FormatCSVGZ); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := o.client.Database.DownloadURL(ctx, "cdn_ip_v1", FormatCSVGZ, build); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := o.client.Database.Download(ctx, "cdn_ip_v1", FormatCSVGZ, io.Discard, build); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := o.client.Database.DownloadFile(
+		ctx, "cdn_ip_v1", FormatCSVGZ, filepath.Join(t.TempDir(), "build.csv.gz"), build,
+	); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := o.client.Database.DownloadBytes(ctx, "cdn_ip_v1", FormatCSVGZ, build); err != nil {
+		t.Fatal(err)
+	}
+
+	var builds []string
+	o.mu.Lock()
+	for _, r := range o.seen {
+		if r.URL.Path == "/api/v1/database/download" {
+			builds = append(builds, r.URL.Query().Get("build"))
+		}
+	}
+	o.mu.Unlock()
+	want := []string{"", "20261105.0t53s5", "20261105.0t53s5", "20261105.0t53s5", "20261105.0t53s5"}
+	if !slices.Equal(builds, want) {
+		t.Errorf("the API was asked for builds %q, want %q", builds, want)
+	}
+}
+
+// A pruned build is gone for good, so asking again cannot help.
+func TestABuildNoLongerKeptIsABadRequestWithIts410SentOnce(t *testing.T) {
+	o := newOrigin(t, originConfig{goneBuild: "20261029.abc123", retries: 3})
+
+	_, err := o.client.Database.DownloadBytes(
+		context.Background(), "cdn_ip_v1", FormatCSVGZ, Build("20261029.abc123"))
+
+	var apiErr *Error
+	if !errors.As(err, &apiErr) {
+		t.Fatalf("got %v, want an *Error", err)
+	}
+	if apiErr.Kind != KindBadRequest || apiErr.StatusCode != http.StatusGone {
+		t.Errorf("got %s with status %d, want bad_request with 410", apiErr.Kind, apiErr.StatusCode)
+	}
+	o.assertPaths(t, "/api/v1/database/download")
+}
+
 func TestTheAPIKeyReachesTheAPIAndNeverObjectStorage(t *testing.T) {
 	origin := newOrigin(t, originConfig{})
 
@@ -297,6 +352,8 @@ type originConfig struct {
 	storageRefusals   int
 	storageRetryAfter string
 	retries           int
+	// A build the API answers 410 for, as it does once a build is pruned.
+	goneBuild string
 }
 
 // Serves the API's 302 and the object storage it points at, on one origin, and
@@ -329,6 +386,13 @@ func newOrigin(t *testing.T, cfg originConfig) *testOrigin {
 }
 
 func (o *testOrigin) serve(w http.ResponseWriter, r *http.Request, blobURL string, cfg originConfig) {
+	if r.URL.Path == "/api/v1/database/download" && cfg.goneBuild != "" &&
+		r.URL.Query().Get("build") == cfg.goneBuild {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusGone)
+		fmt.Fprint(w, `{"rc":"BUILD_GONE"}`)
+		return
+	}
 	if r.URL.Path == "/api/v1/database/download" {
 		http.Redirect(w, r, blobURL, http.StatusFound)
 		return

@@ -95,21 +95,55 @@ type (
 	}
 )
 
+// DownloadOption chooses which file one download fetches: DownloadURL,
+// Download, DownloadFile or DownloadBytes.
+type DownloadOption interface {
+	applyDownload(*downloadConfig)
+}
+
+// Build asks a download for one build of the dataset, by the name a
+// database.updated webhook gives it, so the file is the one whose sha256 the
+// webhook carries. Without it, the build that is live. A build is kept 7 days;
+// one pruned since is a bad_request *Error with status 410, sent once.
+func Build(name string) DownloadOption {
+	return buildOption(name)
+}
+
+type buildOption string
+
+func (o buildOption) applyDownload(c *downloadConfig) { c.build = (*string)(&o) }
+
+type downloadConfig struct {
+	build *string
+}
+
+func downloadConfigOf(opts []DownloadOption) downloadConfig {
+	var c downloadConfig
+	for _, opt := range opts {
+		opt.applyDownload(&c)
+	}
+	return c
+}
+
 // DownloadURL is the time-limited URL for one dataset file.
 //
 // The API answers 302 to object storage. The URL is returned rather than the
 // bytes so the caller decides how to transfer a file that routinely runs to
 // gigabytes; the link authorizes the START of a transfer, so one already
 // running is not interrupted when it lapses.
-func (d *DatabaseAPI) DownloadURL(ctx context.Context, id string, format Format) (string, error) {
+func (d *DatabaseAPI) DownloadURL(
+	ctx context.Context, id string, format Format, opts ...DownloadOption,
+) (string, error) {
 	if err := checkFormat(format); err != nil {
 		return "", err
 	}
+	build := downloadConfigOf(opts).build
 	ctx = withoutRedirects(ctx)
 	return withRetry(ctx, d.retries, func() (string, error) {
 		res, err := d.api.DownloadDatabase(ctx, &api.DownloadDatabaseParams{
 			ID:     id,
 			Format: api.DatabaseFormat(format),
+			Build:  build,
 		})
 		if err != nil {
 			return "", errorFromTransport(err)
@@ -150,9 +184,9 @@ func (d *DatabaseAPI) DownloadURL(ctx context.Context, id string, format Format)
 // in an *Error: a reset socket and a full disk are different problems, and only
 // one of them is ours.
 func (d *DatabaseAPI) Download(
-	ctx context.Context, id string, format Format, dst io.Writer,
+	ctx context.Context, id string, format Format, dst io.Writer, opts ...DownloadOption,
 ) (int64, error) {
-	res, err := d.fetchFile(ctx, id, format)
+	res, err := d.fetchFile(ctx, id, format, opts)
 	if err != nil {
 		return 0, err
 	}
@@ -166,9 +200,9 @@ func (d *DatabaseAPI) Download(
 // a transfer that dies half way leaves no truncated file that reads as a whole
 // dataset. Otherwise identical to Download.
 func (d *DatabaseAPI) DownloadFile(
-	ctx context.Context, id string, format Format, path string,
+	ctx context.Context, id string, format Format, path string, opts ...DownloadOption,
 ) (int64, error) {
-	res, err := d.fetchFile(ctx, id, format)
+	res, err := d.fetchFile(ctx, id, format, opts)
 	if err != nil {
 		return 0, err
 	}
@@ -199,8 +233,10 @@ func (d *DatabaseAPI) DownloadFile(
 // magnitude, from cdn_ip_v1 at 10 KB to resproxy_ip_90d_v1 at 1.79 GB, so reach
 // for it at the small end and use Download or DownloadFile for anything you
 // have not measured.
-func (d *DatabaseAPI) DownloadBytes(ctx context.Context, id string, format Format) ([]byte, error) {
-	res, err := d.fetchFile(ctx, id, format)
+func (d *DatabaseAPI) DownloadBytes(
+	ctx context.Context, id string, format Format, opts ...DownloadOption,
+) ([]byte, error) {
+	res, err := d.fetchFile(ctx, id, format, opts)
 	if err != nil {
 		return nil, err
 	}
@@ -235,9 +271,9 @@ const maxPrealloc = 64 << 20
 // holding it. The key rides a request editor on the generated client, which
 // this request does not go through.
 func (d *DatabaseAPI) fetchFile(
-	ctx context.Context, id string, format Format,
+	ctx context.Context, id string, format Format, opts []DownloadOption,
 ) (*http.Response, error) {
-	url, err := d.DownloadURL(ctx, id, format)
+	url, err := d.DownloadURL(ctx, id, format, opts...)
 	if err != nil {
 		return nil, err
 	}
