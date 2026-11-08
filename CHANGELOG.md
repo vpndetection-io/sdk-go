@@ -2,6 +2,12 @@
 
 What each release changed for you, newest first. Each line is a commit's summary, linked to its full description and diff. Releases before 5.3.2 are described by their release commits.
 
+## 5.11.1 - 2026-11-08
+
+### Fixes
+
+- Restore v5.10's download signatures, and ask for a build with AtBuild ([`91532a0`](https://github.com/vpndetection-io/sdk-go/commit/91532a0e18efe1d2706fddb847b902d85dbe3bdb))
+
 ## 5.11.0 - 2026-11-07
 
 ### Features
