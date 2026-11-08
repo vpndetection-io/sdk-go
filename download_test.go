@@ -79,29 +79,29 @@ func TestDownloadBytesReturnsTheBytes(t *testing.T) {
 	}
 }
 
-// The key authorizes the API call that mints the link. The link is presigned and
-// authorizes itself, so forwarding the key on would hand a credential to a host
-// that has no business seeing it.
 func TestEachDownloadAsksForTheBuildItIsGiven(t *testing.T) {
 	o := newOrigin(t, originConfig{})
 	ctx := context.Background()
-	build := Build("20261105.0t53s5")
+	build := o.client.Database.AtBuild("20261105.0t53s5")
 
 	if _, err := o.client.Database.DownloadURL(ctx, "cdn_ip_v1", FormatCSVGZ); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := o.client.Database.DownloadURL(ctx, "cdn_ip_v1", FormatCSVGZ, build); err != nil {
+	if _, err := build.DownloadURL(ctx, "cdn_ip_v1", FormatCSVGZ); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := o.client.Database.Download(ctx, "cdn_ip_v1", FormatCSVGZ, io.Discard, build); err != nil {
+	if _, err := build.Download(ctx, "cdn_ip_v1", FormatCSVGZ, io.Discard); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := o.client.Database.DownloadFile(
-		ctx, "cdn_ip_v1", FormatCSVGZ, filepath.Join(t.TempDir(), "build.csv.gz"), build,
+	if _, err := build.DownloadFile(
+		ctx, "cdn_ip_v1", FormatCSVGZ, filepath.Join(t.TempDir(), "build.csv.gz"),
 	); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := o.client.Database.DownloadBytes(ctx, "cdn_ip_v1", FormatCSVGZ, build); err != nil {
+	if _, err := build.DownloadBytes(ctx, "cdn_ip_v1", FormatCSVGZ); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := o.client.Database.DownloadBytes(ctx, "cdn_ip_v1", FormatCSVGZ); err != nil {
 		t.Fatal(err)
 	}
 
@@ -113,7 +113,7 @@ func TestEachDownloadAsksForTheBuildItIsGiven(t *testing.T) {
 		}
 	}
 	o.mu.Unlock()
-	want := []string{"", "20261105.0t53s5", "20261105.0t53s5", "20261105.0t53s5", "20261105.0t53s5"}
+	want := []string{"", "20261105.0t53s5", "20261105.0t53s5", "20261105.0t53s5", "20261105.0t53s5", ""}
 	if !slices.Equal(builds, want) {
 		t.Errorf("the API was asked for builds %q, want %q", builds, want)
 	}
@@ -123,8 +123,8 @@ func TestEachDownloadAsksForTheBuildItIsGiven(t *testing.T) {
 func TestABuildNoLongerKeptIsABadRequestWithIts410SentOnce(t *testing.T) {
 	o := newOrigin(t, originConfig{goneBuild: "20261029.abc123", retries: 3})
 
-	_, err := o.client.Database.DownloadBytes(
-		context.Background(), "cdn_ip_v1", FormatCSVGZ, Build("20261029.abc123"))
+	_, err := o.client.Database.AtBuild("20261029.abc123").DownloadBytes(
+		context.Background(), "cdn_ip_v1", FormatCSVGZ)
 
 	var apiErr *Error
 	if !errors.As(err, &apiErr) {
@@ -136,6 +136,25 @@ func TestABuildNoLongerKeptIsABadRequestWithIts410SentOnce(t *testing.T) {
 	o.assertPaths(t, "/api/v1/database/download")
 }
 
+// The download calls keep v5.10's signatures, on DatabaseAPI and on a build
+// alike, so an interface a caller declared from them is still satisfied.
+var _ interface {
+	DownloadURL(ctx context.Context, id string, format Format) (string, error)
+	Download(ctx context.Context, id string, format Format, dst io.Writer) (int64, error)
+	DownloadFile(ctx context.Context, id string, format Format, path string) (int64, error)
+	DownloadBytes(ctx context.Context, id string, format Format) ([]byte, error)
+} = (*DatabaseAPI)(nil)
+
+var _ interface {
+	DownloadURL(ctx context.Context, id string, format Format) (string, error)
+	Download(ctx context.Context, id string, format Format, dst io.Writer) (int64, error)
+	DownloadFile(ctx context.Context, id string, format Format, path string) (int64, error)
+	DownloadBytes(ctx context.Context, id string, format Format) ([]byte, error)
+} = (*BuildDownloads)(nil)
+
+// The key authorizes the API call that mints the link. The link is presigned and
+// authorizes itself, so forwarding the key on would hand a credential to a host
+// that has no business seeing it.
 func TestTheAPIKeyReachesTheAPIAndNeverObjectStorage(t *testing.T) {
 	origin := newOrigin(t, originConfig{})
 

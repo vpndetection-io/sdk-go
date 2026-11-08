@@ -95,49 +95,22 @@ type (
 	}
 )
 
-// DownloadOption chooses which file one download fetches: DownloadURL,
-// Download, DownloadFile or DownloadBytes.
-type DownloadOption interface {
-	applyDownload(*downloadConfig)
-}
-
-// Build asks a download for one build of the dataset, by the name a
-// database.updated webhook gives it, so the file is the one whose sha256 the
-// webhook carries. Without it, the build that is live. A build is kept 7 days;
-// one pruned since is a bad_request *Error with status 410, sent once.
-func Build(name string) DownloadOption {
-	return buildOption(name)
-}
-
-type buildOption string
-
-func (o buildOption) applyDownload(c *downloadConfig) { c.build = (*string)(&o) }
-
-type downloadConfig struct {
-	build *string
-}
-
-func downloadConfigOf(opts []DownloadOption) downloadConfig {
-	var c downloadConfig
-	for _, opt := range opts {
-		opt.applyDownload(&c)
-	}
-	return c
-}
-
 // DownloadURL is the time-limited URL for one dataset file.
 //
 // The API answers 302 to object storage. The URL is returned rather than the
 // bytes so the caller decides how to transfer a file that routinely runs to
 // gigabytes; the link authorizes the START of a transfer, so one already
 // running is not interrupted when it lapses.
-func (d *DatabaseAPI) DownloadURL(
-	ctx context.Context, id string, format Format, opts ...DownloadOption,
+func (d *DatabaseAPI) DownloadURL(ctx context.Context, id string, format Format) (string, error) {
+	return d.downloadURL(ctx, id, format, nil)
+}
+
+func (d *DatabaseAPI) downloadURL(
+	ctx context.Context, id string, format Format, build *string,
 ) (string, error) {
 	if err := checkFormat(format); err != nil {
 		return "", err
 	}
-	build := downloadConfigOf(opts).build
 	ctx = withoutRedirects(ctx)
 	return withRetry(ctx, d.retries, func() (string, error) {
 		res, err := d.api.DownloadDatabase(ctx, &api.DownloadDatabaseParams{
@@ -184,9 +157,15 @@ func (d *DatabaseAPI) DownloadURL(
 // in an *Error: a reset socket and a full disk are different problems, and only
 // one of them is ours.
 func (d *DatabaseAPI) Download(
-	ctx context.Context, id string, format Format, dst io.Writer, opts ...DownloadOption,
+	ctx context.Context, id string, format Format, dst io.Writer,
 ) (int64, error) {
-	res, err := d.fetchFile(ctx, id, format, opts)
+	return d.download(ctx, id, format, dst, nil)
+}
+
+func (d *DatabaseAPI) download(
+	ctx context.Context, id string, format Format, dst io.Writer, build *string,
+) (int64, error) {
+	res, err := d.fetchFile(ctx, id, format, build)
 	if err != nil {
 		return 0, err
 	}
@@ -200,9 +179,15 @@ func (d *DatabaseAPI) Download(
 // a transfer that dies half way leaves no truncated file that reads as a whole
 // dataset. Otherwise identical to Download.
 func (d *DatabaseAPI) DownloadFile(
-	ctx context.Context, id string, format Format, path string, opts ...DownloadOption,
+	ctx context.Context, id string, format Format, path string,
 ) (int64, error) {
-	res, err := d.fetchFile(ctx, id, format, opts)
+	return d.downloadFile(ctx, id, format, path, nil)
+}
+
+func (d *DatabaseAPI) downloadFile(
+	ctx context.Context, id string, format Format, path string, build *string,
+) (int64, error) {
+	res, err := d.fetchFile(ctx, id, format, build)
 	if err != nil {
 		return 0, err
 	}
@@ -233,10 +218,14 @@ func (d *DatabaseAPI) DownloadFile(
 // magnitude, from cdn_ip_v1 at 10 KB to resproxy_ip_90d_v1 at 1.79 GB, so reach
 // for it at the small end and use Download or DownloadFile for anything you
 // have not measured.
-func (d *DatabaseAPI) DownloadBytes(
-	ctx context.Context, id string, format Format, opts ...DownloadOption,
+func (d *DatabaseAPI) DownloadBytes(ctx context.Context, id string, format Format) ([]byte, error) {
+	return d.downloadBytes(ctx, id, format, nil)
+}
+
+func (d *DatabaseAPI) downloadBytes(
+	ctx context.Context, id string, format Format, build *string,
 ) ([]byte, error) {
-	res, err := d.fetchFile(ctx, id, format, opts)
+	res, err := d.fetchFile(ctx, id, format, build)
 	if err != nil {
 		return nil, err
 	}
@@ -271,9 +260,9 @@ const maxPrealloc = 64 << 20
 // holding it. The key rides a request editor on the generated client, which
 // this request does not go through.
 func (d *DatabaseAPI) fetchFile(
-	ctx context.Context, id string, format Format, opts []DownloadOption,
+	ctx context.Context, id string, format Format, build *string,
 ) (*http.Response, error) {
-	url, err := d.DownloadURL(ctx, id, format, opts...)
+	url, err := d.downloadURL(ctx, id, format, build)
 	if err != nil {
 		return nil, err
 	}
@@ -297,6 +286,46 @@ func (d *DatabaseAPI) fetchFile(
 		}
 		return res, nil
 	})
+}
+
+// AtBuild is the four download calls for one build of each dataset, by the
+// name a database.updated webhook gives it, so the file is the one whose sha256
+// the webhook carries; DatabaseAPI's own fetch the build that is live. A build
+// is kept 7 days, and one pruned since is a bad_request *Error with status 410,
+// sent once.
+func (d *DatabaseAPI) AtBuild(name string) *BuildDownloads {
+	return &BuildDownloads{db: d, build: name}
+}
+
+// BuildDownloads downloads the build AtBuild named, with the same four methods
+// and signatures as DatabaseAPI.
+type BuildDownloads struct {
+	db    *DatabaseAPI
+	build string
+}
+
+// DownloadURL is DatabaseAPI.DownloadURL for this build.
+func (b *BuildDownloads) DownloadURL(ctx context.Context, id string, format Format) (string, error) {
+	return b.db.downloadURL(ctx, id, format, &b.build)
+}
+
+// Download is DatabaseAPI.Download for this build.
+func (b *BuildDownloads) Download(
+	ctx context.Context, id string, format Format, dst io.Writer,
+) (int64, error) {
+	return b.db.download(ctx, id, format, dst, &b.build)
+}
+
+// DownloadFile is DatabaseAPI.DownloadFile for this build.
+func (b *BuildDownloads) DownloadFile(
+	ctx context.Context, id string, format Format, path string,
+) (int64, error) {
+	return b.db.downloadFile(ctx, id, format, path, &b.build)
+}
+
+// DownloadBytes is DatabaseAPI.DownloadBytes for this build.
+func (b *BuildDownloads) DownloadBytes(ctx context.Context, id string, format Format) ([]byte, error) {
+	return b.db.downloadBytes(ctx, id, format, &b.build)
 }
 
 // Format is a format a dataset is published in. Not every dataset is built in

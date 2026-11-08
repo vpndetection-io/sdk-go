@@ -21,3 +21,7 @@ require (
 	github.com/apapsch/go-jsonmerge/v2 v2.0.0 // indirect
 	github.com/google/uuid v1.6.0 // indirect
 )
+
+// v5.11.0 changed the four download methods' signatures, which broke an interface or func type
+// written from v5.10's; v5.11.1 restores them and asks for a build through DatabaseAPI.AtBuild.
+retract v5.11.0
