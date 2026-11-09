@@ -1228,7 +1228,7 @@ type ClientInterface interface {
 
 	// DownloadDatabase Download
 	//
-	// Answers `302` with a time-limited URL pointing straight at object storage. Follow the redirect; the link authorizes the START of a transfer, so one already running is not interrupted when it lapses.
+	// Redirects (`302`) to a time-limited link to the database file. The link only has to be valid when the download starts, so a long one isn't cut off when it expires.
 	//
 	// Corresponds with GET /api/v1/database/download (the `DownloadDatabase` operationId).
 	DownloadDatabase(ctx context.Context, params *DownloadDatabaseParams, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -1242,11 +1242,9 @@ type ClientInterface interface {
 
 	// ListDatabases List
 	//
-	// Every database this organization may SEE, with where its license stands.
-	// Not just the ones you hold: a customer with one grant should be able to
-	// tell what else is published without asking. `standing` is the
-	// difference - `licensed`, `expired`, or `unlicensed` for one never
-	// bought.
+	// Every database this organization can see, licensed or not. `standing`
+	// says where its license stands: `licensed`, `expired`, or `unlicensed`
+	// for one never bought.
 	//
 	// Corresponds with GET /api/v1/database/list (the `ListDatabases` operationId).
 	ListDatabases(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -1273,9 +1271,8 @@ type ClientInterface interface {
 
 	// AccountListApikeys List
 	//
-	// Metadata only. A key's secret is never in a list - not here and not in
-	// the console - because a list is the response that ends up in logs,
-	// caches and support tickets.
+	// Each key's metadata. A list never carries a secret, here or in the
+	// console: `reveal` reads one.
 	//
 	// `retrievable` says whether the secret could still be read back at all.
 	// A key issued before this product stored secrets recoverably was never
@@ -1289,8 +1286,8 @@ type ClientInterface interface {
 	//
 	// Creates a key and returns its secret.
 	//
-	// This is the ONLY response that ever carries the secret, and only
-	// because this is the moment it comes into existence. Store it now.
+	// Store the secret now. Reading it back later takes `reveal` and the
+	// `apikeys.reveal` scope.
 	//
 	// Takes any type of body and a specified content type.
 	//
@@ -1301,8 +1298,8 @@ type ClientInterface interface {
 	//
 	// Creates a key and returns its secret.
 	//
-	// This is the ONLY response that ever carries the secret, and only
-	// because this is the moment it comes into existence. Store it now.
+	// Store the secret now. Reading it back later takes `reveal` and the
+	// `apikeys.reveal` scope.
 	//
 	// Takes a body of the `application/json` content type.
 	//
@@ -1313,13 +1310,11 @@ type ClientInterface interface {
 	//
 	// Returns an existing key's secret.
 	//
-	// Its own scope rather than part of `apikeys.manage`, because the two are
-	// different acts: rotating replaces a secret you never see, while this
-	// hands one over.
+	// It needs the `apikeys.reveal` scope, which `apikeys.manage` doesn't
+	// include.
 	//
-	// Refused with `NOT_RETRIEVABLE` for a key issued before this product
-	// stored secrets recoverably - that secret was never kept, so no retry
-	// will ever produce it. Rotate the key instead.
+	// Refused with `NOT_RETRIEVABLE` for a key issued before we kept secrets.
+	// Rotate that key instead.
 	//
 	// Corresponds with POST /api/v1/iam/apikeys/{id}/reveal (the `AccountRevealApikey` operationId).
 	AccountRevealApikey(ctx context.Context, id ApikeyIDParam, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -1348,16 +1343,13 @@ type ClientInterface interface {
 	// The identity behind this credential: what it is, the organization it is
 	// scoped to, and the scopes it currently holds.
 	//
-	// `user` is present for an OAuth token and ABSENT for an API key, which
+	// `user` is present for an OAuth token and absent for an API key, which
 	// has an organization but no person behind it. `credential.kind` says
 	// which you are holding, so a client can branch without guessing from a
 	// missing field.
 	//
-	// Narrower than what the console shows its own user on purpose: an
-	// integration needs a name to display and an organization to address, not
-	// a profile. The `scopes` array is what the credential may do RIGHT NOW,
-	// so a client can render its own capabilities rather than discovering
-	// them from a 403.
+	// `scopes` is what the credential may do now, so a client can check
+	// before it calls.
 	//
 	// Corresponds with GET /api/v1/iam/identity (the `AccountIdentity` operationId).
 	AccountIdentity(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -1366,18 +1358,16 @@ type ClientInterface interface {
 	//
 	// The organization this credential is scoped to.
 	//
-	// There is no way to name a different one. A credential describes exactly
-	// one organization, so an identifier in the path could only ever be your
-	// own or a refusal.
+	// A credential belongs to one organization, so this takes no ID.
 	//
 	// Corresponds with GET /api/v1/iam/org (the `AccountOrg` operationId).
 	AccountOrg(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// AccountOrgMembers Members
 	//
-	// Read-only. Adding or removing a member is an invitation flow with email
-	// in the middle rather than a POST, and modeling it as one here would
-	// promise something this API does not do.
+	// The members of the organization this credential is scoped to.
+	//
+	// Read-only. Members are invited by email from the console.
 	//
 	// Corresponds with GET /api/v1/iam/org/members (the `AccountOrgMembers` operationId).
 	AccountOrgMembers(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -1555,11 +1545,10 @@ type ClientInterface interface {
 
 	// OauthRevokeWithBody Revoke
 	//
-	// RFC 7009. Always answers 200, including for a token that was never
-	// valid - an endpoint that distinguished the two would be a way to test
-	// whether a stolen string is a live credential.
+	// RFC 7009. Always answers 200, even for a token that was never valid, so
+	// it can't be used to test whether a token is live.
 	//
-	// Revoking a REFRESH token ends the whole authorization and takes its
+	// Revoking a refresh token ends the whole authorization and takes its
 	// access tokens with it. Revoking an access token affects only that token.
 	//
 	// Takes any type of body and a specified content type.
@@ -1569,11 +1558,10 @@ type ClientInterface interface {
 
 	// OauthRevokeWithFormdataBody Revoke
 	//
-	// RFC 7009. Always answers 200, including for a token that was never
-	// valid - an endpoint that distinguished the two would be a way to test
-	// whether a stolen string is a live credential.
+	// RFC 7009. Always answers 200, even for a token that was never valid, so
+	// it can't be used to test whether a token is live.
 	//
-	// Revoking a REFRESH token ends the whole authorization and takes its
+	// Revoking a refresh token ends the whole authorization and takes its
 	// access tokens with it. Revoking an access token affects only that token.
 	//
 	// Takes a body of the `application/x-www-form-urlencoded` content type.
@@ -1583,7 +1571,8 @@ type ClientInterface interface {
 
 	// OauthTokenWithBody Token
 	//
-	// Three grant types.
+	// Issues tokens for three grant types: a device code, an authorization
+	// code and a refresh token.
 	//
 	// `urn:ietf:params:oauth:grant-type:device_code` polls a device
 	// authorization. Until the person approves it answers
@@ -1607,7 +1596,8 @@ type ClientInterface interface {
 
 	// OauthTokenWithFormdataBody Token
 	//
-	// Three grant types.
+	// Issues tokens for three grant types: a device code, an authorization
+	// code and a refresh token.
 	//
 	// `urn:ietf:params:oauth:grant-type:device_code` polls a device
 	// authorization. Until the person approves it answers
@@ -1680,7 +1670,7 @@ func (c *Client) DatabaseChecksum(ctx context.Context, params *DatabaseChecksumP
 
 // DownloadDatabase Download
 //
-// Answers `302` with a time-limited URL pointing straight at object storage. Follow the redirect; the link authorizes the START of a transfer, so one already running is not interrupted when it lapses.
+// Redirects (`302`) to a time-limited link to the database file. The link only has to be valid when the download starts, so a long one isn't cut off when it expires.
 //
 // Corresponds with GET /api/v1/database/download (the `DownloadDatabase` operationId).
 func (c *Client) DownloadDatabase(ctx context.Context, params *DownloadDatabaseParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
@@ -1714,11 +1704,9 @@ func (c *Client) ListDownloads(ctx context.Context, params *ListDownloadsParams,
 
 // ListDatabases List
 //
-// Every database this organization may SEE, with where its license stands.
-// Not just the ones you hold: a customer with one grant should be able to
-// tell what else is published without asking. `standing` is the
-// difference - `licensed`, `expired`, or `unlicensed` for one never
-// bought.
+// Every database this organization can see, licensed or not. `standing`
+// says where its license stands: `licensed`, `expired`, or `unlicensed`
+// for one never bought.
 //
 // Corresponds with GET /api/v1/database/list (the `ListDatabases` operationId).
 func (c *Client) ListDatabases(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
@@ -1775,9 +1763,8 @@ func (c *Client) MyEntitlement(ctx context.Context, reqEditors ...RequestEditorF
 
 // AccountListApikeys List
 //
-// Metadata only. A key's secret is never in a list - not here and not in
-// the console - because a list is the response that ends up in logs,
-// caches and support tickets.
+// Each key's metadata. A list never carries a secret, here or in the
+// console: `reveal` reads one.
 //
 // `retrievable` says whether the secret could still be read back at all.
 // A key issued before this product stored secrets recoverably was never
@@ -1801,8 +1788,8 @@ func (c *Client) AccountListApikeys(ctx context.Context, reqEditors ...RequestEd
 //
 // Creates a key and returns its secret.
 //
-// This is the ONLY response that ever carries the secret, and only
-// because this is the moment it comes into existence. Store it now.
+// Store the secret now. Reading it back later takes `reveal` and the
+// `apikeys.reveal` scope.
 //
 // Takes any type of body and a specified content type.
 //
@@ -1823,8 +1810,8 @@ func (c *Client) AccountCreateApikeyWithBody(ctx context.Context, contentType st
 //
 // Creates a key and returns its secret.
 //
-// This is the ONLY response that ever carries the secret, and only
-// because this is the moment it comes into existence. Store it now.
+// Store the secret now. Reading it back later takes `reveal` and the
+// `apikeys.reveal` scope.
 //
 // Takes a body of the `application/json` content type.
 //
@@ -1845,13 +1832,11 @@ func (c *Client) AccountCreateApikey(ctx context.Context, body AccountCreateApik
 //
 // Returns an existing key's secret.
 //
-// Its own scope rather than part of `apikeys.manage`, because the two are
-// different acts: rotating replaces a secret you never see, while this
-// hands one over.
+// It needs the `apikeys.reveal` scope, which `apikeys.manage` doesn't
+// include.
 //
-// Refused with `NOT_RETRIEVABLE` for a key issued before this product
-// stored secrets recoverably - that secret was never kept, so no retry
-// will ever produce it. Rotate the key instead.
+// Refused with `NOT_RETRIEVABLE` for a key issued before we kept secrets.
+// Rotate that key instead.
 //
 // Corresponds with POST /api/v1/iam/apikeys/{id}/reveal (the `AccountRevealApikey` operationId).
 func (c *Client) AccountRevealApikey(ctx context.Context, id ApikeyIDParam, reqEditors ...RequestEditorFn) (*http.Response, error) {
@@ -1910,16 +1895,13 @@ func (c *Client) AccountRotateApikey(ctx context.Context, id ApikeyIDParam, reqE
 // The identity behind this credential: what it is, the organization it is
 // scoped to, and the scopes it currently holds.
 //
-// `user` is present for an OAuth token and ABSENT for an API key, which
+// `user` is present for an OAuth token and absent for an API key, which
 // has an organization but no person behind it. `credential.kind` says
 // which you are holding, so a client can branch without guessing from a
 // missing field.
 //
-// Narrower than what the console shows its own user on purpose: an
-// integration needs a name to display and an organization to address, not
-// a profile. The `scopes` array is what the credential may do RIGHT NOW,
-// so a client can render its own capabilities rather than discovering
-// them from a 403.
+// `scopes` is what the credential may do now, so a client can check
+// before it calls.
 //
 // Corresponds with GET /api/v1/iam/identity (the `AccountIdentity` operationId).
 func (c *Client) AccountIdentity(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
@@ -1938,9 +1920,7 @@ func (c *Client) AccountIdentity(ctx context.Context, reqEditors ...RequestEdito
 //
 // The organization this credential is scoped to.
 //
-// There is no way to name a different one. A credential describes exactly
-// one organization, so an identifier in the path could only ever be your
-// own or a refusal.
+// A credential belongs to one organization, so this takes no ID.
 //
 // Corresponds with GET /api/v1/iam/org (the `AccountOrg` operationId).
 func (c *Client) AccountOrg(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
@@ -1957,9 +1937,9 @@ func (c *Client) AccountOrg(ctx context.Context, reqEditors ...RequestEditorFn) 
 
 // AccountOrgMembers Members
 //
-// Read-only. Adding or removing a member is an invitation flow with email
-// in the middle rather than a POST, and modeling it as one here would
-// promise something this API does not do.
+// The members of the organization this credential is scoped to.
+//
+// Read-only. Members are invited by email from the console.
 //
 // Corresponds with GET /api/v1/iam/org/members (the `AccountOrgMembers` operationId).
 func (c *Client) AccountOrgMembers(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
@@ -2227,11 +2207,10 @@ func (c *Client) OauthRegister(ctx context.Context, body OauthRegisterJSONReques
 
 // OauthRevokeWithBody Revoke
 //
-// RFC 7009. Always answers 200, including for a token that was never
-// valid - an endpoint that distinguished the two would be a way to test
-// whether a stolen string is a live credential.
+// RFC 7009. Always answers 200, even for a token that was never valid, so
+// it can't be used to test whether a token is live.
 //
-// Revoking a REFRESH token ends the whole authorization and takes its
+// Revoking a refresh token ends the whole authorization and takes its
 // access tokens with it. Revoking an access token affects only that token.
 //
 // Takes any type of body and a specified content type.
@@ -2251,11 +2230,10 @@ func (c *Client) OauthRevokeWithBody(ctx context.Context, contentType string, bo
 
 // OauthRevokeWithFormdataBody Revoke
 //
-// RFC 7009. Always answers 200, including for a token that was never
-// valid - an endpoint that distinguished the two would be a way to test
-// whether a stolen string is a live credential.
+// RFC 7009. Always answers 200, even for a token that was never valid, so
+// it can't be used to test whether a token is live.
 //
-// Revoking a REFRESH token ends the whole authorization and takes its
+// Revoking a refresh token ends the whole authorization and takes its
 // access tokens with it. Revoking an access token affects only that token.
 //
 // Takes a body of the `application/x-www-form-urlencoded` content type.
@@ -2275,7 +2253,8 @@ func (c *Client) OauthRevokeWithFormdataBody(ctx context.Context, body OauthRevo
 
 // OauthTokenWithBody Token
 //
-// Three grant types.
+// Issues tokens for three grant types: a device code, an authorization
+// code and a refresh token.
 //
 // `urn:ietf:params:oauth:grant-type:device_code` polls a device
 // authorization. Until the person approves it answers
@@ -2309,7 +2288,8 @@ func (c *Client) OauthTokenWithBody(ctx context.Context, contentType string, bod
 
 // OauthTokenWithFormdataBody Token
 //
-// Three grant types.
+// Issues tokens for three grant types: a device code, an authorization
+// code and a refresh token.
 //
 // `urn:ietf:params:oauth:grant-type:device_code` polls a device
 // authorization. Until the person approves it answers
@@ -3371,7 +3351,7 @@ type ClientWithResponsesInterface interface {
 
 	// DownloadDatabaseWithResponse Download
 	//
-	// Answers `302` with a time-limited URL pointing straight at object storage. Follow the redirect; the link authorizes the START of a transfer, so one already running is not interrupted when it lapses.
+	// Redirects (`302`) to a time-limited link to the database file. The link only has to be valid when the download starts, so a long one isn't cut off when it expires.
 	//
 	// Returns a wrapper object for the known response body format(s).
 	//
@@ -3389,11 +3369,9 @@ type ClientWithResponsesInterface interface {
 
 	// ListDatabasesWithResponse List
 	//
-	// Every database this organization may SEE, with where its license stands.
-	// Not just the ones you hold: a customer with one grant should be able to
-	// tell what else is published without asking. `standing` is the
-	// difference - `licensed`, `expired`, or `unlicensed` for one never
-	// bought.
+	// Every database this organization can see, licensed or not. `standing`
+	// says where its license stands: `licensed`, `expired`, or `unlicensed`
+	// for one never bought.
 	//
 	// Returns a wrapper object for the known response body format(s).
 	//
@@ -3426,9 +3404,8 @@ type ClientWithResponsesInterface interface {
 
 	// AccountListApikeysWithResponse List
 	//
-	// Metadata only. A key's secret is never in a list - not here and not in
-	// the console - because a list is the response that ends up in logs,
-	// caches and support tickets.
+	// Each key's metadata. A list never carries a secret, here or in the
+	// console: `reveal` reads one.
 	//
 	// `retrievable` says whether the secret could still be read back at all.
 	// A key issued before this product stored secrets recoverably was never
@@ -3444,8 +3421,8 @@ type ClientWithResponsesInterface interface {
 	//
 	// Creates a key and returns its secret.
 	//
-	// This is the ONLY response that ever carries the secret, and only
-	// because this is the moment it comes into existence. Store it now.
+	// Store the secret now. Reading it back later takes `reveal` and the
+	// `apikeys.reveal` scope.
 	//
 	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
 	//
@@ -3456,8 +3433,8 @@ type ClientWithResponsesInterface interface {
 	//
 	// Creates a key and returns its secret.
 	//
-	// This is the ONLY response that ever carries the secret, and only
-	// because this is the moment it comes into existence. Store it now.
+	// Store the secret now. Reading it back later takes `reveal` and the
+	// `apikeys.reveal` scope.
 	//
 	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 	//
@@ -3468,13 +3445,11 @@ type ClientWithResponsesInterface interface {
 	//
 	// Returns an existing key's secret.
 	//
-	// Its own scope rather than part of `apikeys.manage`, because the two are
-	// different acts: rotating replaces a secret you never see, while this
-	// hands one over.
+	// It needs the `apikeys.reveal` scope, which `apikeys.manage` doesn't
+	// include.
 	//
-	// Refused with `NOT_RETRIEVABLE` for a key issued before this product
-	// stored secrets recoverably - that secret was never kept, so no retry
-	// will ever produce it. Rotate the key instead.
+	// Refused with `NOT_RETRIEVABLE` for a key issued before we kept secrets.
+	// Rotate that key instead.
 	//
 	// Returns a wrapper object for the known response body format(s).
 	//
@@ -3509,16 +3484,13 @@ type ClientWithResponsesInterface interface {
 	// The identity behind this credential: what it is, the organization it is
 	// scoped to, and the scopes it currently holds.
 	//
-	// `user` is present for an OAuth token and ABSENT for an API key, which
+	// `user` is present for an OAuth token and absent for an API key, which
 	// has an organization but no person behind it. `credential.kind` says
 	// which you are holding, so a client can branch without guessing from a
 	// missing field.
 	//
-	// Narrower than what the console shows its own user on purpose: an
-	// integration needs a name to display and an organization to address, not
-	// a profile. The `scopes` array is what the credential may do RIGHT NOW,
-	// so a client can render its own capabilities rather than discovering
-	// them from a 403.
+	// `scopes` is what the credential may do now, so a client can check
+	// before it calls.
 	//
 	// Returns a wrapper object for the known response body format(s).
 	//
@@ -3529,9 +3501,7 @@ type ClientWithResponsesInterface interface {
 	//
 	// The organization this credential is scoped to.
 	//
-	// There is no way to name a different one. A credential describes exactly
-	// one organization, so an identifier in the path could only ever be your
-	// own or a refusal.
+	// A credential belongs to one organization, so this takes no ID.
 	//
 	// Returns a wrapper object for the known response body format(s).
 	//
@@ -3540,9 +3510,9 @@ type ClientWithResponsesInterface interface {
 
 	// AccountOrgMembersWithResponse Members
 	//
-	// Read-only. Adding or removing a member is an invitation flow with email
-	// in the middle rather than a POST, and modeling it as one here would
-	// promise something this API does not do.
+	// The members of the organization this credential is scoped to.
+	//
+	// Read-only. Members are invited by email from the console.
 	//
 	// Returns a wrapper object for the known response body format(s).
 	//
@@ -3726,11 +3696,10 @@ type ClientWithResponsesInterface interface {
 
 	// OauthRevokeWithBodyWithResponse Revoke
 	//
-	// RFC 7009. Always answers 200, including for a token that was never
-	// valid - an endpoint that distinguished the two would be a way to test
-	// whether a stolen string is a live credential.
+	// RFC 7009. Always answers 200, even for a token that was never valid, so
+	// it can't be used to test whether a token is live.
 	//
-	// Revoking a REFRESH token ends the whole authorization and takes its
+	// Revoking a refresh token ends the whole authorization and takes its
 	// access tokens with it. Revoking an access token affects only that token.
 	//
 	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
@@ -3740,11 +3709,10 @@ type ClientWithResponsesInterface interface {
 
 	// OauthRevokeWithFormdataBodyWithResponse Revoke
 	//
-	// RFC 7009. Always answers 200, including for a token that was never
-	// valid - an endpoint that distinguished the two would be a way to test
-	// whether a stolen string is a live credential.
+	// RFC 7009. Always answers 200, even for a token that was never valid, so
+	// it can't be used to test whether a token is live.
 	//
-	// Revoking a REFRESH token ends the whole authorization and takes its
+	// Revoking a refresh token ends the whole authorization and takes its
 	// access tokens with it. Revoking an access token affects only that token.
 	//
 	// Takes a body of the `application/x-www-form-urlencoded` content type, and returns a wrapper object for the known response body format(s).
@@ -3754,7 +3722,8 @@ type ClientWithResponsesInterface interface {
 
 	// OauthTokenWithBodyWithResponse Token
 	//
-	// Three grant types.
+	// Issues tokens for three grant types: a device code, an authorization
+	// code and a refresh token.
 	//
 	// `urn:ietf:params:oauth:grant-type:device_code` polls a device
 	// authorization. Until the person approves it answers
@@ -3778,7 +3747,8 @@ type ClientWithResponsesInterface interface {
 
 	// OauthTokenWithFormdataBodyWithResponse Token
 	//
-	// Three grant types.
+	// Issues tokens for three grant types: a device code, an authorization
+	// code and a refresh token.
 	//
 	// `urn:ietf:params:oauth:grant-type:device_code` polls a device
 	// authorization. Until the person approves it answers
@@ -5230,7 +5200,7 @@ func (c *ClientWithResponses) DatabaseChecksumWithResponse(ctx context.Context, 
 
 // DownloadDatabaseWithResponse Download
 //
-// Answers `302` with a time-limited URL pointing straight at object storage. Follow the redirect; the link authorizes the START of a transfer, so one already running is not interrupted when it lapses.
+// Redirects (`302`) to a time-limited link to the database file. The link only has to be valid when the download starts, so a long one isn't cut off when it expires.
 //
 // Returns a wrapper object for the known response body format(s).
 //
@@ -5260,11 +5230,9 @@ func (c *ClientWithResponses) ListDownloadsWithResponse(ctx context.Context, par
 
 // ListDatabasesWithResponse List
 //
-// Every database this organization may SEE, with where its license stands.
-// Not just the ones you hold: a customer with one grant should be able to
-// tell what else is published without asking. `standing` is the
-// difference - `licensed`, `expired`, or `unlicensed` for one never
-// bought.
+// Every database this organization can see, licensed or not. `standing`
+// says where its license stands: `licensed`, `expired`, or `unlicensed`
+// for one never bought.
 //
 // Returns a wrapper object for the known response body format(s).
 //
@@ -5315,9 +5283,8 @@ func (c *ClientWithResponses) MyEntitlementWithResponse(ctx context.Context, req
 
 // AccountListApikeysWithResponse List
 //
-// Metadata only. A key's secret is never in a list - not here and not in
-// the console - because a list is the response that ends up in logs,
-// caches and support tickets.
+// Each key's metadata. A list never carries a secret, here or in the
+// console: `reveal` reads one.
 //
 // `retrievable` says whether the secret could still be read back at all.
 // A key issued before this product stored secrets recoverably was never
@@ -5339,8 +5306,8 @@ func (c *ClientWithResponses) AccountListApikeysWithResponse(ctx context.Context
 //
 // Creates a key and returns its secret.
 //
-// This is the ONLY response that ever carries the secret, and only
-// because this is the moment it comes into existence. Store it now.
+// Store the secret now. Reading it back later takes `reveal` and the
+// `apikeys.reveal` scope.
 //
 // Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
 //
@@ -5357,8 +5324,8 @@ func (c *ClientWithResponses) AccountCreateApikeyWithBodyWithResponse(ctx contex
 //
 // Creates a key and returns its secret.
 //
-// This is the ONLY response that ever carries the secret, and only
-// because this is the moment it comes into existence. Store it now.
+// Store the secret now. Reading it back later takes `reveal` and the
+// `apikeys.reveal` scope.
 //
 // Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 //
@@ -5375,13 +5342,11 @@ func (c *ClientWithResponses) AccountCreateApikeyWithResponse(ctx context.Contex
 //
 // Returns an existing key's secret.
 //
-// Its own scope rather than part of `apikeys.manage`, because the two are
-// different acts: rotating replaces a secret you never see, while this
-// hands one over.
+// It needs the `apikeys.reveal` scope, which `apikeys.manage` doesn't
+// include.
 //
-// Refused with `NOT_RETRIEVABLE` for a key issued before this product
-// stored secrets recoverably - that secret was never kept, so no retry
-// will ever produce it. Rotate the key instead.
+// Refused with `NOT_RETRIEVABLE` for a key issued before we kept secrets.
+// Rotate that key instead.
 //
 // Returns a wrapper object for the known response body format(s).
 //
@@ -5434,16 +5399,13 @@ func (c *ClientWithResponses) AccountRotateApikeyWithResponse(ctx context.Contex
 // The identity behind this credential: what it is, the organization it is
 // scoped to, and the scopes it currently holds.
 //
-// `user` is present for an OAuth token and ABSENT for an API key, which
+// `user` is present for an OAuth token and absent for an API key, which
 // has an organization but no person behind it. `credential.kind` says
 // which you are holding, so a client can branch without guessing from a
 // missing field.
 //
-// Narrower than what the console shows its own user on purpose: an
-// integration needs a name to display and an organization to address, not
-// a profile. The `scopes` array is what the credential may do RIGHT NOW,
-// so a client can render its own capabilities rather than discovering
-// them from a 403.
+// `scopes` is what the credential may do now, so a client can check
+// before it calls.
 //
 // Returns a wrapper object for the known response body format(s).
 //
@@ -5460,9 +5422,7 @@ func (c *ClientWithResponses) AccountIdentityWithResponse(ctx context.Context, r
 //
 // The organization this credential is scoped to.
 //
-// There is no way to name a different one. A credential describes exactly
-// one organization, so an identifier in the path could only ever be your
-// own or a refusal.
+// A credential belongs to one organization, so this takes no ID.
 //
 // Returns a wrapper object for the known response body format(s).
 //
@@ -5477,9 +5437,9 @@ func (c *ClientWithResponses) AccountOrgWithResponse(ctx context.Context, reqEdi
 
 // AccountOrgMembersWithResponse Members
 //
-// Read-only. Adding or removing a member is an invitation flow with email
-// in the middle rather than a POST, and modeling it as one here would
-// promise something this API does not do.
+// The members of the organization this credential is scoped to.
+//
+// Read-only. Members are invited by email from the console.
 //
 // Returns a wrapper object for the known response body format(s).
 //
@@ -5717,11 +5677,10 @@ func (c *ClientWithResponses) OauthRegisterWithResponse(ctx context.Context, bod
 
 // OauthRevokeWithBodyWithResponse Revoke
 //
-// RFC 7009. Always answers 200, including for a token that was never
-// valid - an endpoint that distinguished the two would be a way to test
-// whether a stolen string is a live credential.
+// RFC 7009. Always answers 200, even for a token that was never valid, so
+// it can't be used to test whether a token is live.
 //
-// Revoking a REFRESH token ends the whole authorization and takes its
+// Revoking a refresh token ends the whole authorization and takes its
 // access tokens with it. Revoking an access token affects only that token.
 //
 // Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
@@ -5737,11 +5696,10 @@ func (c *ClientWithResponses) OauthRevokeWithBodyWithResponse(ctx context.Contex
 
 // OauthRevokeWithFormdataBodyWithResponse Revoke
 //
-// RFC 7009. Always answers 200, including for a token that was never
-// valid - an endpoint that distinguished the two would be a way to test
-// whether a stolen string is a live credential.
+// RFC 7009. Always answers 200, even for a token that was never valid, so
+// it can't be used to test whether a token is live.
 //
-// Revoking a REFRESH token ends the whole authorization and takes its
+// Revoking a refresh token ends the whole authorization and takes its
 // access tokens with it. Revoking an access token affects only that token.
 //
 // Takes a body of the `application/x-www-form-urlencoded` content type, and returns a wrapper object for the known response body format(s).
@@ -5757,7 +5715,8 @@ func (c *ClientWithResponses) OauthRevokeWithFormdataBodyWithResponse(ctx contex
 
 // OauthTokenWithBodyWithResponse Token
 //
-// Three grant types.
+// Issues tokens for three grant types: a device code, an authorization
+// code and a refresh token.
 //
 // `urn:ietf:params:oauth:grant-type:device_code` polls a device
 // authorization. Until the person approves it answers
@@ -5787,7 +5746,8 @@ func (c *ClientWithResponses) OauthTokenWithBodyWithResponse(ctx context.Context
 
 // OauthTokenWithFormdataBodyWithResponse Token
 //
-// Three grant types.
+// Issues tokens for three grant types: a device code, an authorization
+// code and a refresh token.
 //
 // `urn:ietf:params:oauth:grant-type:device_code` polls a device
 // authorization. Until the person approves it answers
