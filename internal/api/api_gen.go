@@ -250,7 +250,8 @@ type ApikeyList struct {
 	Rc   string         `json:"rc"`
 }
 
-// Asn The autonomous system that announces the address. Free and paid plans.
+// Asn The autonomous system that announces the address. Every answer, with or
+// without a key.
 // Each field is present whenever the object is: `asn` is 0 and the rest
 // empty where no announcement covers the address.
 type Asn struct {
@@ -649,9 +650,9 @@ type Identity struct {
 }
 
 // Location Where the address is, to the country: the fields of our IP Country
-// database. Free and paid plans. Each field is present whenever the
-// object is, so an address in no country, or a private one, answers
-// empty strings.
+// database. Every answer, with or without a key. Each field is present
+// whenever the object is, so an address in no country, or a private one,
+// answers empty strings.
 type Location struct {
 	// Continent Continent code: AF, AN (Antarctica), AS, EU, NA, OC or SA.
 	//
@@ -712,12 +713,14 @@ type LookupError struct {
 	Error string `json:"error"`
 }
 
-// LookupResponse The union of every plan's answer. Only `ip` and `is_vpn` are guaranteed;
-// each remaining field is present when your plan includes it, and absent
+// LookupResponse The union of every plan's answer. Every answer carries `ip`, `is_vpn`,
+// the Tor and relay members, `location` and `asn`, with or without a key;
+// each remaining field is present when your key includes it, and absent
 // otherwise. A client that must work across plans should treat an absent
 // flag as unknown rather than as `false`.
 type LookupResponse struct {
-	// Asn The autonomous system that announces the address. Free and paid plans.
+	// Asn The autonomous system that announces the address. Every answer, with or
+	// without a key.
 	// Each field is present whenever the object is: `asn` is 0 and the rest
 	// empty where no announcement covers the address.
 	Asn *Asn `json:"asn,omitempty"`
@@ -736,28 +739,28 @@ type LookupResponse struct {
 	// Example: 1.1.1.1
 	IP string `json:"ip"`
 
-	// IsCdn Whether the address belongs to a CDN. Paid plans.
+	// IsCdn Whether the address belongs to a CDN. Free and paid plans.
 	IsCdn *bool `json:"is_cdn,omitempty"`
 
-	// IsDcproxy Whether the address is one a datacenter proxy service sells or runs on, a proxy company's own ranges included. Paid plans.
+	// IsDcproxy Whether the address is one a datacenter proxy service sells or runs on, a proxy company's own ranges included. Free and paid plans.
 	IsDcproxy *bool `json:"is_dcproxy,omitempty"`
 
-	// IsHosting Whether the address belongs to a hosting or cloud provider. Paid plans.
+	// IsHosting Whether the address belongs to a hosting or cloud provider. Free and paid plans.
 	IsHosting *bool `json:"is_hosting,omitempty"`
 
-	// IsMobproxy Whether the address was seen in a mobile proxy pool. Paid plans.
+	// IsMobproxy Whether the address was seen in a mobile proxy pool. Free and paid plans.
 	IsMobproxy *bool `json:"is_mobproxy,omitempty"`
 
-	// IsPubproxy Whether a public proxy, one anyone can connect through, listens on the address or sends its traffic out from it. Paid plans.
+	// IsPubproxy Whether a public proxy, one anyone can connect through, listens on the address or sends its traffic out from it. Free and paid plans.
 	IsPubproxy *bool `json:"is_pubproxy,omitempty"`
 
-	// IsRelay Whether the address is privacy relay or enterprise web gateway egress, such as iCloud Private Relay or Zscaler. Free and paid plans.
+	// IsRelay Whether the address is privacy relay or enterprise web gateway egress, such as iCloud Private Relay or Zscaler. Every answer, with or without a key.
 	IsRelay *bool `json:"is_relay,omitempty"`
 
-	// IsResproxy Whether the address was seen in a residential proxy pool. Paid plans.
+	// IsResproxy Whether the address was seen in a residential proxy pool. Free and paid plans.
 	IsResproxy *bool `json:"is_resproxy,omitempty"`
 
-	// IsTor Whether the address is a Tor node. Free and paid plans.
+	// IsTor Whether the address is a Tor node. Every answer, with or without a key.
 	IsTor *bool `json:"is_tor,omitempty"`
 
 	// IsVpn Whether the address is VPN infrastructure. Keys off presence in the
@@ -766,9 +769,9 @@ type LookupResponse struct {
 	IsVpn bool `json:"is_vpn"`
 
 	// Location Where the address is, to the country: the fields of our IP Country
-	// database. Free and paid plans. Each field is present whenever the
-	// object is, so an address in no country, or a private one, answers
-	// empty strings.
+	// database. Every answer, with or without a key. Each field is present
+	// whenever the object is, so an address in no country, or a private one,
+	// answers empty strings.
 	Location *Location `json:"location,omitempty"`
 
 	// Mobproxy Detail for `is_mobproxy`. Empty when false. Paid plans.
@@ -777,14 +780,15 @@ type LookupResponse struct {
 	// Pubproxy Detail for `is_pubproxy`. Empty when false. Paid plans.
 	Pubproxy *PubproxyDetail `json:"pubproxy,omitempty"`
 
-	// Relay Detail for `is_relay`. Empty when false. Free and paid plans.
+	// Relay Detail for `is_relay`. Empty when false. Every answer, with or without a key.
 	Relay *ClassDetail `json:"relay,omitempty"`
 
 	// Resproxy Detail for `is_resproxy`. Empty when false. Paid plans.
 	Resproxy *ProxyDetail `json:"resproxy,omitempty"`
 
-	// Tor Detail for `is_tor`. Empty when false. Free and paid plans. The tor
-	// dataset carries no provider, so `provider` is always an empty string.
+	// Tor Detail for `is_tor`. Empty when false. Every answer, with or without a
+	// key. The tor dataset carries no provider, so `provider` is always an
+	// empty string.
 	Tor *ClassDetail `json:"tor,omitempty"`
 
 	// Vpn Detail for `is_vpn`. Empty when `is_vpn` is false. Paid plans.
@@ -1392,6 +1396,9 @@ type ClientInterface interface {
 	// whole by the rate limit, so a per-entry `429` is always a spent
 	// allowance and never a throttle.
 	//
+	// A batch needs an API key, a free one included: without one the call is
+	// refused with `401`. Keyless lookups are one address at a time.
+	//
 	// Takes any type of body and a specified content type.
 	//
 	// Corresponds with POST /batch (the `LookupBatch` operationId).
@@ -1417,6 +1424,9 @@ type ClientInterface interface {
 	// whole by the rate limit, so a per-entry `429` is always a spent
 	// allowance and never a throttle.
 	//
+	// A batch needs an API key, a free one included: without one the call is
+	// refused with `401`. Keyless lookups are one address at a time.
+	//
 	// Takes a body of the `application/json` content type.
 	//
 	// Corresponds with POST /batch (the `LookupBatch` operationId).
@@ -1427,7 +1437,7 @@ type ClientInterface interface {
 	// Answers what is known about the address this request came from, which is
 	// the same answer `GET /{ip}` gives for that address: the presented key
 	// decides which fields come back, and the request counts against the same
-	// allowance.
+	// limit or allowance.
 	//
 	// The address is the one our edge observed, so a request through a proxy
 	// or a VPN reports the exit it left through rather than the machine that
@@ -1623,7 +1633,7 @@ type ClientInterface interface {
 	//
 	// Answers what is known about a single IPv4 or IPv6 address. Which fields
 	// come back is decided by the presented key; with no key the answer is
-	// `ip` and `is_vpn`.
+	// `ip`, `is_vpn`, the Tor and relay members, `location` and `asn`.
 	//
 	// Corresponds with GET /{ip} (the `LookupIP` operationId).
 	LookupIP(ctx context.Context, ip string, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -1974,6 +1984,9 @@ func (c *Client) AccountOrgMembers(ctx context.Context, reqEditors ...RequestEdi
 // whole by the rate limit, so a per-entry `429` is always a spent
 // allowance and never a throttle.
 //
+// A batch needs an API key, a free one included: without one the call is
+// refused with `401`. Keyless lookups are one address at a time.
+//
 // Takes any type of body and a specified content type.
 //
 // Corresponds with POST /batch (the `LookupBatch` operationId).
@@ -2009,6 +2022,9 @@ func (c *Client) LookupBatchWithBody(ctx context.Context, contentType string, bo
 // whole by the rate limit, so a per-entry `429` is always a spent
 // allowance and never a throttle.
 //
+// A batch needs an API key, a free one included: without one the call is
+// refused with `401`. Keyless lookups are one address at a time.
+//
 // Takes a body of the `application/json` content type.
 //
 // Corresponds with POST /batch (the `LookupBatch` operationId).
@@ -2029,7 +2045,7 @@ func (c *Client) LookupBatch(ctx context.Context, body LookupBatchJSONRequestBod
 // Answers what is known about the address this request came from, which is
 // the same answer `GET /{ip}` gives for that address: the presented key
 // decides which fields come back, and the request counts against the same
-// allowance.
+// limit or allowance.
 //
 // The address is the one our edge observed, so a request through a proxy
 // or a VPN reports the exit it left through rather than the machine that
@@ -2325,7 +2341,7 @@ func (c *Client) OauthTokenWithFormdataBody(ctx context.Context, body OauthToken
 //
 // Answers what is known about a single IPv4 or IPv6 address. Which fields
 // come back is decided by the presented key; with no key the answer is
-// `ip` and `is_vpn`.
+// `ip`, `is_vpn`, the Tor and relay members, `location` and `asn`.
 //
 // Corresponds with GET /{ip} (the `LookupIP` operationId).
 func (c *Client) LookupIP(ctx context.Context, ip string, reqEditors ...RequestEditorFn) (*http.Response, error) {
@@ -3539,6 +3555,9 @@ type ClientWithResponsesInterface interface {
 	// whole by the rate limit, so a per-entry `429` is always a spent
 	// allowance and never a throttle.
 	//
+	// A batch needs an API key, a free one included: without one the call is
+	// refused with `401`. Keyless lookups are one address at a time.
+	//
 	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
 	//
 	// Corresponds with POST /batch (the `LookupBatch` operationId).
@@ -3564,6 +3583,9 @@ type ClientWithResponsesInterface interface {
 	// whole by the rate limit, so a per-entry `429` is always a spent
 	// allowance and never a throttle.
 	//
+	// A batch needs an API key, a free one included: without one the call is
+	// refused with `401`. Keyless lookups are one address at a time.
+	//
 	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 	//
 	// Corresponds with POST /batch (the `LookupBatch` operationId).
@@ -3574,7 +3596,7 @@ type ClientWithResponsesInterface interface {
 	// Answers what is known about the address this request came from, which is
 	// the same answer `GET /{ip}` gives for that address: the presented key
 	// decides which fields come back, and the request counts against the same
-	// allowance.
+	// limit or allowance.
 	//
 	// The address is the one our edge observed, so a request through a proxy
 	// or a VPN reports the exit it left through rather than the machine that
@@ -3774,7 +3796,7 @@ type ClientWithResponsesInterface interface {
 	//
 	// Answers what is known about a single IPv4 or IPv6 address. Which fields
 	// come back is decided by the presented key; with no key the answer is
-	// `ip` and `is_vpn`.
+	// `ip`, `is_vpn`, the Tor and relay members, `location` and `asn`.
 	//
 	// Returns a wrapper object for the known response body format(s).
 	//
@@ -5472,6 +5494,9 @@ func (c *ClientWithResponses) AccountOrgMembersWithResponse(ctx context.Context,
 // whole by the rate limit, so a per-entry `429` is always a spent
 // allowance and never a throttle.
 //
+// A batch needs an API key, a free one included: without one the call is
+// refused with `401`. Keyless lookups are one address at a time.
+//
 // Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
 //
 // Corresponds with POST /batch (the `LookupBatch` operationId).
@@ -5503,6 +5528,9 @@ func (c *ClientWithResponses) LookupBatchWithBodyWithResponse(ctx context.Contex
 // whole by the rate limit, so a per-entry `429` is always a spent
 // allowance and never a throttle.
 //
+// A batch needs an API key, a free one included: without one the call is
+// refused with `401`. Keyless lookups are one address at a time.
+//
 // Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 //
 // Corresponds with POST /batch (the `LookupBatch` operationId).
@@ -5519,7 +5547,7 @@ func (c *ClientWithResponses) LookupBatchWithResponse(ctx context.Context, body 
 // Answers what is known about the address this request came from, which is
 // the same answer `GET /{ip}` gives for that address: the presented key
 // decides which fields come back, and the request counts against the same
-// allowance.
+// limit or allowance.
 //
 // The address is the one our edge observed, so a request through a proxy
 // or a VPN reports the exit it left through rather than the machine that
@@ -5779,7 +5807,7 @@ func (c *ClientWithResponses) OauthTokenWithFormdataBodyWithResponse(ctx context
 //
 // Answers what is known about a single IPv4 or IPv6 address. Which fields
 // come back is decided by the presented key; with no key the answer is
-// `ip` and `is_vpn`.
+// `ip`, `is_vpn`, the Tor and relay members, `location` and `asn`.
 //
 // Returns a wrapper object for the known response body format(s).
 //

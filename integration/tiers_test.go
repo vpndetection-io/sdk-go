@@ -77,6 +77,11 @@ func unauthRung() rung {
 	return rungs[0]
 }
 
+// The cheapest rung a batch can run on: POST /batch needs a key.
+func freeRung() rung {
+	return rungs[1]
+}
+
 func maxRung() rung {
 	return rungs[len(rungs)-1]
 }

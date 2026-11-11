@@ -2,8 +2,9 @@
 // API: anonymity detection covering VPNs, residential proxies, Tor nodes,
 // hosting servers, CDNs and relays.
 //
-// Start with New and Client.Lookup. No API key is needed: the free tier answers
-// ip and is_vpn and allows 1000 requests per day per source address.
+// Start with New and Client.Lookup. No API key is needed: without one a lookup
+// answers ip, is_vpn, the Tor and relay members, location and asn, up to 60 a
+// minute from each address, and a batch is refused as unauthorized.
 package vpndetection
 
 import (
@@ -65,8 +66,8 @@ type Client struct {
 	retries     int
 }
 
-// New builds a client. With no options it queries the production API on the
-// free tier.
+// New builds a client. With no options it queries the production API without
+// a key.
 func New(opts ...Option) (*Client, error) {
 	cfg := config{
 		baseURL:     DefaultBaseURL,
@@ -223,9 +224,11 @@ func (c *Client) MyIP(ctx context.Context, opts ...LookupOption) (*Result, error
 // has to line two lists up. An address that fails carries its error as its
 // value, so one bad entry cannot lose the rest of the answers: the API reports
 // a per-entry failure with the status the single lookup would have answered,
-// and a chunk that fails as a whole marks every address in it. The returned
-// error is reserved for the batch as a whole failing: the context canceled, or
-// a Concurrency below 1 or negative Retries, refused before any request.
+// and a chunk that fails as a whole marks every address in it. POST /batch
+// needs an API key, a free one included: without one, every address sent to it
+// carries a KindUnauthorized error. The returned error is reserved for the
+// batch as a whole failing: the context canceled, or a Concurrency below 1 or
+// negative Retries, refused before any request.
 func (c *Client) LookupBatch(
 	ctx context.Context, ips []string, opts ...BatchOption,
 ) (map[string]BatchResult, error) {

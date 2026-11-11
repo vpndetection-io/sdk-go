@@ -21,7 +21,7 @@ import vpndetection "github.com/vpndetection-io/sdk-go/v5"
 
 ## Usage
 
-**No API key needed to start.** Without a key, a lookup answers `ip` and `is_vpn`, up to 1000 a day per source address.
+**No API key needed to start.** Without a key a lookup answers `ip`, `is_vpn`, Tor and relay detection, `location` and `asn`, with no daily or monthly cap: up to 60 lookups a minute from each address.
 
 ```go
 client, err := vpndetection.New()
@@ -33,17 +33,6 @@ result, err := client.Lookup(ctx, "45.83.91.1")
 if err != nil {
     log.Fatal(err)
 }
-fmt.Println(result.IsVpn)   // true
-```
-
-### With an API key
-
-A free key adds Tor and relay detection, where the address is and the AS that announces it. Every paid plan answers every field, the same on each, and the plans differ only in how many lookups they include. Create a key in the [console](https://app.vpndetection.io), then pass it in:
-
-```go
-client, err := vpndetection.New(vpndetection.WithAPIKey(os.Getenv("VPNDETECTION_API_KEY")))
-
-result, err := client.Lookup(ctx, "45.83.91.1")
 fmt.Println(result.IsVpn)               // true
 if loc := result.Location; loc != nil {
     fmt.Println(loc.Country)            // the ISO 3166 country code
@@ -51,10 +40,21 @@ if loc := result.Location; loc != nil {
 if asn := result.Asn; asn != nil {
     fmt.Println(asn.Name)               // who runs the announcing network
 }
-fmt.Println(vpndetection.BoolValue(result.IsHosting))  // true, on a paid plan
+```
+
+### With an API key
+
+A free key adds every other flag, `is_hosting`, `is_cdn` and the four proxy flags, at 50,000 lookups a month, and every paid plan answers every field, the provider, confidence and last-seen detail behind each flag included. The paid plans differ only in how many lookups they include. Batch lookups need a key. Create one in the [console](https://app.vpndetection.io), then pass it in:
+
+```go
+client, err := vpndetection.New(vpndetection.WithAPIKey(os.Getenv("VPNDETECTION_API_KEY")))
+
+result, err := client.Lookup(ctx, "45.83.91.1")
+fmt.Println(result.IsVpn)                              // true
+fmt.Println(vpndetection.BoolValue(result.IsHosting))  // true, with any key, a free one included
 
 if vpn := result.Vpn; vpn != nil && vpn.Provider != nil {
-    fmt.Println(*vpn.Provider)          // nordvpn
+    fmt.Println(*vpn.Provider)          // nordvpn, on a paid plan
 }
 ```
 
@@ -80,7 +80,7 @@ Usage is counted against the anniversary of your subscription, not the calendar 
 
 ### Batch lookup
 
-Look up many addresses at once. Bogons and cached answers are handled locally, and everything else goes to the batch endpoint in chunks of up to 1000 addresses, in parallel:
+Look up many addresses at once. Bogons and cached answers are handled locally, and everything else goes to the batch endpoint in chunks of up to 1000 addresses, in parallel. The batch endpoint needs an API key, a free one included:
 
 ```go
 results, err := client.LookupBatch(ctx, []string{"45.83.91.1", "8.8.8.8", "1.1.1.1"})
@@ -165,7 +165,7 @@ if errors.As(err, &apiErr) {
 
 `Kind` is one of `bad_request`, `unauthorized`, `forbidden`, `rate_limited`, `quota_exceeded`, `server_error` or `network`.
 
-Note that `rate_limited` and `quota_exceeded` both arrive as HTTP 429 and are not the same thing. A rate limit is when the API faces extreme traffic bursts and so retrying later works; but a spent quota needs your allowance raised or the window to roll over. The library retries rate limits for you, but not if your quota is exceeded.
+Note that `rate_limited` and `quota_exceeded` both arrive as HTTP 429 and are not the same thing. A rate limit is when the API faces extreme traffic bursts, or a lookup without a key passes 60 a minute, and so retrying later works; but a spent quota needs your allowance raised or the window to roll over. The library retries rate limits for you, but not if your quota is exceeded.
 
 ### Database downloads
 
@@ -255,11 +255,12 @@ Each redirect URI must be https on a public host name, or http on a loopback add
 
 ### Absent is not false
 
-Every field beyond `IP` and `IsVpn` is a pointer, because your plan decides which of them the API sends. A `nil` pointer means "not in your plan", not "checked, and no".
+Every field beyond `IP` and `IsVpn` is a pointer, because your key decides which of them the API sends. Without a key a lookup leaves out `IsHosting`, `IsCdn` and the four proxy flags, and a free key leaves out `Vpn` and the detail behind each flag. A `nil` pointer means "not in your plan", not "checked, and no".
 
 ```go
 vpndetection.BoolValue(result.IsHosting)  // when you only want the flag
-result.IsHosting == nil                   // not in your plan
+result.IsHosting == nil                   // without a key: not in your plan
+result.Vpn == nil                         // on a free key: not in your plan
 ```
 
 ## Other Libraries

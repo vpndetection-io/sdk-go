@@ -1,6 +1,6 @@
 // A smoke test against the real API, skipped unless VPNDETECTION_LIVE=1 so a
 // normal `go test` stays offline and costs no quota. Set VPNDETECTION_API_KEY
-// to exercise a paid plan's fields; without one it runs on the free tier.
+// to exercise a key's fields; without one it runs without a key.
 //
 //	VPNDETECTION_LIVE=1 go test -run TestLive -v ./...
 
@@ -44,6 +44,6 @@ func TestLiveLookup(t *testing.T) {
 		t.Error("1.1.1.1 should not be VPN infrastructure")
 	}
 	if os.Getenv("VPNDETECTION_API_KEY") == "" && clean.IsHosting != nil {
-		t.Error("the free tier does not include is_hosting, so it must be absent")
+		t.Error("an answer without a key does not include is_hosting, so it must be absent")
 	}
 }

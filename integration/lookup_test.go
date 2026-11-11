@@ -21,7 +21,7 @@ import (
 	vpndetection "github.com/vpndetection-io/sdk-go/v5"
 )
 
-func TestAnUnauthenticatedLookupAnswersIPAndIsVpn(t *testing.T) {
+func TestALookupWithoutAKeyAnswersIPAndIsVpnAtTheLeast(t *testing.T) {
 	f := answerFor(t, unauthRung())
 
 	if f.raw["ip"] != probe {
@@ -161,8 +161,42 @@ func TestABogonIsAnsweredWithoutTouchingTheNetwork(t *testing.T) {
 	}
 }
 
-func TestABatchCollapsesDuplicatesAndKeepsBogonsOffTheWire(t *testing.T) {
+func TestABatchWithoutAKeyIsRefusedOnceAndItsBogonStillAnswered(t *testing.T) {
 	client, rec := clientFor(t, unauthRung())
+
+	got, err := client.LookupBatch(t.Context(), []string{probe, "10.0.0.1"})
+	if err != nil {
+		t.Fatalf("LookupBatch: %v", err)
+	}
+
+	if bogon := got["10.0.0.1"]; bogon.Err != nil || !bogon.Result.IsBogon {
+		t.Errorf("10.0.0.1 was not answered locally: %+v", bogon)
+	}
+	var refused *vpndetection.Error
+	if !errors.As(got[probe].Err, &refused) {
+		t.Fatalf("a batch without a key answered %+v, want an unauthorized error", got[probe])
+	}
+	if refused.Kind != vpndetection.KindUnauthorized || refused.StatusCode != http.StatusUnauthorized {
+		t.Errorf("a batch without a key failed as %s %d, want unauthorized 401", refused.Kind, refused.StatusCode)
+	}
+	if refused.Retryable() {
+		t.Error("a batch without a key must not be retryable")
+	}
+	var paths []string
+	for _, f := range rec.seen() {
+		paths = append(paths, f.path)
+	}
+	if !slices.Equal(paths, []string{"/batch"}) {
+		t.Errorf("the batch asked for %v, want one /batch, never retried", paths)
+	}
+}
+
+func TestABatchCollapsesDuplicatesAndKeepsBogonsOffTheWire(t *testing.T) {
+	// A batch needs a key, and the free one is the cheapest that has it.
+	if reason := freeRung().skipReason(); reason != "" {
+		t.Skip(reason)
+	}
+	client, rec := clientFor(t, freeRung())
 
 	got, err := client.LookupBatch(t.Context(),
 		[]string{probe, "8.8.8.8", probe, "10.0.0.1", "8.8.8.8"})
@@ -178,6 +212,9 @@ func TestABatchCollapsesDuplicatesAndKeepsBogonsOffTheWire(t *testing.T) {
 	asked := map[string]bool{}
 	for _, f := range rec.seen() {
 		asked[f.path] = true
+		if !f.carriedKey {
+			t.Errorf("a request to %s went without the free key", f.path)
+		}
 	}
 	if paths := slices.Sorted(maps.Keys(asked)); !slices.Equal(paths, []string{"/batch"}) {
 		t.Errorf("the batch asked for %v, want only /batch", paths)
