@@ -21,7 +21,7 @@ import vpndetection "github.com/vpndetection-io/sdk-go/v5"
 
 ## Usage
 
-**No API key needed to start.** The Unlimited tier answers `ip`, `is_vpn`, Tor and relay detection, `location` and `asn`, with no daily or monthly cap, for [non-commercial use](https://vpndetection.io/terms#no-key). Commercial use, or a batch lookup, needs a key, a free one included.
+**No API key needed to start.** The Unlimited tier answers `ip`, `is_vpn`, Tor and relay detection, `location` and `asn`, with no daily or monthly cap, with a key or without one.
 
 ```go
 client, err := vpndetection.New()
@@ -44,14 +44,14 @@ if asn := result.Asn; asn != nil {
 
 ### With an API key
 
-A free key adds every other flag, `is_hosting`, `is_cdn` and the four proxy flags, at 50,000 lookups a month, and every paid plan answers every field, the provider, confidence and last-seen detail behind each flag included. The paid plans differ only in how many lookups they include. Create a key in the [console](https://app.vpndetection.io), then pass it in:
+Every paid plan answers every field: `is_hosting`, `is_cdn` and the four proxy flags as well, and the provider, confidence and last-seen detail behind each flag. The plans differ only in how many lookups they include, and a new account can try every field, 100 lookups a day. Create a key in the [console](https://app.vpndetection.io), then pass it in:
 
 ```go
 client, err := vpndetection.New(vpndetection.WithAPIKey(os.Getenv("VPNDETECTION_API_KEY")))
 
 result, err := client.Lookup(ctx, "45.83.91.1")
 fmt.Println(result.IsVpn)                              // true
-fmt.Println(vpndetection.BoolValue(result.IsHosting))  // true, with any key, a free one included
+fmt.Println(vpndetection.BoolValue(result.IsHosting))  // true, on a paid plan
 
 if vpn := result.Vpn; vpn != nil && vpn.Provider != nil {
     fmt.Println(*vpn.Provider)          // nordvpn, on a paid plan
@@ -76,11 +76,11 @@ fmt.Println(acct.Usage.Requests)   // 580
 fmt.Println(acct.Usage.WindowEnd)  // when the allowance resets
 ```
 
-Usage is counted against the anniversary of your subscription, not the calendar month and not the billing period, and it is the same number a lookup is gated on. `HardLimit` is nil on an uncapped plan, which is not the same as zero.
+Usage is counted against the anniversary of your subscription on a paid plan, not the calendar month and not the billing period, and against the UTC day on a trial key; it is the same number a lookup is gated on. `HardLimit` is nil on an uncapped plan, which is not the same as zero.
 
 ### Batch lookup
 
-Look up many addresses at once. Bogons and cached answers are handled locally, and everything else goes to the batch endpoint in chunks of up to 1000 addresses, in parallel. The batch endpoint needs an API key, a free one included:
+Look up many addresses at once. Bogons and cached answers are handled locally, and everything else goes to the batch endpoint in chunks of up to 1000 addresses, in parallel. The batch endpoint needs a paid plan:
 
 ```go
 results, err := client.LookupBatch(ctx, []string{"45.83.91.1", "8.8.8.8", "1.1.1.1"})
@@ -255,12 +255,12 @@ Each redirect URI must be https on a public host name, or http on a loopback add
 
 ### Absent is not false
 
-Every field beyond `IP` and `IsVpn` is a pointer, because your key decides which of them the API sends. Without a key a lookup leaves out `IsHosting`, `IsCdn` and the four proxy flags, and a free key leaves out `Vpn` and the detail behind each flag. A `nil` pointer means "not in your plan", not "checked, and no".
+Every field beyond `IP` and `IsVpn` is a pointer, because your key decides which of them the API sends. The Unlimited tier leaves out `IsHosting`, `IsCdn` and the four proxy flags, and of the detail behind each flag it answers only Tor's and relay's; a trial key's answer carries `TrialExpired`, true once its day of full answers is spent. A `nil` pointer means "not in your plan", not "checked, and no".
 
 ```go
 vpndetection.BoolValue(result.IsHosting)  // when you only want the flag
-result.IsHosting == nil                   // without a key: not in your plan
-result.Vpn == nil                         // on a free key: not in your plan
+result.IsHosting == nil                   // on the Unlimited tier: not in your plan
+vpndetection.BoolValue(result.TrialExpired) // a trial key's day of full answers is spent
 ```
 
 ## Other Libraries

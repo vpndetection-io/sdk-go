@@ -115,7 +115,7 @@ func answerFor(t *testing.T, r rung) *fixture {
 	}
 	// Checked here rather than in one test, so no comparison anywhere can be made
 	// against a tier that silently ran unauthenticated: an empty or unsent key
-	// answers the free shape, which satisfies every containment check vacuously.
+	// answers the keyless shape, which satisfies every containment check vacuously.
 	if r.secret != "" && !got.carriedKey {
 		t.Fatalf("%s: the key never reached the wire", r.tier)
 	}

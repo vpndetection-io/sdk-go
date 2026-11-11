@@ -289,7 +289,7 @@ type BatchLookupError struct {
 	Error string `json:"error"`
 
 	// Status The HTTP status `GET /{ip}` would have answered for this entry: `400`
-	// for a string that is not an address, `429` for a spent allowance,
+	// for a string that is not an address, `429` for a reached overage cap,
 	// `500` when the VPN dataset could not be consulted. A `429` here is
 	// never a throttle; the whole call is refused instead.
 	//
@@ -597,20 +597,25 @@ type EntitlementError struct {
 
 // EntitlementPlan defines model for EntitlementPlan.
 type EntitlementPlan struct {
-	// Key The plan the organization is on.
+	// Key The plan the organization is on, or `trial` on none: a trial
+	// answers every field for the organization's first 100 lookups each
+	// UTC day, and Unlimited's answer after them.
+	//
 	//
 	// Example: max
 	Key string `json:"key"`
 
 	// Tier The field tier, which decides how much of a lookup answer comes
-	// back. What each tier includes is documented on the lookup endpoint
-	// rather than repeated here, so there is one place it can be wrong.
+	// back; `free` is a trial's. What each tier includes is documented
+	// on the lookup endpoint rather than repeated here, so there is one
+	// place it can be wrong.
 	Tier EntitlementPlanTier `json:"tier"`
 }
 
 // EntitlementPlanTier The field tier, which decides how much of a lookup answer comes
-// back. What each tier includes is documented on the lookup endpoint
-// rather than repeated here, so there is one place it can be wrong.
+// back; `free` is a trial's. What each tier includes is documented
+// on the lookup endpoint rather than repeated here, so there is one
+// place it can be wrong.
 type EntitlementPlanTier string
 
 // EntitlementUsage defines model for EntitlementUsage.
@@ -713,9 +718,9 @@ type LookupError struct {
 	Error string `json:"error"`
 }
 
-// LookupResponse The union of every plan's answer. Every answer carries `ip`, `is_vpn`,
+// LookupResponse The union of every tier's answer. Every answer carries `ip`, `is_vpn`,
 // the Tor and relay members, `location` and `asn`, with or without a key;
-// each remaining field is present when your key includes it, and absent
+// each remaining field is present when your tier includes it, and absent
 // otherwise. A client that must work across plans should treat an absent
 // flag as unknown rather than as `false`.
 type LookupResponse struct {
@@ -739,25 +744,25 @@ type LookupResponse struct {
 	// Example: 1.1.1.1
 	IP string `json:"ip"`
 
-	// IsCdn Whether the address belongs to a CDN. Free and paid plans.
+	// IsCdn Whether the address belongs to a CDN. Paid plans.
 	IsCdn *bool `json:"is_cdn,omitempty"`
 
-	// IsDcproxy Whether the address is one a datacenter proxy service sells or runs on, a proxy company's own ranges included. Free and paid plans.
+	// IsDcproxy Whether the address is one a datacenter proxy service sells or runs on, a proxy company's own ranges included. Paid plans.
 	IsDcproxy *bool `json:"is_dcproxy,omitempty"`
 
-	// IsHosting Whether the address belongs to a hosting or cloud provider. Free and paid plans.
+	// IsHosting Whether the address belongs to a hosting or cloud provider. Paid plans.
 	IsHosting *bool `json:"is_hosting,omitempty"`
 
-	// IsMobproxy Whether the address was seen in a mobile proxy pool. Free and paid plans.
+	// IsMobproxy Whether the address was seen in a mobile proxy pool. Paid plans.
 	IsMobproxy *bool `json:"is_mobproxy,omitempty"`
 
-	// IsPubproxy Whether a public proxy, one anyone can connect through, listens on the address or sends its traffic out from it. Free and paid plans.
+	// IsPubproxy Whether a public proxy, one anyone can connect through, listens on the address or sends its traffic out from it. Paid plans.
 	IsPubproxy *bool `json:"is_pubproxy,omitempty"`
 
 	// IsRelay Whether the address is privacy relay or enterprise web gateway egress, such as iCloud Private Relay or Zscaler. Every answer, with or without a key.
 	IsRelay *bool `json:"is_relay,omitempty"`
 
-	// IsResproxy Whether the address was seen in a residential proxy pool. Free and paid plans.
+	// IsResproxy Whether the address was seen in a residential proxy pool. Paid plans.
 	IsResproxy *bool `json:"is_resproxy,omitempty"`
 
 	// IsTor Whether the address is a Tor node. Every answer, with or without a key.
@@ -790,6 +795,11 @@ type LookupResponse struct {
 	// key. The tor dataset carries no provider, so `provider` is always an
 	// empty string.
 	Tor *ClassDetail `json:"tor,omitempty"`
+
+	// TrialExpired On every answer to a trial key, an organization on no paid plan, and
+	// on no other: `false` while the organization's 100 full answers for
+	// the UTC day last, `true` once the answer is Unlimited's.
+	TrialExpired *bool `json:"trial_expired,omitempty"`
 
 	// Vpn Detail for `is_vpn`. Empty when `is_vpn` is false. Paid plans.
 	Vpn *VpnDetail `json:"vpn,omitempty"`
@@ -1388,16 +1398,18 @@ type ClientInterface interface {
 	// normalized form. An address that could not be answered sits in `errors`
 	// with the status and message the single lookup would have given, and
 	// never disturbs the others: a string that is not an address is a `400`
-	// there, and an allowance that runs out part way through leaves the
-	// remaining entries as `429`s.
+	// there, and an overage cap reached part way through leaves the remaining
+	// entries as `429`s.
 	//
 	// The call itself fails only for the reasons below, and a `429` on the
 	// call always carries `Retry-After`: the batch is admitted or refused
-	// whole by the rate limit, so a per-entry `429` is always a spent
-	// allowance and never a throttle.
+	// whole by the rate limit, so a per-entry `429` is always the overage cap
+	// and never a throttle.
 	//
-	// A batch needs an API key, a free one included: without one the call is
-	// refused with `401`. The Unlimited tier looks up one address at a time.
+	// A batch needs a paid plan: without a key the call is refused with `401`,
+	// and with a trial key with `402`, unless it names one address, which is
+	// answered as `GET /{ip}` would answer it. Unlimited and a trial look up
+	// one address at a time.
 	//
 	// Takes any type of body and a specified content type.
 	//
@@ -1416,16 +1428,18 @@ type ClientInterface interface {
 	// normalized form. An address that could not be answered sits in `errors`
 	// with the status and message the single lookup would have given, and
 	// never disturbs the others: a string that is not an address is a `400`
-	// there, and an allowance that runs out part way through leaves the
-	// remaining entries as `429`s.
+	// there, and an overage cap reached part way through leaves the remaining
+	// entries as `429`s.
 	//
 	// The call itself fails only for the reasons below, and a `429` on the
 	// call always carries `Retry-After`: the batch is admitted or refused
-	// whole by the rate limit, so a per-entry `429` is always a spent
-	// allowance and never a throttle.
+	// whole by the rate limit, so a per-entry `429` is always the overage cap
+	// and never a throttle.
 	//
-	// A batch needs an API key, a free one included: without one the call is
-	// refused with `401`. The Unlimited tier looks up one address at a time.
+	// A batch needs a paid plan: without a key the call is refused with `401`,
+	// and with a trial key with `402`, unless it names one address, which is
+	// answered as `GET /{ip}` would answer it. Unlimited and a trial look up
+	// one address at a time.
 	//
 	// Takes a body of the `application/json` content type.
 	//
@@ -1437,7 +1451,7 @@ type ClientInterface interface {
 	// Answers what is known about the address this request came from, which is
 	// the same answer `GET /{ip}` gives for that address: the presented key
 	// decides which fields come back, and the request counts against the same
-	// limit or allowance.
+	// limits.
 	//
 	// The address is the one our edge observed, so a request through a proxy
 	// or a VPN reports the exit it left through rather than the machine that
@@ -1977,16 +1991,18 @@ func (c *Client) AccountOrgMembers(ctx context.Context, reqEditors ...RequestEdi
 // normalized form. An address that could not be answered sits in `errors`
 // with the status and message the single lookup would have given, and
 // never disturbs the others: a string that is not an address is a `400`
-// there, and an allowance that runs out part way through leaves the
-// remaining entries as `429`s.
+// there, and an overage cap reached part way through leaves the remaining
+// entries as `429`s.
 //
 // The call itself fails only for the reasons below, and a `429` on the
 // call always carries `Retry-After`: the batch is admitted or refused
-// whole by the rate limit, so a per-entry `429` is always a spent
-// allowance and never a throttle.
+// whole by the rate limit, so a per-entry `429` is always the overage cap
+// and never a throttle.
 //
-// A batch needs an API key, a free one included: without one the call is
-// refused with `401`. The Unlimited tier looks up one address at a time.
+// A batch needs a paid plan: without a key the call is refused with `401`,
+// and with a trial key with `402`, unless it names one address, which is
+// answered as `GET /{ip}` would answer it. Unlimited and a trial look up
+// one address at a time.
 //
 // Takes any type of body and a specified content type.
 //
@@ -2015,16 +2031,18 @@ func (c *Client) LookupBatchWithBody(ctx context.Context, contentType string, bo
 // normalized form. An address that could not be answered sits in `errors`
 // with the status and message the single lookup would have given, and
 // never disturbs the others: a string that is not an address is a `400`
-// there, and an allowance that runs out part way through leaves the
-// remaining entries as `429`s.
+// there, and an overage cap reached part way through leaves the remaining
+// entries as `429`s.
 //
 // The call itself fails only for the reasons below, and a `429` on the
 // call always carries `Retry-After`: the batch is admitted or refused
-// whole by the rate limit, so a per-entry `429` is always a spent
-// allowance and never a throttle.
+// whole by the rate limit, so a per-entry `429` is always the overage cap
+// and never a throttle.
 //
-// A batch needs an API key, a free one included: without one the call is
-// refused with `401`. The Unlimited tier looks up one address at a time.
+// A batch needs a paid plan: without a key the call is refused with `401`,
+// and with a trial key with `402`, unless it names one address, which is
+// answered as `GET /{ip}` would answer it. Unlimited and a trial look up
+// one address at a time.
 //
 // Takes a body of the `application/json` content type.
 //
@@ -2046,7 +2064,7 @@ func (c *Client) LookupBatch(ctx context.Context, body LookupBatchJSONRequestBod
 // Answers what is known about the address this request came from, which is
 // the same answer `GET /{ip}` gives for that address: the presented key
 // decides which fields come back, and the request counts against the same
-// limit or allowance.
+// limits.
 //
 // The address is the one our edge observed, so a request through a proxy
 // or a VPN reports the exit it left through rather than the machine that
@@ -3549,16 +3567,18 @@ type ClientWithResponsesInterface interface {
 	// normalized form. An address that could not be answered sits in `errors`
 	// with the status and message the single lookup would have given, and
 	// never disturbs the others: a string that is not an address is a `400`
-	// there, and an allowance that runs out part way through leaves the
-	// remaining entries as `429`s.
+	// there, and an overage cap reached part way through leaves the remaining
+	// entries as `429`s.
 	//
 	// The call itself fails only for the reasons below, and a `429` on the
 	// call always carries `Retry-After`: the batch is admitted or refused
-	// whole by the rate limit, so a per-entry `429` is always a spent
-	// allowance and never a throttle.
+	// whole by the rate limit, so a per-entry `429` is always the overage cap
+	// and never a throttle.
 	//
-	// A batch needs an API key, a free one included: without one the call is
-	// refused with `401`. The Unlimited tier looks up one address at a time.
+	// A batch needs a paid plan: without a key the call is refused with `401`,
+	// and with a trial key with `402`, unless it names one address, which is
+	// answered as `GET /{ip}` would answer it. Unlimited and a trial look up
+	// one address at a time.
 	//
 	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
 	//
@@ -3577,16 +3597,18 @@ type ClientWithResponsesInterface interface {
 	// normalized form. An address that could not be answered sits in `errors`
 	// with the status and message the single lookup would have given, and
 	// never disturbs the others: a string that is not an address is a `400`
-	// there, and an allowance that runs out part way through leaves the
-	// remaining entries as `429`s.
+	// there, and an overage cap reached part way through leaves the remaining
+	// entries as `429`s.
 	//
 	// The call itself fails only for the reasons below, and a `429` on the
 	// call always carries `Retry-After`: the batch is admitted or refused
-	// whole by the rate limit, so a per-entry `429` is always a spent
-	// allowance and never a throttle.
+	// whole by the rate limit, so a per-entry `429` is always the overage cap
+	// and never a throttle.
 	//
-	// A batch needs an API key, a free one included: without one the call is
-	// refused with `401`. The Unlimited tier looks up one address at a time.
+	// A batch needs a paid plan: without a key the call is refused with `401`,
+	// and with a trial key with `402`, unless it names one address, which is
+	// answered as `GET /{ip}` would answer it. Unlimited and a trial look up
+	// one address at a time.
 	//
 	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 	//
@@ -3598,7 +3620,7 @@ type ClientWithResponsesInterface interface {
 	// Answers what is known about the address this request came from, which is
 	// the same answer `GET /{ip}` gives for that address: the presented key
 	// decides which fields come back, and the request counts against the same
-	// limit or allowance.
+	// limits.
 	//
 	// The address is the one our edge observed, so a request through a proxy
 	// or a VPN reports the exit it left through rather than the machine that
@@ -4727,6 +4749,8 @@ type LookupBatchResponse struct {
 	JSON400 *LookupError
 	// JSON401 the response for an HTTP 401 `application/json` response
 	JSON401 *LookupError
+	// JSON402 the response for an HTTP 402 `application/json` response
+	JSON402 *LookupError
 	// JSON403 the response for an HTTP 403 `application/json` response
 	JSON403 *LookupError
 	// JSON413 the response for an HTTP 413 `application/json` response
@@ -4750,6 +4774,11 @@ func (r LookupBatchResponse) GetJSON400() *LookupError {
 // GetJSON401 returns the response for an HTTP 401 `application/json` response
 func (r LookupBatchResponse) GetJSON401() *LookupError {
 	return r.JSON401
+}
+
+// GetJSON402 returns the response for an HTTP 402 `application/json` response
+func (r LookupBatchResponse) GetJSON402() *LookupError {
+	return r.JSON402
 }
 
 // GetJSON403 returns the response for an HTTP 403 `application/json` response
@@ -5489,16 +5518,18 @@ func (c *ClientWithResponses) AccountOrgMembersWithResponse(ctx context.Context,
 // normalized form. An address that could not be answered sits in `errors`
 // with the status and message the single lookup would have given, and
 // never disturbs the others: a string that is not an address is a `400`
-// there, and an allowance that runs out part way through leaves the
-// remaining entries as `429`s.
+// there, and an overage cap reached part way through leaves the remaining
+// entries as `429`s.
 //
 // The call itself fails only for the reasons below, and a `429` on the
 // call always carries `Retry-After`: the batch is admitted or refused
-// whole by the rate limit, so a per-entry `429` is always a spent
-// allowance and never a throttle.
+// whole by the rate limit, so a per-entry `429` is always the overage cap
+// and never a throttle.
 //
-// A batch needs an API key, a free one included: without one the call is
-// refused with `401`. The Unlimited tier looks up one address at a time.
+// A batch needs a paid plan: without a key the call is refused with `401`,
+// and with a trial key with `402`, unless it names one address, which is
+// answered as `GET /{ip}` would answer it. Unlimited and a trial look up
+// one address at a time.
 //
 // Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
 //
@@ -5523,16 +5554,18 @@ func (c *ClientWithResponses) LookupBatchWithBodyWithResponse(ctx context.Contex
 // normalized form. An address that could not be answered sits in `errors`
 // with the status and message the single lookup would have given, and
 // never disturbs the others: a string that is not an address is a `400`
-// there, and an allowance that runs out part way through leaves the
-// remaining entries as `429`s.
+// there, and an overage cap reached part way through leaves the remaining
+// entries as `429`s.
 //
 // The call itself fails only for the reasons below, and a `429` on the
 // call always carries `Retry-After`: the batch is admitted or refused
-// whole by the rate limit, so a per-entry `429` is always a spent
-// allowance and never a throttle.
+// whole by the rate limit, so a per-entry `429` is always the overage cap
+// and never a throttle.
 //
-// A batch needs an API key, a free one included: without one the call is
-// refused with `401`. The Unlimited tier looks up one address at a time.
+// A batch needs a paid plan: without a key the call is refused with `401`,
+// and with a trial key with `402`, unless it names one address, which is
+// answered as `GET /{ip}` would answer it. Unlimited and a trial look up
+// one address at a time.
 //
 // Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 //
@@ -5550,7 +5583,7 @@ func (c *ClientWithResponses) LookupBatchWithResponse(ctx context.Context, body 
 // Answers what is known about the address this request came from, which is
 // the same answer `GET /{ip}` gives for that address: the presented key
 // decides which fields come back, and the request counts against the same
-// limit or allowance.
+// limits.
 //
 // The address is the one our edge observed, so a request through a proxy
 // or a VPN reports the exit it left through rather than the machine that
@@ -6539,6 +6572,13 @@ func ParseLookupBatchResponse(rsp *http.Response) (*LookupBatchResponse, error) 
 			return nil, err
 		}
 		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 402:
+		var dest LookupError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON402 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
 		var dest LookupError

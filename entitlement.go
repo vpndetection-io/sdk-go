@@ -31,10 +31,11 @@ type (
 // Unlike a lookup there is no useful unauthenticated answer, so a client built
 // without a key gets an unauthorized error rather than a partial one.
 //
-// Usage is counted against the ALLOWANCE WINDOW - the anniversary of the
-// subscription, not the calendar month and not the billing period - and the
-// number is the same one a lookup is gated on. It can lag by a few seconds,
-// because requests are counted in memory and flushed in aggregate.
+// Usage is counted against the ALLOWANCE WINDOW - on a paid plan the
+// anniversary of the subscription, not the calendar month and not the
+// billing period, and on a trial key the UTC day - and the number is the
+// same one a lookup is gated on. It can lag by a few seconds, because
+// requests are counted in memory and flushed in aggregate.
 //
 // Deliberately NOT cached: the whole point is what has been spent, and a
 // cached answer is a wrong one within seconds of the next request.

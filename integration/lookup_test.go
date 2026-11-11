@@ -56,23 +56,94 @@ func TestEachTierServesASupersetOfTheTierBelow(t *testing.T) {
 	var below *fixture
 	for _, r := range observableRungs() {
 		f := answerFor(t, r)
-		t.Logf("%s: %d fields", r.tier, len(f.raw))
+		fields := tierFields(f.raw)
+		t.Logf("%s: %d fields", r.tier, len(fields))
 		if below == nil {
 			below = f
 			continue
 		}
-		for field := range below.raw {
-			if _, ok := f.raw[field]; !ok {
+		lower := tierFields(below.raw)
+		for field := range lower {
+			if _, ok := fields[field]; !ok {
 				t.Errorf("%s drops %s, which %s serves", r.tier, field, below.rung.tier)
 			}
 		}
 		// Without this a run in which every key resolved to the same plan would
 		// pass: identical sets satisfy containment in both directions.
-		if r.widens && len(f.raw) <= len(below.raw) {
+		if r.widens && len(fields) <= len(lower) {
 			t.Errorf("%s answers %d field(s) and %s answers %d, so it is no wider",
-				r.tier, len(f.raw), below.rung.tier, len(below.raw))
+				r.tier, len(fields), below.rung.tier, len(lower))
 		}
-		below = f
+		if r.tier != "trial" {
+			below = f
+		}
+	}
+}
+
+func TestATrialKeysAnswerIsAPaidOneOrUnlimitedsAndSaysWhich(t *testing.T) {
+	if reason := trialRung().skipReason(); reason != "" {
+		t.Skip(reason)
+	}
+	raw := answerFor(t, trialRung()).raw
+
+	expired, ok := raw["trial_expired"].(bool)
+	if !ok {
+		t.Fatalf("a trial key's answer carries trial_expired %v, want a boolean", raw["trial_expired"])
+	}
+	// The organization's first 100 lookups of the UTC day are answered in full,
+	// and the rest as Unlimited's: which half a run sees depends on the day.
+	if _, hosting := raw["is_hosting"]; hosting == expired {
+		t.Errorf("is_hosting served: %v, trial_expired: %v; one must be the other's opposite", hosting, expired)
+	}
+}
+
+func TestATrialKeysBatchOfTwoIsRefusedAsABadRequestOnce(t *testing.T) {
+	if reason := trialRung().skipReason(); reason != "" {
+		t.Skip(reason)
+	}
+	client, rec := clientFor(t, trialRung())
+
+	got, err := client.LookupBatch(t.Context(), []string{probe, "8.8.8.8"})
+	if err != nil {
+		t.Fatalf("LookupBatch: %v", err)
+	}
+
+	for _, ip := range []string{probe, "8.8.8.8"} {
+		var refused *vpndetection.Error
+		if !errors.As(got[ip].Err, &refused) {
+			t.Fatalf("%s: a trial key's batch of two answered %+v, want a refusal", ip, got[ip])
+		}
+		if refused.Kind != vpndetection.KindBadRequest || refused.StatusCode != http.StatusPaymentRequired {
+			t.Errorf("%s: refused as %s %d, want bad_request 402", ip, refused.Kind, refused.StatusCode)
+		}
+	}
+	var paths []string
+	for _, f := range rec.seen() {
+		paths = append(paths, f.path)
+	}
+	if !slices.Equal(paths, []string{"/batch"}) {
+		t.Errorf("the batch asked for %v, want one /batch, never retried", paths)
+	}
+}
+
+func TestATrialKeysBatchOfOneIsAnswered(t *testing.T) {
+	if reason := trialRung().skipReason(); reason != "" {
+		t.Skip(reason)
+	}
+	client, rec := clientFor(t, trialRung())
+
+	got, err := client.LookupBatch(t.Context(), []string{probe})
+	if err != nil {
+		t.Fatalf("LookupBatch: %v", err)
+	}
+
+	if got[probe].Err != nil {
+		t.Fatalf("a trial key's batch of one failed: %v", got[probe].Err)
+	}
+	results, _ := rec.jsonBody(t, "/batch")["results"].(map[string]any)
+	answer, _ := results[probe].(map[string]any)
+	if _, ok := answer["trial_expired"].(bool); !ok {
+		t.Errorf("the answer carries trial_expired %v, want a boolean", answer["trial_expired"])
 	}
 }
 
@@ -192,11 +263,11 @@ func TestABatchWithoutAKeyIsRefusedOnceAndItsBogonStillAnswered(t *testing.T) {
 }
 
 func TestABatchCollapsesDuplicatesAndKeepsBogonsOffTheWire(t *testing.T) {
-	// A batch needs a key, and the free one is the cheapest that has it.
-	if reason := freeRung().skipReason(); reason != "" {
+	// A batch needs a paid plan, and starter is the cheapest.
+	if reason := paidRung().skipReason(); reason != "" {
 		t.Skip(reason)
 	}
-	client, rec := clientFor(t, freeRung())
+	client, rec := clientFor(t, paidRung())
 
 	got, err := client.LookupBatch(t.Context(),
 		[]string{probe, "8.8.8.8", probe, "10.0.0.1", "8.8.8.8"})
@@ -213,7 +284,7 @@ func TestABatchCollapsesDuplicatesAndKeepsBogonsOffTheWire(t *testing.T) {
 	for _, f := range rec.seen() {
 		asked[f.path] = true
 		if !f.carriedKey {
-			t.Errorf("a request to %s went without the free key", f.path)
+			t.Errorf("a request to %s went without the paid key", f.path)
 		}
 	}
 	if paths := slices.Sorted(maps.Keys(asked)); !slices.Equal(paths, []string{"/batch"}) {

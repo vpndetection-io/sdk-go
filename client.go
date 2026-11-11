@@ -3,8 +3,8 @@
 // hosting servers, CDNs and relays.
 //
 // Start with New and Client.Lookup. No API key is needed: without one a lookup
-// answers ip, is_vpn, the Tor and relay members, location and asn, with no
-// daily or monthly cap, and a batch is refused as unauthorized.
+// is on the Unlimited tier, answering ip, is_vpn, the Tor and relay members,
+// location and asn with no daily or monthly cap. A batch needs a paid plan.
 package vpndetection
 
 import (
@@ -225,8 +225,9 @@ func (c *Client) MyIP(ctx context.Context, opts ...LookupOption) (*Result, error
 // value, so one bad entry cannot lose the rest of the answers: the API reports
 // a per-entry failure with the status the single lookup would have answered,
 // and a chunk that fails as a whole marks every address in it. POST /batch
-// needs an API key, a free one included: without one, every address sent to it
-// carries a KindUnauthorized error. The returned error is reserved for the
+// needs a paid plan: without a key every address sent to it carries a
+// KindUnauthorized error, and a trial key's batch of two or more a
+// KindBadRequest (HTTP 402). The returned error is reserved for the
 // batch as a whole failing: the context canceled, or a Concurrency below 1 or
 // negative Retries, refused before any request.
 func (c *Client) LookupBatch(

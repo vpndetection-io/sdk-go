@@ -14,11 +14,11 @@ type (
 	ClassDetail    = api.ClassDetail
 	ProxyDetail    = api.ProxyDetail
 	PubproxyDetail = api.PubproxyDetail
-	// Location is where the address is, on every keyed answer: every field set,
-	// empty where it is not known.
+	// Location is where the address is, on every answer, with or without a key:
+	// every field set, empty where it is not known.
 	Location = api.Location
-	// Asn is the AS announcing the address, on every keyed answer: Asn is 0
-	// where none does.
+	// Asn is the AS announcing the address, on every answer, with or without a
+	// key: Asn is 0 where none does.
 	Asn = api.Asn
 	// Date is a calendar date with no time of day, as `last_seen` and
 	// `first_seen` carry.
