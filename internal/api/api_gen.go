@@ -739,7 +739,7 @@ type LookupResponse struct {
 	// IsCdn Whether the address belongs to a CDN. Paid plans.
 	IsCdn *bool `json:"is_cdn,omitempty"`
 
-	// IsDcproxy Whether the address was seen in a datacenter proxy pool. Paid plans.
+	// IsDcproxy Whether the address is one a datacenter proxy service sells or runs on, a proxy company's own ranges included. Paid plans.
 	IsDcproxy *bool `json:"is_dcproxy,omitempty"`
 
 	// IsHosting Whether the address belongs to a hosting or cloud provider. Paid plans.
