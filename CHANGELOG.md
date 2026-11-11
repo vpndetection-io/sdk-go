@@ -2,6 +2,12 @@
 
 What each release changed for you, newest first. Each line is a commit's summary, linked to its full description and diff. Releases before 5.3.2 are described by their release commits.
 
+## 5.13.0 - 2026-11-11
+
+### Features
+
+- Add TrialExpired for a trial key's answers, and re-pin the spec ([`59081ec`](https://github.com/vpndetection-io/sdk-go/commit/59081ec70853d0394714725f94c19e9e9f12a926))
+
 ## 5.12.2 - 2026-11-11
 
 ### Fixes
