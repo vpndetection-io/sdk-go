@@ -1397,7 +1397,7 @@ type ClientInterface interface {
 	// allowance and never a throttle.
 	//
 	// A batch needs an API key, a free one included: without one the call is
-	// refused with `401`. Keyless lookups are one address at a time.
+	// refused with `401`. The Unlimited tier looks up one address at a time.
 	//
 	// Takes any type of body and a specified content type.
 	//
@@ -1425,7 +1425,7 @@ type ClientInterface interface {
 	// allowance and never a throttle.
 	//
 	// A batch needs an API key, a free one included: without one the call is
-	// refused with `401`. Keyless lookups are one address at a time.
+	// refused with `401`. The Unlimited tier looks up one address at a time.
 	//
 	// Takes a body of the `application/json` content type.
 	//
@@ -1632,8 +1632,9 @@ type ClientInterface interface {
 	// LookupIP Lookup
 	//
 	// Answers what is known about a single IPv4 or IPv6 address. Which fields
-	// come back is decided by the presented key; with no key the answer is
-	// `ip`, `is_vpn`, the Tor and relay members, `location` and `asn`.
+	// come back is decided by the presented key; with no key, the Unlimited
+	// tier, the answer is `ip`, `is_vpn`, the Tor and relay members,
+	// `location` and `asn`.
 	//
 	// Corresponds with GET /{ip} (the `LookupIP` operationId).
 	LookupIP(ctx context.Context, ip string, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -1985,7 +1986,7 @@ func (c *Client) AccountOrgMembers(ctx context.Context, reqEditors ...RequestEdi
 // allowance and never a throttle.
 //
 // A batch needs an API key, a free one included: without one the call is
-// refused with `401`. Keyless lookups are one address at a time.
+// refused with `401`. The Unlimited tier looks up one address at a time.
 //
 // Takes any type of body and a specified content type.
 //
@@ -2023,7 +2024,7 @@ func (c *Client) LookupBatchWithBody(ctx context.Context, contentType string, bo
 // allowance and never a throttle.
 //
 // A batch needs an API key, a free one included: without one the call is
-// refused with `401`. Keyless lookups are one address at a time.
+// refused with `401`. The Unlimited tier looks up one address at a time.
 //
 // Takes a body of the `application/json` content type.
 //
@@ -2340,8 +2341,9 @@ func (c *Client) OauthTokenWithFormdataBody(ctx context.Context, body OauthToken
 // LookupIP Lookup
 //
 // Answers what is known about a single IPv4 or IPv6 address. Which fields
-// come back is decided by the presented key; with no key the answer is
-// `ip`, `is_vpn`, the Tor and relay members, `location` and `asn`.
+// come back is decided by the presented key; with no key, the Unlimited
+// tier, the answer is `ip`, `is_vpn`, the Tor and relay members,
+// `location` and `asn`.
 //
 // Corresponds with GET /{ip} (the `LookupIP` operationId).
 func (c *Client) LookupIP(ctx context.Context, ip string, reqEditors ...RequestEditorFn) (*http.Response, error) {
@@ -3556,7 +3558,7 @@ type ClientWithResponsesInterface interface {
 	// allowance and never a throttle.
 	//
 	// A batch needs an API key, a free one included: without one the call is
-	// refused with `401`. Keyless lookups are one address at a time.
+	// refused with `401`. The Unlimited tier looks up one address at a time.
 	//
 	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
 	//
@@ -3584,7 +3586,7 @@ type ClientWithResponsesInterface interface {
 	// allowance and never a throttle.
 	//
 	// A batch needs an API key, a free one included: without one the call is
-	// refused with `401`. Keyless lookups are one address at a time.
+	// refused with `401`. The Unlimited tier looks up one address at a time.
 	//
 	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 	//
@@ -3795,8 +3797,9 @@ type ClientWithResponsesInterface interface {
 	// LookupIPWithResponse Lookup
 	//
 	// Answers what is known about a single IPv4 or IPv6 address. Which fields
-	// come back is decided by the presented key; with no key the answer is
-	// `ip`, `is_vpn`, the Tor and relay members, `location` and `asn`.
+	// come back is decided by the presented key; with no key, the Unlimited
+	// tier, the answer is `ip`, `is_vpn`, the Tor and relay members,
+	// `location` and `asn`.
 	//
 	// Returns a wrapper object for the known response body format(s).
 	//
@@ -5495,7 +5498,7 @@ func (c *ClientWithResponses) AccountOrgMembersWithResponse(ctx context.Context,
 // allowance and never a throttle.
 //
 // A batch needs an API key, a free one included: without one the call is
-// refused with `401`. Keyless lookups are one address at a time.
+// refused with `401`. The Unlimited tier looks up one address at a time.
 //
 // Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
 //
@@ -5529,7 +5532,7 @@ func (c *ClientWithResponses) LookupBatchWithBodyWithResponse(ctx context.Contex
 // allowance and never a throttle.
 //
 // A batch needs an API key, a free one included: without one the call is
-// refused with `401`. Keyless lookups are one address at a time.
+// refused with `401`. The Unlimited tier looks up one address at a time.
 //
 // Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 //
@@ -5806,8 +5809,9 @@ func (c *ClientWithResponses) OauthTokenWithFormdataBodyWithResponse(ctx context
 // LookupIPWithResponse Lookup
 //
 // Answers what is known about a single IPv4 or IPv6 address. Which fields
-// come back is decided by the presented key; with no key the answer is
-// `ip`, `is_vpn`, the Tor and relay members, `location` and `asn`.
+// come back is decided by the presented key; with no key, the Unlimited
+// tier, the answer is `ip`, `is_vpn`, the Tor and relay members,
+// `location` and `asn`.
 //
 // Returns a wrapper object for the known response body format(s).
 //
