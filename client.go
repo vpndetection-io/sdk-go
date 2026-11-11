@@ -3,8 +3,8 @@
 // hosting servers, CDNs and relays.
 //
 // Start with New and Client.Lookup. No API key is needed: without one a lookup
-// answers ip, is_vpn, the Tor and relay members, location and asn, up to 60 a
-// minute from each address, and a batch is refused as unauthorized.
+// answers ip, is_vpn, the Tor and relay members, location and asn, with no
+// daily or monthly cap, and a batch is refused as unauthorized.
 package vpndetection
 
 import (
