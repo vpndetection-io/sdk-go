@@ -2,6 +2,12 @@
 
 What each release changed for you, newest first. Each line is a commit's summary, linked to its full description and diff. Releases before 5.3.2 are described by their release commits.
 
+## 5.12.2 - 2026-11-11
+
+### Fixes
+
+- Name the Unlimited tier and its terms, and re-pin the spec ([`8435b7b`](https://github.com/vpndetection-io/sdk-go/commit/8435b7b4d13034212843549d4a014476428029df))
+
 ## 5.12.1 - 2026-11-11
 
 ### Fixes
