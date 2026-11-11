@@ -1646,8 +1646,8 @@ type ClientInterface interface {
 	// LookupIP Lookup
 	//
 	// Answers what is known about a single IPv4 or IPv6 address. Which fields
-	// come back is decided by the presented key; with no key, the Unlimited
-	// tier, the answer is `ip`, `is_vpn`, the Tor and relay members,
+	// come back is decided by the presented key; with no key, on Unlimited,
+	// the free plan, the answer is `ip`, `is_vpn`, the Tor and relay members,
 	// `location` and `asn`.
 	//
 	// Corresponds with GET /{ip} (the `LookupIP` operationId).
@@ -2359,8 +2359,8 @@ func (c *Client) OauthTokenWithFormdataBody(ctx context.Context, body OauthToken
 // LookupIP Lookup
 //
 // Answers what is known about a single IPv4 or IPv6 address. Which fields
-// come back is decided by the presented key; with no key, the Unlimited
-// tier, the answer is `ip`, `is_vpn`, the Tor and relay members,
+// come back is decided by the presented key; with no key, on Unlimited,
+// the free plan, the answer is `ip`, `is_vpn`, the Tor and relay members,
 // `location` and `asn`.
 //
 // Corresponds with GET /{ip} (the `LookupIP` operationId).
@@ -3819,8 +3819,8 @@ type ClientWithResponsesInterface interface {
 	// LookupIPWithResponse Lookup
 	//
 	// Answers what is known about a single IPv4 or IPv6 address. Which fields
-	// come back is decided by the presented key; with no key, the Unlimited
-	// tier, the answer is `ip`, `is_vpn`, the Tor and relay members,
+	// come back is decided by the presented key; with no key, on Unlimited,
+	// the free plan, the answer is `ip`, `is_vpn`, the Tor and relay members,
 	// `location` and `asn`.
 	//
 	// Returns a wrapper object for the known response body format(s).
@@ -5842,8 +5842,8 @@ func (c *ClientWithResponses) OauthTokenWithFormdataBodyWithResponse(ctx context
 // LookupIPWithResponse Lookup
 //
 // Answers what is known about a single IPv4 or IPv6 address. Which fields
-// come back is decided by the presented key; with no key, the Unlimited
-// tier, the answer is `ip`, `is_vpn`, the Tor and relay members,
+// come back is decided by the presented key; with no key, on Unlimited,
+// the free plan, the answer is `ip`, `is_vpn`, the Tor and relay members,
 // `location` and `asn`.
 //
 // Returns a wrapper object for the known response body format(s).

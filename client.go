@@ -3,8 +3,9 @@
 // hosting servers, CDNs and relays.
 //
 // Start with New and Client.Lookup. No API key is needed: without one a lookup
-// is on the Unlimited tier, answering ip, is_vpn, the Tor and relay members,
-// location and asn with no daily or monthly cap. A batch needs a paid plan.
+// is on Unlimited, the free plan, answering ip, is_vpn, the Tor and relay
+// members, location and asn with no daily or monthly cap. A batch needs a paid
+// plan.
 package vpndetection
 
 import (

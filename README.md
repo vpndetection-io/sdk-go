@@ -255,11 +255,11 @@ Each redirect URI must be https on a public host name, or http on a loopback add
 
 ### Absent is not false
 
-Every field beyond `IP` and `IsVpn` is a pointer, because your key decides which of them the API sends. The Unlimited tier leaves out `IsHosting`, `IsCdn` and the four proxy flags, and of the detail behind each flag it answers only Tor's and relay's; a free-plan key's answer carries `TrialExpired`, true once its daily trial is spent. A `nil` pointer means "not in your plan", not "checked, and no".
+Every field beyond `IP` and `IsVpn` is a pointer, because your key decides which of them the API sends. Unlimited leaves out `IsHosting`, `IsCdn` and the four proxy flags, and of the detail behind each flag it answers only Tor's and relay's; a free-plan key's answer carries `TrialExpired`, true once its daily trial is spent. A `nil` pointer means "not in your plan", not "checked, and no".
 
 ```go
 vpndetection.BoolValue(result.IsHosting)  // when you only want the flag
-result.IsHosting == nil                   // on the Unlimited tier: not in your plan
+result.IsHosting == nil                   // on Unlimited: not in your plan
 vpndetection.BoolValue(result.TrialExpired) // a free-plan key's daily trial is spent
 ```
 
