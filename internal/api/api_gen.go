@@ -597,23 +597,23 @@ type EntitlementError struct {
 
 // EntitlementPlan defines model for EntitlementPlan.
 type EntitlementPlan struct {
-	// Key The plan the organization is on, or `trial` on none: a trial
-	// answers every field for the organization's first 100 lookups each
-	// UTC day, and Unlimited's answer after them.
+	// Key The plan the organization is on: `free` for the free plan,
+	// Unlimited, or a paid plan's key. On `free`, usage counts the
+	// day's lookups answered with every field, its daily trial.
 	//
 	//
 	// Example: max
 	Key string `json:"key"`
 
 	// Tier The field tier, which decides how much of a lookup answer comes
-	// back; `free` is a trial's. What each tier includes is documented
+	// back; `free` is the free plan's. What each tier includes is documented
 	// on the lookup endpoint rather than repeated here, so there is one
 	// place it can be wrong.
 	Tier EntitlementPlanTier `json:"tier"`
 }
 
 // EntitlementPlanTier The field tier, which decides how much of a lookup answer comes
-// back; `free` is a trial's. What each tier includes is documented
+// back; `free` is the free plan's. What each tier includes is documented
 // on the lookup endpoint rather than repeated here, so there is one
 // place it can be wrong.
 type EntitlementPlanTier string
@@ -796,9 +796,9 @@ type LookupResponse struct {
 	// empty string.
 	Tor *ClassDetail `json:"tor,omitempty"`
 
-	// TrialExpired On every answer to a trial key, an organization on no paid plan, and
-	// on no other: `false` while the organization's 100 full answers for
-	// the UTC day last, `true` once the answer is Unlimited's.
+	// TrialExpired On every answer to a key on the free plan, and on no other: `false`
+	// while its organization's daily trial lasts (every field for the first
+	// 100 lookups each UTC day), `true` once the answer has Unlimited's.
 	TrialExpired *bool `json:"trial_expired,omitempty"`
 
 	// Vpn Detail for `is_vpn`. Empty when `is_vpn` is false. Paid plans.
@@ -1407,9 +1407,9 @@ type ClientInterface interface {
 	// and never a throttle.
 	//
 	// A batch needs a paid plan: without a key the call is refused with `401`,
-	// and with a trial key with `402`, unless it names one address, which is
-	// answered as `GET /{ip}` would answer it. Unlimited and a trial look up
-	// one address at a time.
+	// and with a key on the free plan with `402`, unless it names one address,
+	// which is answered as `GET /{ip}` would answer it. Unlimited looks up one
+	// address at a time.
 	//
 	// Takes any type of body and a specified content type.
 	//
@@ -1437,9 +1437,9 @@ type ClientInterface interface {
 	// and never a throttle.
 	//
 	// A batch needs a paid plan: without a key the call is refused with `401`,
-	// and with a trial key with `402`, unless it names one address, which is
-	// answered as `GET /{ip}` would answer it. Unlimited and a trial look up
-	// one address at a time.
+	// and with a key on the free plan with `402`, unless it names one address,
+	// which is answered as `GET /{ip}` would answer it. Unlimited looks up one
+	// address at a time.
 	//
 	// Takes a body of the `application/json` content type.
 	//
@@ -2000,9 +2000,9 @@ func (c *Client) AccountOrgMembers(ctx context.Context, reqEditors ...RequestEdi
 // and never a throttle.
 //
 // A batch needs a paid plan: without a key the call is refused with `401`,
-// and with a trial key with `402`, unless it names one address, which is
-// answered as `GET /{ip}` would answer it. Unlimited and a trial look up
-// one address at a time.
+// and with a key on the free plan with `402`, unless it names one address,
+// which is answered as `GET /{ip}` would answer it. Unlimited looks up one
+// address at a time.
 //
 // Takes any type of body and a specified content type.
 //
@@ -2040,9 +2040,9 @@ func (c *Client) LookupBatchWithBody(ctx context.Context, contentType string, bo
 // and never a throttle.
 //
 // A batch needs a paid plan: without a key the call is refused with `401`,
-// and with a trial key with `402`, unless it names one address, which is
-// answered as `GET /{ip}` would answer it. Unlimited and a trial look up
-// one address at a time.
+// and with a key on the free plan with `402`, unless it names one address,
+// which is answered as `GET /{ip}` would answer it. Unlimited looks up one
+// address at a time.
 //
 // Takes a body of the `application/json` content type.
 //
@@ -3576,9 +3576,9 @@ type ClientWithResponsesInterface interface {
 	// and never a throttle.
 	//
 	// A batch needs a paid plan: without a key the call is refused with `401`,
-	// and with a trial key with `402`, unless it names one address, which is
-	// answered as `GET /{ip}` would answer it. Unlimited and a trial look up
-	// one address at a time.
+	// and with a key on the free plan with `402`, unless it names one address,
+	// which is answered as `GET /{ip}` would answer it. Unlimited looks up one
+	// address at a time.
 	//
 	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
 	//
@@ -3606,9 +3606,9 @@ type ClientWithResponsesInterface interface {
 	// and never a throttle.
 	//
 	// A batch needs a paid plan: without a key the call is refused with `401`,
-	// and with a trial key with `402`, unless it names one address, which is
-	// answered as `GET /{ip}` would answer it. Unlimited and a trial look up
-	// one address at a time.
+	// and with a key on the free plan with `402`, unless it names one address,
+	// which is answered as `GET /{ip}` would answer it. Unlimited looks up one
+	// address at a time.
 	//
 	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 	//
@@ -5527,9 +5527,9 @@ func (c *ClientWithResponses) AccountOrgMembersWithResponse(ctx context.Context,
 // and never a throttle.
 //
 // A batch needs a paid plan: without a key the call is refused with `401`,
-// and with a trial key with `402`, unless it names one address, which is
-// answered as `GET /{ip}` would answer it. Unlimited and a trial look up
-// one address at a time.
+// and with a key on the free plan with `402`, unless it names one address,
+// which is answered as `GET /{ip}` would answer it. Unlimited looks up one
+// address at a time.
 //
 // Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
 //
@@ -5563,9 +5563,9 @@ func (c *ClientWithResponses) LookupBatchWithBodyWithResponse(ctx context.Contex
 // and never a throttle.
 //
 // A batch needs a paid plan: without a key the call is refused with `401`,
-// and with a trial key with `402`, unless it names one address, which is
-// answered as `GET /{ip}` would answer it. Unlimited and a trial look up
-// one address at a time.
+// and with a key on the free plan with `402`, unless it names one address,
+// which is answered as `GET /{ip}` would answer it. Unlimited looks up one
+// address at a time.
 //
 // Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 //

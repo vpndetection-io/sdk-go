@@ -80,7 +80,7 @@ func TestEachTierServesASupersetOfTheTierBelow(t *testing.T) {
 	}
 }
 
-func TestATrialKeysAnswerIsAPaidOneOrUnlimitedsAndSaysWhich(t *testing.T) {
+func TestAFreePlanKeysAnswerIsAPaidOneOrUnlimitedsAndSaysWhich(t *testing.T) {
 	if reason := trialRung().skipReason(); reason != "" {
 		t.Skip(reason)
 	}
@@ -88,7 +88,7 @@ func TestATrialKeysAnswerIsAPaidOneOrUnlimitedsAndSaysWhich(t *testing.T) {
 
 	expired, ok := raw["trial_expired"].(bool)
 	if !ok {
-		t.Fatalf("a trial key's answer carries trial_expired %v, want a boolean", raw["trial_expired"])
+		t.Fatalf("a free-plan key's answer carries trial_expired %v, want a boolean", raw["trial_expired"])
 	}
 	// The organization's first 100 lookups of the UTC day are answered in full,
 	// and the rest as Unlimited's: which half a run sees depends on the day.
@@ -97,7 +97,7 @@ func TestATrialKeysAnswerIsAPaidOneOrUnlimitedsAndSaysWhich(t *testing.T) {
 	}
 }
 
-func TestATrialKeysBatchOfTwoIsRefusedAsABadRequestOnce(t *testing.T) {
+func TestAFreePlanKeysBatchOfTwoIsRefusedAsABadRequestOnce(t *testing.T) {
 	if reason := trialRung().skipReason(); reason != "" {
 		t.Skip(reason)
 	}
@@ -111,7 +111,7 @@ func TestATrialKeysBatchOfTwoIsRefusedAsABadRequestOnce(t *testing.T) {
 	for _, ip := range []string{probe, "8.8.8.8"} {
 		var refused *vpndetection.Error
 		if !errors.As(got[ip].Err, &refused) {
-			t.Fatalf("%s: a trial key's batch of two answered %+v, want a refusal", ip, got[ip])
+			t.Fatalf("%s: a free-plan key's batch of two answered %+v, want a refusal", ip, got[ip])
 		}
 		if refused.Kind != vpndetection.KindBadRequest || refused.StatusCode != http.StatusPaymentRequired {
 			t.Errorf("%s: refused as %s %d, want bad_request 402", ip, refused.Kind, refused.StatusCode)
@@ -126,7 +126,7 @@ func TestATrialKeysBatchOfTwoIsRefusedAsABadRequestOnce(t *testing.T) {
 	}
 }
 
-func TestATrialKeysBatchOfOneIsAnswered(t *testing.T) {
+func TestAFreePlanKeysBatchOfOneIsAnswered(t *testing.T) {
 	if reason := trialRung().skipReason(); reason != "" {
 		t.Skip(reason)
 	}
@@ -138,7 +138,7 @@ func TestATrialKeysBatchOfOneIsAnswered(t *testing.T) {
 	}
 
 	if got[probe].Err != nil {
-		t.Fatalf("a trial key's batch of one failed: %v", got[probe].Err)
+		t.Fatalf("a free-plan key's batch of one failed: %v", got[probe].Err)
 	}
 	results, _ := rec.jsonBody(t, "/batch")["results"].(map[string]any)
 	answer, _ := results[probe].(map[string]any)

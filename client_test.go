@@ -644,7 +644,7 @@ func TestMyEntitlementIsNotCached(t *testing.T) {
 	stub := newStub(map[string]stubRoute{
 		"/api/v1/entitlement": {body: map[string]any{
 			"org_id": "f32191d0-ef02-450e-a505-eb5814c35cab", "apikey": map[string]any{"id": "10c2b437-3aa2-4a63-bd17-8e7c8c7f0def", "expires": nil, "allowed_cidrs": []string{}},
-			"plan":  map[string]any{"key": "trial", "tier": "free"},
+			"plan":  map[string]any{"key": "free", "tier": "free"},
 			"usage": map[string]any{"requests": 1, "quota": 2, "hard_limit": 2, "window_start": "2026-09-01T00:00:00Z", "window_end": "2026-10-01T00:00:00Z"},
 		}},
 	})

@@ -226,7 +226,7 @@ func (c *Client) MyIP(ctx context.Context, opts ...LookupOption) (*Result, error
 // a per-entry failure with the status the single lookup would have answered,
 // and a chunk that fails as a whole marks every address in it. POST /batch
 // needs a paid plan: without a key every address sent to it carries a
-// KindUnauthorized error, and a trial key's batch of two or more a
+// KindUnauthorized error, and a free-plan key's batch of two or more a
 // KindBadRequest (HTTP 402). The returned error is reserved for the
 // batch as a whole failing: the context canceled, or a Concurrency below 1 or
 // negative Retries, refused before any request.

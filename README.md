@@ -21,7 +21,7 @@ import vpndetection "github.com/vpndetection-io/sdk-go/v5"
 
 ## Usage
 
-**No API key needed to start.** The Unlimited tier answers `ip`, `is_vpn`, Tor and relay detection, `location` and `asn`, with no daily or monthly cap, with a key or without one.
+**No API key needed to start.** Unlimited, the free plan, answers `ip`, `is_vpn`, Tor and relay detection, `location` and `asn`, with no daily or monthly cap, with a key or without one.
 
 ```go
 client, err := vpndetection.New()
@@ -44,7 +44,7 @@ if asn := result.Asn; asn != nil {
 
 ### With an API key
 
-Every paid plan answers every field: `is_hosting`, `is_cdn` and the four proxy flags as well, and the provider, confidence and last-seen detail behind each flag. The plans differ only in how many lookups they include, and a new account can try every field, 100 lookups a day. Create a key in the [console](https://app.vpndetection.io), then pass it in:
+Every paid plan answers every field: `is_hosting`, `is_cdn` and the four proxy flags as well, and the provider, confidence and last-seen detail behind each flag. The plans differ only in how many lookups they include, and a free account tries every field, 100 lookups a day. Create a key in the [console](https://app.vpndetection.io), then pass it in:
 
 ```go
 client, err := vpndetection.New(vpndetection.WithAPIKey(os.Getenv("VPNDETECTION_API_KEY")))
@@ -76,7 +76,7 @@ fmt.Println(acct.Usage.Requests)   // 580
 fmt.Println(acct.Usage.WindowEnd)  // when the allowance resets
 ```
 
-Usage is counted against the anniversary of your subscription on a paid plan, not the calendar month and not the billing period, and against the UTC day on a trial key; it is the same number a lookup is gated on. `HardLimit` is nil on an uncapped plan, which is not the same as zero.
+Usage is counted against the anniversary of your subscription on a paid plan, not the calendar month and not the billing period, and against the UTC day on the free plan; it is the same number a lookup is gated on. `HardLimit` is nil on an uncapped plan, which is not the same as zero.
 
 ### Batch lookup
 
@@ -255,12 +255,12 @@ Each redirect URI must be https on a public host name, or http on a loopback add
 
 ### Absent is not false
 
-Every field beyond `IP` and `IsVpn` is a pointer, because your key decides which of them the API sends. The Unlimited tier leaves out `IsHosting`, `IsCdn` and the four proxy flags, and of the detail behind each flag it answers only Tor's and relay's; a trial key's answer carries `TrialExpired`, true once its day of full answers is spent. A `nil` pointer means "not in your plan", not "checked, and no".
+Every field beyond `IP` and `IsVpn` is a pointer, because your key decides which of them the API sends. The Unlimited tier leaves out `IsHosting`, `IsCdn` and the four proxy flags, and of the detail behind each flag it answers only Tor's and relay's; a free-plan key's answer carries `TrialExpired`, true once its daily trial is spent. A `nil` pointer means "not in your plan", not "checked, and no".
 
 ```go
 vpndetection.BoolValue(result.IsHosting)  // when you only want the flag
 result.IsHosting == nil                   // on the Unlimited tier: not in your plan
-vpndetection.BoolValue(result.TrialExpired) // a trial key's day of full answers is spent
+vpndetection.BoolValue(result.TrialExpired) // a free-plan key's daily trial is spent
 ```
 
 ## Other Libraries
