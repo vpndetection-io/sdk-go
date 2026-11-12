@@ -1408,8 +1408,8 @@ type ClientInterface interface {
 	//
 	// A batch needs a paid plan: without a key the call is refused with `401`,
 	// and with a key on the free plan with `402`, unless it names one address,
-	// which is answered as `GET /{ip}` would answer it. Unlimited looks up one
-	// address at a time.
+	// which is answered as `GET /{ip}` would answer it, under the same rate
+	// limit. Unlimited looks up one address at a time.
 	//
 	// Takes any type of body and a specified content type.
 	//
@@ -1438,8 +1438,8 @@ type ClientInterface interface {
 	//
 	// A batch needs a paid plan: without a key the call is refused with `401`,
 	// and with a key on the free plan with `402`, unless it names one address,
-	// which is answered as `GET /{ip}` would answer it. Unlimited looks up one
-	// address at a time.
+	// which is answered as `GET /{ip}` would answer it, under the same rate
+	// limit. Unlimited looks up one address at a time.
 	//
 	// Takes a body of the `application/json` content type.
 	//
@@ -2001,8 +2001,8 @@ func (c *Client) AccountOrgMembers(ctx context.Context, reqEditors ...RequestEdi
 //
 // A batch needs a paid plan: without a key the call is refused with `401`,
 // and with a key on the free plan with `402`, unless it names one address,
-// which is answered as `GET /{ip}` would answer it. Unlimited looks up one
-// address at a time.
+// which is answered as `GET /{ip}` would answer it, under the same rate
+// limit. Unlimited looks up one address at a time.
 //
 // Takes any type of body and a specified content type.
 //
@@ -2041,8 +2041,8 @@ func (c *Client) LookupBatchWithBody(ctx context.Context, contentType string, bo
 //
 // A batch needs a paid plan: without a key the call is refused with `401`,
 // and with a key on the free plan with `402`, unless it names one address,
-// which is answered as `GET /{ip}` would answer it. Unlimited looks up one
-// address at a time.
+// which is answered as `GET /{ip}` would answer it, under the same rate
+// limit. Unlimited looks up one address at a time.
 //
 // Takes a body of the `application/json` content type.
 //
@@ -3577,8 +3577,8 @@ type ClientWithResponsesInterface interface {
 	//
 	// A batch needs a paid plan: without a key the call is refused with `401`,
 	// and with a key on the free plan with `402`, unless it names one address,
-	// which is answered as `GET /{ip}` would answer it. Unlimited looks up one
-	// address at a time.
+	// which is answered as `GET /{ip}` would answer it, under the same rate
+	// limit. Unlimited looks up one address at a time.
 	//
 	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
 	//
@@ -3607,8 +3607,8 @@ type ClientWithResponsesInterface interface {
 	//
 	// A batch needs a paid plan: without a key the call is refused with `401`,
 	// and with a key on the free plan with `402`, unless it names one address,
-	// which is answered as `GET /{ip}` would answer it. Unlimited looks up one
-	// address at a time.
+	// which is answered as `GET /{ip}` would answer it, under the same rate
+	// limit. Unlimited looks up one address at a time.
 	//
 	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 	//
@@ -5528,8 +5528,8 @@ func (c *ClientWithResponses) AccountOrgMembersWithResponse(ctx context.Context,
 //
 // A batch needs a paid plan: without a key the call is refused with `401`,
 // and with a key on the free plan with `402`, unless it names one address,
-// which is answered as `GET /{ip}` would answer it. Unlimited looks up one
-// address at a time.
+// which is answered as `GET /{ip}` would answer it, under the same rate
+// limit. Unlimited looks up one address at a time.
 //
 // Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
 //
@@ -5564,8 +5564,8 @@ func (c *ClientWithResponses) LookupBatchWithBodyWithResponse(ctx context.Contex
 //
 // A batch needs a paid plan: without a key the call is refused with `401`,
 // and with a key on the free plan with `402`, unless it names one address,
-// which is answered as `GET /{ip}` would answer it. Unlimited looks up one
-// address at a time.
+// which is answered as `GET /{ip}` would answer it, under the same rate
+// limit. Unlimited looks up one address at a time.
 //
 // Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 //
