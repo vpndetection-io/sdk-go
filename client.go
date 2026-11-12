@@ -226,11 +226,12 @@ func (c *Client) MyIP(ctx context.Context, opts ...LookupOption) (*Result, error
 // value, so one bad entry cannot lose the rest of the answers: the API reports
 // a per-entry failure with the status the single lookup would have answered,
 // and a chunk that fails as a whole marks every address in it. POST /batch
-// needs a paid plan: without a key every address sent to it carries a
-// KindUnauthorized error, and a free-plan key's batch of two or more a
-// KindBadRequest (HTTP 402). The returned error is reserved for the
-// batch as a whole failing: the context canceled, or a Concurrency below 1 or
-// negative Retries, refused before any request.
+// needs a paid plan: without a key every address in a request of two or more
+// carries a KindUnauthorized error, and a free-plan key's request of two or
+// more a KindBadRequest (HTTP 402). A request of one address is answered as
+// its lookup would be. The returned error is reserved for the batch as a
+// whole failing: the context canceled, or a Concurrency below 1 or negative
+// Retries, refused before any request.
 func (c *Client) LookupBatch(
 	ctx context.Context, ips []string, opts ...BatchOption,
 ) (map[string]BatchResult, error) {
