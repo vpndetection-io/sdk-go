@@ -235,7 +235,8 @@ func TestABogonIsAnsweredWithoutTouchingTheNetwork(t *testing.T) {
 func TestABatchWithoutAKeyIsRefusedOnceAndItsBogonStillAnswered(t *testing.T) {
 	client, rec := clientFor(t, unauthRung())
 
-	got, err := client.LookupBatch(t.Context(), []string{probe, "10.0.0.1"})
+	// Two addresses on the wire: a keyless batch of one is answered as its lookup.
+	got, err := client.LookupBatch(t.Context(), []string{probe, "8.8.8.8", "10.0.0.1"})
 	if err != nil {
 		t.Fatalf("LookupBatch: %v", err)
 	}
