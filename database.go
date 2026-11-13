@@ -271,6 +271,7 @@ func (d *DatabaseAPI) fetchFile(
 		if err != nil {
 			return nil, errorFromTransport(err)
 		}
+		req.Header.Set("User-Agent", userAgent())
 		res, err := d.transfer.Do(req)
 		if err != nil {
 			return nil, errorFromTransport(err)
