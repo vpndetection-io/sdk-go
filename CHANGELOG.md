@@ -2,6 +2,17 @@
 
 What each release changed for you, newest first. Each line is a commit's summary, linked to its full description and diff. Releases before 5.3.2 are described by their release commits.
 
+## 5.14.0 - 2026-11-13
+
+### Features
+
+- Name the SDK in every request's User-Agent ([`994804a`](https://github.com/vpndetection-io/sdk-go/commit/994804afad1aed0163e96b3feb33969605836131))
+
+### Fixes
+
+- Re-pin the spec to 2026.11.12: plainer words on the 401 and the batch rate limit ([`4fef7fa`](https://github.com/vpndetection-io/sdk-go/commit/4fef7fa6a781a6715f2d047ec794e6b40dbd3597))
+- Say that a batch request of one address is answered as its lookup ([`7db09de`](https://github.com/vpndetection-io/sdk-go/commit/7db09dee5cbdccf8f3c06f1e6596aa6014063a45))
+
 ## 5.13.2 - 2026-11-11
 
 ### Fixes
