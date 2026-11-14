@@ -563,3 +563,27 @@ type corpusBatch struct {
 		ErrorKinds   map[string]string `json:"errorKinds"`
 	} `json:"expect"`
 }
+
+func TestAServedIsBogonReachesTheResult(t *testing.T) {
+	routes := map[string]stubRoute{
+		"8.8.8.8": {body: map[string]any{"ip": "8.8.8.8", "is_bogon": true, "is_vpn": false}},
+		"8.8.4.4": {body: map[string]any{"ip": "8.8.4.4", "is_bogon": false, "is_vpn": false}},
+	}
+	client := newTestClient(t, newStub(routes), WithoutCache())
+
+	single, err := client.Lookup(t.Context(), "8.8.8.8")
+	if err != nil {
+		t.Fatalf("Lookup: %v", err)
+	}
+	if !single.IsBogon {
+		t.Errorf("Lookup: IsBogon = false, want the served true")
+	}
+	batch, err := client.LookupBatch(t.Context(), []string{"8.8.8.8", "8.8.4.4"})
+	if err != nil {
+		t.Fatalf("LookupBatch: %v", err)
+	}
+	if !batch["8.8.8.8"].Result.IsBogon || batch["8.8.4.4"].Result.IsBogon {
+		t.Errorf("LookupBatch: IsBogon = %v and %v, want the served true and false",
+			batch["8.8.8.8"].Result.IsBogon, batch["8.8.4.4"].Result.IsBogon)
+	}
+}

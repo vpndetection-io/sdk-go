@@ -46,8 +46,8 @@ func unmapped(ip string) string {
 
 // The answer a bogon gets: the full shape the API serves on its widest plan,
 // every flag present and false, every detail object present and empty, and
-// Location and Asn with every field empty as the API answers a bogon, plus the
-// IsBogon marker that tells a computed answer from a served one.
+// Location and Asn with every field empty, and IsBogon true, as the API answers
+// a bogon.
 //
 // Deliberately the WIDEST shape whatever plan you are on, so a caller must not
 // infer which fields their plan includes from a bogon answer.
@@ -56,6 +56,7 @@ func bogonResult(ip string) *Result {
 		IsBogon: true,
 		LookupResponse: LookupResponse{
 			IP:         ip,
+			IsBogon:    ptr(true),
 			IsVpn:      false,
 			IsHosting:  ptr(false),
 			IsRelay:    ptr(false),

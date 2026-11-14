@@ -334,10 +334,17 @@ type ClassDetail struct {
 	// Example: 2026-09-02
 	LastSeen *openapi_types.Date `json:"last_seen,omitempty"`
 
-	// Provider The provider, or an empty string where the dataset has none.
+	// Provider The provider's ID, or an empty string where the dataset has none.
 	//
 	// Example: m247
 	Provider *string `json:"provider,omitempty"`
+
+	// ProviderName The name the provider catalog gives the provider; an empty string where the
+	// catalog names none or the dataset has no provider.
+	//
+	//
+	// Example: M247
+	ProviderName *string `json:"provider_name,omitempty"`
 }
 
 // ClientRegistration defines model for ClientRegistration.
@@ -718,8 +725,8 @@ type LookupError struct {
 	Error string `json:"error"`
 }
 
-// LookupResponse The union of every tier's answer. Every answer carries `ip`, `is_vpn`,
-// the Tor and relay members, `location` and `asn`, with or without a key;
+// LookupResponse The union of every tier's answer. Every answer carries `ip`, `is_bogon`,
+// `is_vpn`, the Tor and relay members, `location` and `asn`, with or without a key;
 // each remaining field is present when your tier includes it, and absent
 // otherwise. A client that must work across plans should treat an absent
 // flag as unknown rather than as `false`.
@@ -743,6 +750,11 @@ type LookupResponse struct {
 	//
 	// Example: 1.1.1.1
 	IP string `json:"ip"`
+
+	// IsBogon Whether the address is reserved space (RFC 1918, loopback, link-local,
+	// documentation ranges and their IPv6 equivalents), answered from the
+	// address alone. Every answer, with or without a key.
+	IsBogon *bool `json:"is_bogon,omitempty"`
 
 	// IsCdn Whether the address belongs to a CDN. Paid plans.
 	IsCdn *bool `json:"is_cdn,omitempty"`
@@ -792,8 +804,8 @@ type LookupResponse struct {
 	Resproxy *ProxyDetail `json:"resproxy,omitempty"`
 
 	// Tor Detail for `is_tor`. Empty when false. Every answer, with or without a
-	// key. The tor dataset carries no provider, so `provider` is always an
-	// empty string.
+	// key. The tor dataset carries no provider, so `provider` and
+	// `provider_name` are always empty strings.
 	Tor *ClassDetail `json:"tor,omitempty"`
 
 	// TrialExpired On every answer to a key on the free plan, and on no other: `false`
@@ -873,10 +885,17 @@ type ProxyDetail struct {
 	// Example: 2026-09-02
 	LastSeen *openapi_types.Date `json:"last_seen,omitempty"`
 
-	// Provider The proxy network, or an empty string where unattributed.
+	// Provider The proxy network's ID, or an empty string where unattributed.
 	//
 	// Example: brightdata
 	Provider *string `json:"provider,omitempty"`
+
+	// ProviderName The name the provider catalog gives the proxy network; an empty string where
+	// the catalog names none or the address is unattributed.
+	//
+	//
+	// Example: Bright Data
+	ProviderName *string `json:"provider_name,omitempty"`
 
 	// ProvidersNum How many distinct proxy networks this address was seen in.
 	//
@@ -1036,10 +1055,17 @@ type VpnDetail struct {
 	// Deprecated: this property has been marked as deprecated upstream, but no `x-deprecated-reason` was set
 	Method *string `json:"method,omitempty"`
 
-	// Provider The VPN provider, or an empty string for an unattributed range.
+	// Provider The VPN provider's ID, or an empty string for an unattributed range.
 	//
 	// Example: mullvad
 	Provider *string `json:"provider,omitempty"`
+
+	// ProviderName The name the provider catalog gives the provider, beside the ID to key on;
+	// an empty string where the catalog names none or the range is unattributed.
+	//
+	//
+	// Example: Mullvad
+	ProviderName *string `json:"provider_name,omitempty"`
 }
 
 // ApikeyIDParam defines model for ApikeyIdParam.

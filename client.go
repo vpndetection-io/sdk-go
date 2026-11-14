@@ -182,7 +182,7 @@ func (c *Client) serve(ctx context.Context, ip string, retries int) (*Result, er
 		if err != nil {
 			return nil, err
 		}
-		return &Result{LookupResponse: *answer}, nil
+		return &Result{LookupResponse: *answer, IsBogon: BoolValue(answer.IsBogon)}, nil
 	})
 }
 
@@ -210,7 +210,7 @@ func (c *Client) MyIP(ctx context.Context, opts ...LookupOption) (*Result, error
 		if err != nil {
 			return nil, err
 		}
-		return &Result{LookupResponse: *answer}, nil
+		return &Result{LookupResponse: *answer, IsBogon: BoolValue(answer.IsBogon)}, nil
 	})
 }
 
@@ -400,7 +400,7 @@ func (c *Client) lookupChunk(ctx context.Context, addrs []string, retries int) m
 				out[ip] = BatchResult{Err: unreadable(body.status, "the batch answer for "+ip+" was not a lookup answer")}
 				continue
 			}
-			result := &Result{LookupResponse: *served}
+			result := &Result{LookupResponse: *served, IsBogon: BoolValue(served.IsBogon)}
 			if c.cache != nil {
 				c.cache.Add(ip, *result)
 			}

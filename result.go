@@ -39,8 +39,9 @@ type Result struct {
 	// fields are promoted, so r.IsVpn and r.Vpn read straight off the Result.
 	LookupResponse
 
-	// True when this answer was computed locally rather than served, which
-	// happens for a bogon and only for a bogon.
+	// True for reserved space (private, loopback, documentation and the like),
+	// which this package answers locally without a request. A served answer
+	// carries the API's own is_bogon, and this reads it.
 	IsBogon bool `json:"is_bogon"`
 }
 
