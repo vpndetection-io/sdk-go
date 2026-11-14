@@ -2,6 +2,12 @@
 
 What each release changed for you, newest first. Each line is a commit's summary, linked to its full description and diff. Releases before 5.3.2 are described by their release commits.
 
+## 5.15.0 - 2026-11-14
+
+### Features
+
+- Re-pin the spec to 2026.11.14: is_bogon on every answer, and provider_name beside each provider ([`9f7a7b1`](https://github.com/vpndetection-io/sdk-go/commit/9f7a7b190a91033f5fc21736714728ffcdfb320f))
+
 ## 5.14.0 - 2026-11-13
 
 ### Features
