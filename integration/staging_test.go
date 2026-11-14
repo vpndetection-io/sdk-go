@@ -31,7 +31,7 @@ const (
 // detail object carries on every tier; optional is the max-only remainder, which
 // is absent rather than empty on a lower plan.
 var members = map[string]detail{
-	"vpn":      {required: []string{"provider", "last_seen"}, optional: []string{"confidence", "method"}},
+	"vpn":      {required: []string{"provider", "provider_name", "last_seen"}, optional: []string{"confidence", "method"}},
 	"hosting":  {required: classKeys},
 	"relay":    {required: classKeys},
 	"tor":      {required: classKeys},
@@ -42,8 +42,8 @@ var members = map[string]detail{
 }
 
 var (
-	classKeys = []string{"provider", "confidence", "last_seen"}
-	proxyKeys = []string{"provider", "first_seen", "last_seen", "hits", "hits_days_pct", "providers_num"}
+	classKeys = []string{"provider", "provider_name", "confidence", "last_seen"}
+	proxyKeys = []string{"provider", "provider_name", "first_seen", "last_seen", "hits", "hits_days_pct", "providers_num"}
 )
 
 type detail struct {
