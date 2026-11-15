@@ -89,7 +89,20 @@ func TestABatchRefusesAConcurrencyBelowOneBeforeAnyRequest(t *testing.T) {
 		stub := newStub(okRoutes("9.9.9.9"))
 		client := newTestClient(t, stub, WithoutCache())
 
-		got, err := client.LookupBatch(t.Context(), []string{"9.9.9.9"}, Concurrency(n))
+		// In a goroutine, so a batch that took the bound and then waited on it forever
+		// fails this test rather than hanging the whole run until go test's timeout.
+		var got map[string]BatchResult
+		var err error
+		done := make(chan struct{})
+		go func() {
+			defer close(done)
+			got, err = client.LookupBatch(t.Context(), []string{"9.9.9.9"}, Concurrency(n))
+		}()
+		select {
+		case <-done:
+		case <-time.After(5 * time.Second):
+			t.Fatalf("Concurrency(%d): still running after 5s; want it refused before any request", n)
+		}
 		var apiErr *Error
 		if !errors.As(err, &apiErr) || apiErr.Kind != KindBadRequest || got != nil {
 			t.Fatalf("Concurrency(%d): got %v, %v; want a bad_request *Error", n, got, err)
