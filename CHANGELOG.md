@@ -2,6 +2,12 @@
 
 What each release changed for you, newest first. Each line is a commit's summary, linked to its full description and diff. Releases before 5.3.2 are described by their release commits.
 
+## 5.16.0 - 2026-11-16
+
+### Features
+
+- Read the plan's name, and pin vocabulary values handed back as served ([`8d94aff`](https://github.com/vpndetection-io/sdk-go/commit/8d94affe33b0d0c2b51d46fc130952a4e530a21b))
+
 ## 5.15.0 - 2026-11-14
 
 ### Features
