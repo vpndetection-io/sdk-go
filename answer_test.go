@@ -205,7 +205,7 @@ func TestADateTimeIsReadInRFC3339sFormAlone(t *testing.T) {
 		},
 		"MyEntitlement": {
 			`{"org_id":"85bb51e4-2eb6-4a31-8e4d-02ba8b98fe61","apikey":{"id":"0ab424cc-7619-4dad-b027-afacdc2cedb0",` +
-				`"expires":null,"allowed_cidrs":[]},"plan":{"key":"max","tier":"max"},"usage":{"requests":5,` +
+				`"expires":null,"allowed_cidrs":[]},"plan":{"key":"max","name":"Max","tier":"max"},"usage":{"requests":5,` +
 				`"quota":50,"hard_limit":null,"window_start":%q,"window_end":"2026-10-04T07:00:00Z"}}`,
 			func(ctx context.Context, c *Client) (time.Time, error) {
 				entitlement, err := c.MyEntitlement(ctx)

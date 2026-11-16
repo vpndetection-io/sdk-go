@@ -71,12 +71,15 @@ Same answer `Lookup` would give for that address, and the same cost against your
 
 ```go
 acct, err := client.MyEntitlement(ctx)
-fmt.Println(acct.Plan.Key)         // max
+fmt.Println(acct.Plan.Name)        // Max, what to show
+fmt.Println(acct.Plan.Key)         // max, what to compare against
 fmt.Println(acct.Usage.Requests)   // 580
 fmt.Println(acct.Usage.WindowEnd)  // when the allowance resets
 ```
 
 Usage is counted against the anniversary of your subscription on a paid plan, not the calendar month and not the billing period, and against the UTC day on the free plan; it is the same number a lookup is gated on. `HardLimit` is nil on an uncapped plan, which is not the same as zero.
+
+Show `Plan.Name` and compare against `Plan.Key`: a plan's name can change, and its key never does. A value the API adds later to a plan's `Tier`, a database's `Standing` or `LicenseType`, a format or a download's `Outcome` comes back as the string it served, so check for the values you know rather than assuming the list is complete.
 
 ### Batch lookup
 

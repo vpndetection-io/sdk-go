@@ -14,6 +14,7 @@ import (
 	"os"
 	"reflect"
 	"slices"
+	"strconv"
 	"strings"
 	"testing"
 )
@@ -555,7 +556,15 @@ type corpusData struct {
 			RetryAfterSeconds *int   `json:"retryAfterSeconds"`
 		} `json:"expect"`
 	} `json:"errors"`
-	Batch  []corpusBatch `json:"batch"`
+	Batch      []corpusBatch `json:"batch"`
+	Vocabulary struct {
+		Cases []struct {
+			Name   string          `json:"name"`
+			Call   string          `json:"call"`
+			Answer json.RawMessage `json:"answer"`
+			Expect map[string]any  `json:"expect"`
+		} `json:"cases"`
+	} `json:"vocabulary"`
 	Bogons struct {
 		V4 []string `json:"v4"`
 		V6 []string `json:"v6"`
@@ -597,5 +606,69 @@ func TestAServedIsBogonReachesTheResult(t *testing.T) {
 	if !batch["8.8.8.8"].Result.IsBogon || batch["8.8.4.4"].Result.IsBogon {
 		t.Errorf("LookupBatch: IsBogon = %v and %v, want the served true and false",
 			batch["8.8.8.8"].Result.IsBogon, batch["8.8.4.4"].Result.IsBogon)
+	}
+}
+
+// Each case serves a well-formed answer carrying a value no published list
+// holds, and the call hands it back as served. The typed answer is written back
+// out as JSON so the corpus's paths, wire names throughout, read through it:
+// a value the decoder refused, or dropped, cannot come back.
+func TestAClosedVocabularyHandsBackAValueItWasNotBuiltWith(t *testing.T) {
+	cases := corpus(t).Vocabulary.Cases
+	if len(cases) < 6 {
+		t.Fatalf("the corpus carries %d vocabulary cases, want one per vocabulary", len(cases))
+	}
+	calls := map[string]struct {
+		path string
+		call func(*Client) (any, error)
+	}{
+		"myEntitlement": {"/api/v1/entitlement", func(c *Client) (any, error) { return c.MyEntitlement(t.Context()) }},
+		"listDatabases": {"/api/v1/database/list", func(c *Client) (any, error) {
+			list, err := c.Database.List(t.Context())
+			return map[string]any{"databases": list}, err
+		}},
+		"listDownloads": {"/api/v1/database/downloads", func(c *Client) (any, error) {
+			list, err := c.Database.Downloads(t.Context(), 0)
+			return map[string]any{"downloads": list}, err
+		}},
+	}
+	for _, c := range cases {
+		t.Run(c.Name, func(t *testing.T) {
+			call, ok := calls[c.Call]
+			if !ok {
+				t.Fatalf("no call for %q", c.Call)
+			}
+			var body any
+			if err := json.Unmarshal(c.Answer, &body); err != nil {
+				t.Fatal(err)
+			}
+			stub := newStub(map[string]stubRoute{call.path: {body: body}})
+			client := newTestClient(t, stub, WithAPIKey("k"), WithRetries(0))
+			answer, err := call.call(client)
+			if err != nil {
+				t.Fatalf("the answer did not read: %v", err)
+			}
+			raw, err := json.Marshal(answer)
+			if err != nil {
+				t.Fatal(err)
+			}
+			var served any
+			if err := json.Unmarshal(raw, &served); err != nil {
+				t.Fatal(err)
+			}
+			for member, want := range c.Expect {
+				got := served
+				for _, step := range strings.Split(member, ".") {
+					if i, err := strconv.Atoi(step); err == nil {
+						got = got.([]any)[i]
+					} else {
+						got = got.(map[string]any)[step]
+					}
+				}
+				if !reflect.DeepEqual(got, want) {
+					t.Errorf("%s = %#v, want %#v", member, got, want)
+				}
+			}
+		})
 	}
 }

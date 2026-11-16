@@ -604,23 +604,34 @@ type EntitlementError struct {
 
 // EntitlementPlan defines model for EntitlementPlan.
 type EntitlementPlan struct {
-	// Key The plan the organization is on: `free` for the free plan,
-	// Unlimited, or a paid plan's key. On `free`, usage counts the
+	// Key The plan the organization is on, as an identifier that is never
+	// renamed or reused: `free` for the free plan, or a paid plan's key.
+	// Compare against it and show `name`. On `free`, usage counts the
 	// day's lookups answered with every field, its daily trial.
 	//
 	//
 	// Example: max
 	Key string `json:"key"`
 
+	// Name The plan's name, as the site and console show it: `Unlimited` for
+	// the free plan. Show this rather than a name built from `key`: a
+	// plan's name can change, and its key never does.
+	//
+	//
+	// Example: Max
+	Name string `json:"name"`
+
 	// Tier The field tier, which decides how much of a lookup answer comes
-	// back; `free` is the free plan's. What each tier includes is documented
+	// back; `free` is the free plan's. This list never gains a value: a
+	// new plan reports one of these. What each tier includes is documented
 	// on the lookup endpoint rather than repeated here, so there is one
 	// place it can be wrong.
 	Tier EntitlementPlanTier `json:"tier"`
 }
 
 // EntitlementPlanTier The field tier, which decides how much of a lookup answer comes
-// back; `free` is the free plan's. What each tier includes is documented
+// back; `free` is the free plan's. This list never gains a value: a
+// new plan reports one of these. What each tier includes is documented
 // on the lookup endpoint rather than repeated here, so there is one
 // place it can be wrong.
 type EntitlementPlanTier string
