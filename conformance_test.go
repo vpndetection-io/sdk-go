@@ -202,6 +202,18 @@ func TestBatchDedupesShortCircuitsBogonsAndKeysByAddress(t *testing.T) {
 	if stub.count() != *c.Expect.HTTPRequests {
 		t.Errorf("issued %d request(s), want %d", stub.count(), *c.Expect.HTTPRequests)
 	}
+	// The keys collapse duplicates whatever was sent, and one chunk is one request
+	// however many times an address is in it, so only the body shows a duplicate.
+	var sent []string
+	stub.mu.Lock()
+	for _, body := range stub.batched {
+		sent = append(sent, body...)
+	}
+	stub.mu.Unlock()
+	slices.Sort(sent)
+	if want := []string{"1.1.1.1", "8.8.8.8"}; !slices.Equal(sent, want) {
+		t.Errorf("the batch carried %v, want each servable address once: %v", sent, want)
+	}
 	for _, ip := range c.Expect.BogonKeys {
 		if !got[ip].Result.IsBogon {
 			t.Errorf("%s should be a local answer", ip)
