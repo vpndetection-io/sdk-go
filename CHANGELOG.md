@@ -2,6 +2,12 @@
 
 What each release changed for you, newest first. Each line is a commit's summary, linked to its full description and diff. Releases before 5.3.2 are described by their release commits.
 
+## 5.17.0 - 2026-11-18
+
+### Features
+
+- Read cap_reached past a paid plan's overage cap, and re-pin the spec ([`622f0c3`](https://github.com/vpndetection-io/sdk-go/commit/622f0c36491f7d1f866e7555dae5121432298b5b))
+
 ## 5.16.0 - 2026-11-16
 
 ### Features
