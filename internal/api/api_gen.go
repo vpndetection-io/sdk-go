@@ -289,9 +289,8 @@ type BatchLookupError struct {
 	Error string `json:"error"`
 
 	// Status The HTTP status `GET /{ip}` would have answered for this entry: `400`
-	// for a string that is not an address, `429` for a reached overage cap,
-	// `500` when the VPN dataset could not be consulted. A `429` here is
-	// never a throttle; the whole call is refused instead.
+	// for a string that is not an address, `500` when the VPN dataset could
+	// not be consulted.
 	//
 	//
 	// Example: 400
@@ -638,9 +637,12 @@ type EntitlementPlanTier string
 
 // EntitlementUsage defines model for EntitlementUsage.
 type EntitlementUsage struct {
-	// HardLimit Where we stop serving. NULL means never, which is the normal state
-	// of an uncapped paid plan and is not the same as zero. Above the
-	// quota and below this, requests are served and billed as overage.
+	// HardLimit Where full answers stop: past it, a paid key is answered with
+	// Unlimited's fields and `cap_reached: true`, uncharged, until the
+	// window ends or the cap is raised. NULL means never, which is the
+	// normal state of an uncapped paid plan and is not the same as zero.
+	// Above the quota and below this, requests are served and billed as
+	// overage.
 	HardLimit *int64 `json:"hard_limit"`
 
 	// Quota What the plan includes. Zero on a plan that includes none.
@@ -747,6 +749,13 @@ type LookupResponse struct {
 	// Each field is present whenever the object is: `asn` is 0 and the rest
 	// empty where no announcement covers the address.
 	Asn *Asn `json:"asn,omitempty"`
+
+	// CapReached On every answer to a key on a paid plan, and on no other: `false`
+	// while the answer has every field, `true` once its organization's
+	// overage cap is reached and the answer has Unlimited's. Lookups
+	// answered past the cap are not billed; raising or removing the cap in
+	// Billing turns it `false` again.
+	CapReached *bool `json:"cap_reached,omitempty"`
 
 	// Cdn Detail for `is_cdn`. Empty when false. Paid plans.
 	Cdn *ClassDetail `json:"cdn,omitempty"`
@@ -1435,13 +1444,12 @@ type ClientInterface interface {
 	// normalized form. An address that could not be answered sits in `errors`
 	// with the status and message the single lookup would have given, and
 	// never disturbs the others: a string that is not an address is a `400`
-	// there, and an overage cap reached part way through leaves the remaining
-	// entries as `429`s.
+	// there. An overage cap reached part way through answers the remaining
+	// entries with Unlimited's fields and `cap_reached` `true`, in `results`.
 	//
 	// The call itself fails only for the reasons below, and a `429` on the
 	// call always carries `Retry-After`: the batch is admitted or refused
-	// whole by the rate limit, so a per-entry `429` is always the overage cap
-	// and never a throttle.
+	// whole by the rate limit, never per entry.
 	//
 	// A batch needs a paid plan: without a key the call is refused with `401`,
 	// and with a key on the free plan with `402`, unless it names one address,
@@ -1465,13 +1473,12 @@ type ClientInterface interface {
 	// normalized form. An address that could not be answered sits in `errors`
 	// with the status and message the single lookup would have given, and
 	// never disturbs the others: a string that is not an address is a `400`
-	// there, and an overage cap reached part way through leaves the remaining
-	// entries as `429`s.
+	// there. An overage cap reached part way through answers the remaining
+	// entries with Unlimited's fields and `cap_reached` `true`, in `results`.
 	//
 	// The call itself fails only for the reasons below, and a `429` on the
 	// call always carries `Retry-After`: the batch is admitted or refused
-	// whole by the rate limit, so a per-entry `429` is always the overage cap
-	// and never a throttle.
+	// whole by the rate limit, never per entry.
 	//
 	// A batch needs a paid plan: without a key the call is refused with `401`,
 	// and with a key on the free plan with `402`, unless it names one address,
@@ -2028,13 +2035,12 @@ func (c *Client) AccountOrgMembers(ctx context.Context, reqEditors ...RequestEdi
 // normalized form. An address that could not be answered sits in `errors`
 // with the status and message the single lookup would have given, and
 // never disturbs the others: a string that is not an address is a `400`
-// there, and an overage cap reached part way through leaves the remaining
-// entries as `429`s.
+// there. An overage cap reached part way through answers the remaining
+// entries with Unlimited's fields and `cap_reached` `true`, in `results`.
 //
 // The call itself fails only for the reasons below, and a `429` on the
 // call always carries `Retry-After`: the batch is admitted or refused
-// whole by the rate limit, so a per-entry `429` is always the overage cap
-// and never a throttle.
+// whole by the rate limit, never per entry.
 //
 // A batch needs a paid plan: without a key the call is refused with `401`,
 // and with a key on the free plan with `402`, unless it names one address,
@@ -2068,13 +2074,12 @@ func (c *Client) LookupBatchWithBody(ctx context.Context, contentType string, bo
 // normalized form. An address that could not be answered sits in `errors`
 // with the status and message the single lookup would have given, and
 // never disturbs the others: a string that is not an address is a `400`
-// there, and an overage cap reached part way through leaves the remaining
-// entries as `429`s.
+// there. An overage cap reached part way through answers the remaining
+// entries with Unlimited's fields and `cap_reached` `true`, in `results`.
 //
 // The call itself fails only for the reasons below, and a `429` on the
 // call always carries `Retry-After`: the batch is admitted or refused
-// whole by the rate limit, so a per-entry `429` is always the overage cap
-// and never a throttle.
+// whole by the rate limit, never per entry.
 //
 // A batch needs a paid plan: without a key the call is refused with `401`,
 // and with a key on the free plan with `402`, unless it names one address,
@@ -3604,13 +3609,12 @@ type ClientWithResponsesInterface interface {
 	// normalized form. An address that could not be answered sits in `errors`
 	// with the status and message the single lookup would have given, and
 	// never disturbs the others: a string that is not an address is a `400`
-	// there, and an overage cap reached part way through leaves the remaining
-	// entries as `429`s.
+	// there. An overage cap reached part way through answers the remaining
+	// entries with Unlimited's fields and `cap_reached` `true`, in `results`.
 	//
 	// The call itself fails only for the reasons below, and a `429` on the
 	// call always carries `Retry-After`: the batch is admitted or refused
-	// whole by the rate limit, so a per-entry `429` is always the overage cap
-	// and never a throttle.
+	// whole by the rate limit, never per entry.
 	//
 	// A batch needs a paid plan: without a key the call is refused with `401`,
 	// and with a key on the free plan with `402`, unless it names one address,
@@ -3634,13 +3638,12 @@ type ClientWithResponsesInterface interface {
 	// normalized form. An address that could not be answered sits in `errors`
 	// with the status and message the single lookup would have given, and
 	// never disturbs the others: a string that is not an address is a `400`
-	// there, and an overage cap reached part way through leaves the remaining
-	// entries as `429`s.
+	// there. An overage cap reached part way through answers the remaining
+	// entries with Unlimited's fields and `cap_reached` `true`, in `results`.
 	//
 	// The call itself fails only for the reasons below, and a `429` on the
 	// call always carries `Retry-After`: the batch is admitted or refused
-	// whole by the rate limit, so a per-entry `429` is always the overage cap
-	// and never a throttle.
+	// whole by the rate limit, never per entry.
 	//
 	// A batch needs a paid plan: without a key the call is refused with `401`,
 	// and with a key on the free plan with `402`, unless it names one address,
@@ -4864,7 +4867,7 @@ func (r LookupBatchResponse) ContentType() string {
 
 // LookupMyIPResponse429Headers the declared response headers of an HTTP 429 response for LookupMyIP
 type LookupMyIPResponse429Headers struct {
-	RetryAfter *int
+	RetryAfter int
 }
 
 type LookupMyIPResponse struct {
@@ -5173,7 +5176,7 @@ func (r OauthTokenResponse) ContentType() string {
 
 // LookupIPResponse429Headers the declared response headers of an HTTP 429 response for LookupIP
 type LookupIPResponse429Headers struct {
-	RetryAfter *int
+	RetryAfter int
 }
 
 type LookupIPResponse struct {
@@ -5555,13 +5558,12 @@ func (c *ClientWithResponses) AccountOrgMembersWithResponse(ctx context.Context,
 // normalized form. An address that could not be answered sits in `errors`
 // with the status and message the single lookup would have given, and
 // never disturbs the others: a string that is not an address is a `400`
-// there, and an overage cap reached part way through leaves the remaining
-// entries as `429`s.
+// there. An overage cap reached part way through answers the remaining
+// entries with Unlimited's fields and `cap_reached` `true`, in `results`.
 //
 // The call itself fails only for the reasons below, and a `429` on the
 // call always carries `Retry-After`: the batch is admitted or refused
-// whole by the rate limit, so a per-entry `429` is always the overage cap
-// and never a throttle.
+// whole by the rate limit, never per entry.
 //
 // A batch needs a paid plan: without a key the call is refused with `401`,
 // and with a key on the free plan with `402`, unless it names one address,
@@ -5591,13 +5593,12 @@ func (c *ClientWithResponses) LookupBatchWithBodyWithResponse(ctx context.Contex
 // normalized form. An address that could not be answered sits in `errors`
 // with the status and message the single lookup would have given, and
 // never disturbs the others: a string that is not an address is a `400`
-// there, and an overage cap reached part way through leaves the remaining
-// entries as `429`s.
+// there. An overage cap reached part way through answers the remaining
+// entries with Unlimited's fields and `cap_reached` `true`, in `results`.
 //
 // The call itself fails only for the reasons below, and a `429` on the
 // call always carries `Retry-After`: the batch is admitted or refused
-// whole by the rate limit, so a per-entry `429` is always the overage cap
-// and never a throttle.
+// whole by the rate limit, never per entry.
 //
 // A batch needs a paid plan: without a key the call is refused with `401`,
 // and with a key on the free plan with `402`, unless it names one address,
@@ -6712,10 +6713,10 @@ func ParseLookupMyIPResponse(rsp *http.Response) (*LookupMyIPResponse, error) {
 		var headers LookupMyIPResponse429Headers
 		if values := rsp.Header.Values("Retry-After"); len(values) > 0 {
 			var value int
-			if err := runtime.BindStyledParameterWithOptions("simple", "Retry-After", values[0], &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "integer", Format: ""}); err != nil {
+			if err := runtime.BindStyledParameterWithOptions("simple", "Retry-After", values[0], &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "integer", Format: ""}); err != nil {
 				return nil, err
 			}
-			headers.RetryAfter = &value
+			headers.RetryAfter = value
 		}
 		response.Headers429 = &headers
 	}
@@ -6941,10 +6942,10 @@ func ParseLookupIPResponse(rsp *http.Response) (*LookupIPResponse, error) {
 		var headers LookupIPResponse429Headers
 		if values := rsp.Header.Values("Retry-After"); len(values) > 0 {
 			var value int
-			if err := runtime.BindStyledParameterWithOptions("simple", "Retry-After", values[0], &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "integer", Format: ""}); err != nil {
+			if err := runtime.BindStyledParameterWithOptions("simple", "Retry-After", values[0], &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "integer", Format: ""}); err != nil {
 				return nil, err
 			}
-			headers.RetryAfter = &value
+			headers.RetryAfter = value
 		}
 		response.Headers429 = &headers
 	}
