@@ -1103,11 +1103,11 @@ type AccountNotFound = AccountRc
 // AccountUnauthorized defines model for AccountUnauthorized.
 type AccountUnauthorized = AccountRc
 
+// KeyOverHTTP defines model for KeyOverHttp.
+type KeyOverHTTP = Error
+
 // NotAvailable defines model for NotAvailable.
 type NotAvailable = Error
-
-// NotLicensed defines model for NotLicensed.
-type NotLicensed = Error
 
 // Unauthorized defines model for Unauthorized.
 type Unauthorized = Error
@@ -3925,7 +3925,7 @@ type DatabaseChecksumResponse struct {
 	// JSON401 the response for an HTTP 401 `application/json` response
 	JSON401 *Unauthorized
 	// JSON403 the response for an HTTP 403 `application/json` response
-	JSON403 *NotLicensed
+	JSON403 *Error
 	// JSON404 the response for an HTTP 404 `application/json` response
 	JSON404 *UnknownDataset
 	// JSON503 the response for an HTTP 503 `application/json` response
@@ -3953,7 +3953,7 @@ func (r DatabaseChecksumResponse) GetJSON401() *Unauthorized {
 }
 
 // GetJSON403 returns the response for an HTTP 403 `application/json` response
-func (r DatabaseChecksumResponse) GetJSON403() *NotLicensed {
+func (r DatabaseChecksumResponse) GetJSON403() *Error {
 	return r.JSON403
 }
 
@@ -4088,6 +4088,8 @@ type ListDownloadsResponse struct {
 	}
 	// JSON401 the response for an HTTP 401 `application/json` response
 	JSON401 *Unauthorized
+	// JSON403 the response for an HTTP 403 `application/json` response
+	JSON403 *KeyOverHTTP
 }
 
 // GetJSON200 returns the response for an HTTP 200 `application/json` response
@@ -4100,6 +4102,11 @@ func (r ListDownloadsResponse) GetJSON200() *struct {
 // GetJSON401 returns the response for an HTTP 401 `application/json` response
 func (r ListDownloadsResponse) GetJSON401() *Unauthorized {
 	return r.JSON401
+}
+
+// GetJSON403 returns the response for an HTTP 403 `application/json` response
+func (r ListDownloadsResponse) GetJSON403() *KeyOverHTTP {
+	return r.JSON403
 }
 
 // GetBody returns the raw response body bytes
@@ -4140,6 +4147,8 @@ type ListDatabasesResponse struct {
 	}
 	// JSON401 the response for an HTTP 401 `application/json` response
 	JSON401 *Unauthorized
+	// JSON403 the response for an HTTP 403 `application/json` response
+	JSON403 *KeyOverHTTP
 }
 
 // GetJSON200 returns the response for an HTTP 200 `application/json` response
@@ -4152,6 +4161,11 @@ func (r ListDatabasesResponse) GetJSON200() *struct {
 // GetJSON401 returns the response for an HTTP 401 `application/json` response
 func (r ListDatabasesResponse) GetJSON401() *Unauthorized {
 	return r.JSON401
+}
+
+// GetJSON403 returns the response for an HTTP 403 `application/json` response
+func (r ListDatabasesResponse) GetJSON403() *KeyOverHTTP {
+	return r.JSON403
 }
 
 // GetBody returns the raw response body bytes
@@ -4190,6 +4204,8 @@ type DatabaseMetadataResponse struct {
 	JSON200 *DatabaseMetadata
 	// JSON401 the response for an HTTP 401 `application/json` response
 	JSON401 *Unauthorized
+	// JSON403 the response for an HTTP 403 `application/json` response
+	JSON403 *KeyOverHTTP
 	// JSON404 the response for an HTTP 404 `application/json` response
 	JSON404 *UnknownDataset
 	// JSON503 the response for an HTTP 503 `application/json` response
@@ -4204,6 +4220,11 @@ func (r DatabaseMetadataResponse) GetJSON200() *DatabaseMetadata {
 // GetJSON401 returns the response for an HTTP 401 `application/json` response
 func (r DatabaseMetadataResponse) GetJSON401() *Unauthorized {
 	return r.JSON401
+}
+
+// GetJSON403 returns the response for an HTTP 403 `application/json` response
+func (r DatabaseMetadataResponse) GetJSON403() *KeyOverHTTP {
+	return r.JSON403
 }
 
 // GetJSON404 returns the response for an HTTP 404 `application/json` response
@@ -5962,7 +5983,7 @@ func ParseDatabaseChecksumResponse(rsp *http.Response) (*DatabaseChecksumRespons
 		response.JSON401 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
-		var dest NotLicensed
+		var dest Error
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -6094,6 +6115,13 @@ func ParseListDownloadsResponse(rsp *http.Response) (*ListDownloadsResponse, err
 		}
 		response.JSON401 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest KeyOverHTTP
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
 	}
 
 	return response, nil
@@ -6129,6 +6157,13 @@ func ParseListDatabasesResponse(rsp *http.Response) (*ListDatabasesResponse, err
 		}
 		response.JSON401 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest KeyOverHTTP
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
 	}
 
 	return response, nil
@@ -6161,6 +6196,13 @@ func ParseDatabaseMetadataResponse(rsp *http.Response) (*DatabaseMetadataRespons
 			return nil, err
 		}
 		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest KeyOverHTTP
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
 		var dest UnknownDataset
