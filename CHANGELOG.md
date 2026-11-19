@@ -2,6 +2,12 @@
 
 What each release changed for you, newest first. Each line is a commit's summary, linked to its full description and diff. Releases before 5.3.2 are described by their release commits.
 
+## 5.17.1 - 2026-11-19
+
+### Fixes
+
+- Re-pin the spec to 2026.11.18: a key over plain HTTP is refused ([`ad2c90a`](https://github.com/vpndetection-io/sdk-go/commit/ad2c90a4fe515b1ad8a48d9f12b408a4b8bde7b1))
+
 ## 5.17.0 - 2026-11-18
 
 ### Features
