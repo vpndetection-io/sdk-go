@@ -44,7 +44,7 @@ if asn := result.Asn; asn != nil {
 
 ### With an API key
 
-Every paid plan answers every field: `is_hosting`, `is_cdn` and the four proxy flags as well, and the provider (its ID and its name), confidence and last-seen detail behind each flag. The plans differ only in how many lookups they include, and a free account tries every field, 100 lookups a day. Create a key in the [console](https://app.vpndetection.io), then pass it in:
+Every paid plan answers every field: `is_hosting`, `is_cdn` and the four proxy flags as well, and the provider (its ID and its name), confidence and last-seen detail behind each flag. The plans differ only in how many lookups they include, and a free account tries every field. Create a key in the [console](https://app.vpndetection.io), then pass it in:
 
 ```go
 client, err := vpndetection.New(vpndetection.WithAPIKey(os.Getenv("VPNDETECTION_API_KEY")))
@@ -260,12 +260,12 @@ Each redirect URI must be https on a public host name, or http on a loopback add
 
 ### Absent is not false
 
-Every field beyond `IP` and `IsVpn` is a pointer, because your key decides which of them the API sends. Unlimited leaves out `IsHosting`, `IsCdn` and the four proxy flags, and of the detail behind each flag it answers only Tor's and relay's; a free-plan key's answer carries `TrialExpired`, true once its daily trial is spent, and a paid key's carries `CapReached`, true once its organization's overage cap is reached and the answer has Unlimited's. A `nil` pointer means "not in your plan", not "checked, and no".
+Every field beyond `IP` and `IsVpn` is a pointer, because your key decides which of them the API sends. Unlimited leaves out `IsHosting`, `IsCdn` and the four proxy flags, and of the detail behind each flag it answers only Tor's and relay's; a free-plan key's answer carries `TrialExpired`, true once its trial is spent, and a paid key's carries `CapReached`, true once its organization's overage cap is reached and the answer has Unlimited's. A `nil` pointer means "not in your plan", not "checked, and no".
 
 ```go
 vpndetection.BoolValue(result.IsHosting)  // when you only want the flag
 result.IsHosting == nil                   // on Unlimited: not in your plan
-vpndetection.BoolValue(result.TrialExpired) // a free-plan key's daily trial is spent
+vpndetection.BoolValue(result.TrialExpired) // a free-plan key's trial is spent
 vpndetection.BoolValue(result.CapReached)   // a paid key past its overage cap
 ```
 
