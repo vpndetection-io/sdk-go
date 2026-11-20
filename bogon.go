@@ -3,6 +3,7 @@ package vpndetection
 import (
 	"fmt"
 	"net/netip"
+	"reflect"
 	"sync"
 )
 
@@ -45,9 +46,9 @@ func unmapped(ip string) string {
 }
 
 // The answer a bogon gets: the full shape the API serves on its widest plan,
-// every flag present and false, every detail object present and empty, and
-// Location and Asn with every field empty, and IsBogon true, as the API answers
-// a bogon.
+// every flag present and false, every detail object present and empty (Web an
+// empty list), Location, Asn, Company and Abuse with every member empty or
+// zero, Hostname empty, and IsBogon true, as the API answers a bogon.
 //
 // Deliberately the WIDEST shape whatever plan you are on, so a caller must not
 // infer which fields their plan includes from a bogon answer.
@@ -55,30 +56,61 @@ func bogonResult(ip string) *Result {
 	return &Result{
 		IsBogon: true,
 		LookupResponse: LookupResponse{
-			IP:         ip,
-			IsBogon:    ptr(true),
-			IsVpn:      false,
-			IsHosting:  ptr(false),
-			IsRelay:    ptr(false),
-			IsTor:      ptr(false),
-			IsCdn:      ptr(false),
-			IsResproxy: ptr(false),
-			IsDcproxy:  ptr(false),
-			IsMobproxy: ptr(false),
-			IsPubproxy: ptr(false),
-			Vpn:        &VpnDetail{},
-			Hosting:    &ClassDetail{},
-			Relay:      &ClassDetail{},
-			Tor:        &ClassDetail{},
-			Cdn:        &ClassDetail{},
-			Resproxy:   &ProxyDetail{},
-			Dcproxy:    &ProxyDetail{},
-			Mobproxy:   &ProxyDetail{},
-			Pubproxy:   &PubproxyDetail{},
-			Location:   &Location{},
-			Asn:        &Asn{},
+			IP:            ip,
+			IsBogon:       ptr(true),
+			IsVpn:         false,
+			IsHosting:     ptr(false),
+			IsRelay:       ptr(false),
+			IsTor:         ptr(false),
+			IsCdn:         ptr(false),
+			IsResproxy:    ptr(false),
+			IsDcproxy:     ptr(false),
+			IsMobproxy:    ptr(false),
+			IsPubproxy:    ptr(false),
+			IsAnycast:     ptr(false),
+			IsCarrier:     ptr(false),
+			IsSatellite:   ptr(false),
+			IsSSH:         ptr(false),
+			IsSMTP:        ptr(false),
+			IsWeb:         ptr(false),
+			IsDNSResolver: ptr(false),
+			IsBittorrent:  ptr(false),
+			Vpn:           &VpnDetail{},
+			Hosting:       &ClassDetail{},
+			Relay:         &ClassDetail{},
+			Tor:           &ClassDetail{},
+			Cdn:           &ClassDetail{},
+			Resproxy:      &ProxyDetail{},
+			Dcproxy:       &ProxyDetail{},
+			Mobproxy:      &ProxyDetail{},
+			Pubproxy:      &PubproxyDetail{},
+			Carrier:       &CarrierDetail{},
+			Satellite:     &SatelliteDetail{},
+			SSH:           &SSHDetail{},
+			SMTP:          &SMTPDetail{},
+			Web:           &[]WebDetail{},
+			DNSResolver:   &DNSResolverDetail{},
+			Bittorrent:    &BitTorrentDetail{},
+			Hostname:      ptr(""),
+			Location:      everyKey[Location](),
+			Asn:           everyKey[Asn](),
+			Company:       everyKey[Company](),
+			Abuse:         everyKey[AbuseContact](),
 		},
 	}
+}
+
+// everyKey is a T with every member present and empty: each pointer member,
+// one a paid plan answers, points at its zero value.
+func everyKey[T any]() *T {
+	var v T
+	value := reflect.ValueOf(&v).Elem()
+	for i := range value.NumField() {
+		if field := value.Field(i); field.Kind() == reflect.Pointer {
+			field.Set(reflect.New(field.Type().Elem()))
+		}
+	}
+	return &v
 }
 
 // Parsed on first use rather than at init, so importing the package costs
