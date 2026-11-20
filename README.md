@@ -21,7 +21,7 @@ import vpndetection "github.com/vpndetection-io/sdk-go/v5"
 
 ## Usage
 
-**No API key needed to start.** Unlimited, the free plan, answers `ip`, `is_vpn`, Tor and relay detection, `location` and `asn`, with no daily or monthly cap, with a key or without one.
+**No API key needed to start.** Unlimited, the free plan, answers `ip`, `is_vpn`, Tor and relay detection, `is_anycast`, `hostname`, `location` and `asn`, the AS's country and RPKI status included, with no daily or monthly cap, with a key or without one.
 
 ```go
 client, err := vpndetection.New()
@@ -44,7 +44,7 @@ if asn := result.Asn; asn != nil {
 
 ### With an API key
 
-Every paid plan answers every field: `is_hosting`, `is_cdn` and the four proxy flags as well, and the provider (its ID and its name), confidence and last-seen detail behind each flag. The plans differ only in how many lookups they include, and a free account tries every field. Create a key in the [console](https://app.vpndetection.io), then pass it in:
+Every paid plan answers every field: `is_hosting`, `is_cdn` and the four proxy flags as well, and the provider (its ID and its name), confidence and last-seen detail behind each flag; `is_carrier`, `is_satellite`, `is_ssh`, `is_smtp`, `is_web`, `is_dns_resolver` and `is_bittorrent`, with the detail behind each (`web` is a list, one row per web service seen); the `company` using the address and its `abuse` contact; and `location` down to the city, postal code and coordinates. The plans differ only in how many lookups they include, and a free account tries every field. Create a key in the [console](https://app.vpndetection.io), then pass it in:
 
 ```go
 client, err := vpndetection.New(vpndetection.WithAPIKey(os.Getenv("VPNDETECTION_API_KEY")))
@@ -55,6 +55,9 @@ fmt.Println(vpndetection.BoolValue(result.IsHosting))  // true, on a paid plan
 
 if vpn := result.Vpn; vpn != nil && vpn.Provider != nil {
     fmt.Println(*vpn.Provider)          // nordvpn, on a paid plan
+}
+if company := result.Company; company != nil {
+    fmt.Println(company.Name)           // who uses the address, on a paid plan
 }
 ```
 
@@ -77,7 +80,7 @@ fmt.Println(acct.Usage.Requests)   // 580
 fmt.Println(acct.Usage.WindowEnd)  // when the allowance resets
 ```
 
-Usage is counted against the anniversary of your subscription on a paid plan, not the calendar month and not the billing period, and against the UTC day on the free plan; it is the same number a lookup is gated on. `HardLimit` is nil on an uncapped plan, which is not the same as zero.
+Usage is counted against the anniversary of your subscription on a paid plan, not the calendar month and not the billing period, and against its trial on the free plan; it is the same number a lookup is gated on. `HardLimit` is nil on an uncapped plan, which is not the same as zero.
 
 Show `Plan.Name` and compare against `Plan.Key`: a plan's name can change, and its key never does. A value the API adds later to a plan's `Tier`, a database's `Standing` or `LicenseType`, a format or a download's `Outcome` comes back as the string it served, so check for the values you know rather than assuming the list is complete.
 
@@ -260,7 +263,7 @@ Each redirect URI must be https on a public host name, or http on a loopback add
 
 ### Absent is not false
 
-Every field beyond `IP` and `IsVpn` is a pointer, because your key decides which of them the API sends. Unlimited leaves out `IsHosting`, `IsCdn` and the four proxy flags, and of the detail behind each flag it answers only Tor's and relay's; a free-plan key's answer carries `TrialExpired`, true once its trial is spent, and a paid key's carries `CapReached`, true once its organization's overage cap is reached and the answer has Unlimited's. A `nil` pointer means "not in your plan", not "checked, and no".
+Every field beyond `IP` and `IsVpn` is a pointer, because your key decides which of them the API sends, and so is each paid field inside a shared object, such as `Location.City`. Unlimited leaves out `IsHosting`, `IsCdn`, the four proxy flags and the carrier, satellite, SSH, SMTP, web, DNS resolver and BitTorrent flags, of the detail behind each flag it answers only Tor's and relay's, and it leaves out `Company`, `Abuse` and the finer `Location` members; a free-plan key's answer carries `TrialExpired`, true once its trial is spent, and a paid key's carries `CapReached`, true once its organization's overage cap is reached and the answer has Unlimited's. A `nil` pointer means "not in your plan", not "checked, and no".
 
 ```go
 vpndetection.BoolValue(result.IsHosting)  // when you only want the flag
