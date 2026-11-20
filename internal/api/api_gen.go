@@ -165,6 +165,51 @@ func (e OauthAuthorizeParamsCodeChallengeMethod) Valid() bool {
 	}
 }
 
+// AbuseContact Where to report abuse from the address, from our IP Abuse Contact
+// database. Paid plans. Every key is present whenever the object is: empty
+// strings where no record covers the address.
+type AbuseContact struct {
+	// Address Its postal address.
+	//
+	// Example: Sos. Fabrica de Glucoza, Nr 11B, etaj 1, Sector 2, Bucuresti Romania
+	Address *string `json:"address,omitempty"`
+
+	// Country ISO 3166 country code.
+	//
+	// Example: AT
+	Country *string `json:"country,omitempty"`
+
+	// Email Where to report abuse from the address.
+	//
+	// Example: abuse@m247.ro
+	Email string `json:"email"`
+
+	// Name The contact.
+	//
+	// Example: M247 Europe
+	Name *string `json:"name,omitempty"`
+
+	// Network The registry block it was derived from.
+	//
+	// Example: 146.70.116.0-146.70.116.255
+	Network *string `json:"network,omitempty"`
+
+	// Phone Its phone number.
+	//
+	// Example:
+	Phone *string `json:"phone,omitempty"`
+
+	// UnvalidatedSince Since when it has not.
+	//
+	// Example:
+	UnvalidatedSince *string `json:"unvalidated_since,omitempty"`
+
+	// Validated ARIN reports the contact answered its yearly validation.
+	//
+	// Example: false
+	Validated *bool `json:"validated,omitempty"`
+}
+
 // AccountCreateApikeyRequest defines model for AccountCreateApikeyRequest.
 type AccountCreateApikeyRequest struct {
 	// AllowedScopes What the new key may do. Omit for a key that carries no named scope, which is the safe default.
@@ -260,6 +305,11 @@ type Asn struct {
 	// Example: 9009
 	Asn int `json:"asn"`
 
+	// Country The country the AS's registry assigned it to.
+	//
+	// Example: RO
+	Country *string `json:"country,omitempty"`
+
 	// Domain The AS operator's own registrable domain.
 	//
 	// Example: m247global.com
@@ -274,6 +324,11 @@ type Asn struct {
 	//
 	// Example: 146.70.116.0/24
 	Prefix string `json:"prefix"`
+
+	// RpkiStatus The announcement's RPKI status: valid, invalid or not_found.
+	//
+	// Example: not_found
+	RpkiStatus *string `json:"rpki_status,omitempty"`
 
 	// Type The kind of network the AS runs: isp, hosting, education, government or business.
 	//
@@ -317,6 +372,91 @@ type BatchLookupResponse struct {
 	// as you sent it; the `ip` inside is the normalized form. Each value is
 	// exactly what `GET /{ip}` answers for your plan.
 	Results map[string]LookupResponse `json:"results"`
+}
+
+// BitTorrentDetail BitTorrent clients seen on the address over the last 90 days, from our
+// BitTorrent IP database. Every key is present when the object is
+// populated; the object is `{}` when `is_bittorrent` is false.
+type BitTorrentDetail struct {
+	// Clients The two-letter codes its clients name themselves by.
+	//
+	// Example: ["qB","TR"]
+	Clients *[]string `json:"clients,omitempty"`
+
+	// DaysSeen On how many days.
+	//
+	// Example: 37
+	DaysSeen *int `json:"days_seen,omitempty"`
+
+	// FirstSeen The first day a client was seen here.
+	//
+	// Example: 2026-08-21
+	FirstSeen *string `json:"first_seen,omitempty"`
+
+	// IDMatchesIP A client here derived its node ID from the address (BEP 42).
+	//
+	// Example: false
+	IDMatchesIP *bool `json:"id_matches_ip,omitempty"`
+
+	// Indexer A DHT indexer rather than people.
+	//
+	// Example: false
+	Indexer *bool `json:"indexer,omitempty"`
+
+	// LastReachable The last day one answered, empty when none did.
+	//
+	// Example: 2026-11-14
+	LastReachable *string `json:"last_reachable,omitempty"`
+
+	// LastSeen The last day.
+	//
+	// Example: 2026-11-15
+	LastSeen *string `json:"last_seen,omitempty"`
+
+	// NumPorts Distinct ports over the window.
+	//
+	// Example: 4
+	NumPorts *int `json:"num_ports,omitempty"`
+
+	// PeakNumPorts The most on one day.
+	//
+	// Example: 2
+	PeakNumPorts *int `json:"peak_num_ports,omitempty"`
+
+	// Verified A client here answered, or two or more reported it at once.
+	//
+	// Example: true
+	Verified *bool `json:"verified,omitempty"`
+}
+
+// CarrierDetail The mobile network whose space the address is, from our Carrier IP
+// database. Every key is present when the object is populated; the object
+// is `{}` when `is_carrier` is false.
+type CarrierDetail struct {
+	// Confidence `high`, `medium` or `low`.
+	//
+	// Example: high
+	Confidence *string `json:"confidence,omitempty"`
+
+	// Country ISO 3166 country code.
+	//
+	// Example: US
+	Country *string `json:"country,omitempty"`
+
+	// Mcc Its mobile country code.
+	//
+	// Example: 310
+	Mcc *string `json:"mcc,omitempty"`
+
+	// Mnc Its mobile network code.
+	//
+	// Example: 260
+	Mnc *string `json:"mnc,omitempty"`
+
+	// Name The mobile carrier.
+	//
+	// Example: T-Mobile US
+	Name *string `json:"name,omitempty"`
 }
 
 // ClassDetail The shared detail shape for the hosting, relay, tor and cdn datasets.
@@ -384,6 +524,31 @@ type ClientRegistrationRequest struct {
 
 	// TokenEndpointAuthMethod Read as `none`, whatever is sent.
 	TokenEndpointAuthMethod *string `json:"token_endpoint_auth_method,omitempty"`
+}
+
+// Company Who uses the address, from our IP Company database. Paid plans. Every
+// key is present whenever the object is: empty strings where no record
+// covers the address.
+type Company struct {
+	// Country ISO 3166 country code.
+	//
+	// Example: AT
+	Country *string `json:"country,omitempty"`
+
+	// Domain Their domain.
+	//
+	// Example: m247.ro
+	Domain string `json:"domain"`
+
+	// Name Who uses the address.
+	//
+	// Example: M247 LTD Vienna Infrastructure
+	Name string `json:"name"`
+
+	// Type What kind of organization: hosting, isp, business, education or government.
+	//
+	// Example: hosting
+	Type *string `json:"type,omitempty"`
 }
 
 // Database One database FAMILY, with your organization's license beside it. A license covers
@@ -542,6 +707,41 @@ type DeviceAuthorizationRequest struct {
 	Scope *string `json:"scope,omitempty"`
 }
 
+// DNSResolverDetail The open DNS resolver that answered on the address, from our DNS
+// Resolver IP database. Every key is present when the object is populated;
+// the object is `{}` when `is_dns_resolver` is false.
+type DNSResolverDetail struct {
+	// AnswerCorrect Its answer was right.
+	//
+	// Example: true
+	AnswerCorrect *bool `json:"answer_correct,omitempty"`
+
+	// FirstSeen The first day it answered.
+	//
+	// Example: 2026-08-04
+	FirstSeen *string `json:"first_seen,omitempty"`
+
+	// LastSeen The last day it did.
+	//
+	// Example: 2026-11-15
+	LastSeen *string `json:"last_seen,omitempty"`
+
+	// Port The port it answered on.
+	//
+	// Example: 53
+	Port *int `json:"port,omitempty"`
+
+	// Rcode Its answer's response code.
+	//
+	// Example: 0
+	Rcode *int `json:"rcode,omitempty"`
+
+	// RecursionAvailable It offered recursion.
+	//
+	// Example: true
+	RecursionAvailable *bool `json:"recursion_available,omitempty"`
+}
+
 // Download One download ATTEMPT, refusals included - a denial is what answers "it
 // stopped working", so they are listed rather than dropped.
 type Download struct {
@@ -605,8 +805,8 @@ type EntitlementError struct {
 type EntitlementPlan struct {
 	// Key The plan the organization is on, as an identifier that is never
 	// renamed or reused: `free` for the free plan, or a paid plan's key.
-	// Compare against it and show `name`. On `free`, usage counts the
-	// day's lookups answered with every field, its daily trial.
+	// Compare against it and show `name`. On `free`, usage counts its
+	// trial, the lookups answered with every field.
 	//
 	//
 	// Example: max
@@ -674,11 +874,22 @@ type Identity struct {
 	User   AccountUser `json:"user"`
 }
 
-// Location Where the address is, to the country: the fields of our IP Country
-// database. Every answer, with or without a key. Each field is present
-// whenever the object is, so an address in no country, or a private one,
-// answers empty strings.
+// Location Where the address is: the fields of our IP Country database on every
+// answer, with or without a key, and our IP Geolocation database's finer
+// ones on a paid plan. Each field your plan includes is present whenever
+// the object is, so an address in no country, or a private one, answers
+// empty strings and zeros.
 type Location struct {
+	// AccuracyRadius Radius in km holding the true location with 67% confidence; 20000 for an address announced everywhere, as an anycast one is. Paid plans.
+	//
+	// Example: 10
+	AccuracyRadius *int `json:"accuracy_radius,omitempty"`
+
+	// City City. Paid plans.
+	//
+	// Example: Vienna
+	City *string `json:"city,omitempty"`
+
 	// Continent Continent code: AF, AN (Antarctica), AS, EU, NA, OC or SA.
 	//
 	// Example: EU
@@ -714,6 +925,11 @@ type Location struct {
 	// Example: €
 	CurrencySymbol string `json:"currency_symbol"`
 
+	// DmaCode US TV market (DMA) code, empty outside the US. Paid plans.
+	//
+	// Example:
+	DmaCode *string `json:"dma_code,omitempty"`
+
 	// FlagEmoji The country's flag, as an emoji.
 	//
 	// Example: 🇦🇹
@@ -723,6 +939,41 @@ type Location struct {
 	//
 	// Example: U+1F1E6 U+1F1F9
 	FlagUnicode string `json:"flag_unicode"`
+
+	// GeonameID GeoNames ID of the city. Paid plans.
+	//
+	// Example: 2761369
+	GeonameID *string `json:"geoname_id,omitempty"`
+
+	// LastChanged The day the range's location last changed. Paid plans.
+	//
+	// Example: 2026-10-06
+	LastChanged *string `json:"last_changed,omitempty"`
+
+	// Latitude Latitude of the city. Paid plans.
+	//
+	// Example: 48.20849
+	Latitude *float32 `json:"latitude,omitempty"`
+
+	// Longitude Longitude of the city. Paid plans.
+	//
+	// Example: 16.37208
+	Longitude *float32 `json:"longitude,omitempty"`
+
+	// PostalCode Postal code. Paid plans.
+	//
+	// Example: 1230
+	PostalCode *string `json:"postal_code,omitempty"`
+
+	// Region Region (state or province). Paid plans.
+	//
+	// Example: Vienna
+	Region *string `json:"region,omitempty"`
+
+	// RegionCode ISO 3166-2 region code. Paid plans.
+	//
+	// Example: AT-9
+	RegionCode *string `json:"region_code,omitempty"`
 
 	// Timezone IANA timezone of the address.
 	//
@@ -739,16 +990,25 @@ type LookupError struct {
 }
 
 // LookupResponse The union of every tier's answer. Every answer carries `ip`, `is_bogon`,
-// `is_vpn`, the Tor and relay members, `location` and `asn`, with or without a key;
+// `is_vpn`, the Tor and relay members, `is_anycast`, `hostname`, `location` and
+// `asn`, with or without a key;
 // each remaining field is present when your tier includes it, and absent
 // otherwise. A client that must work across plans should treat an absent
 // flag as unknown rather than as `false`.
 type LookupResponse struct {
+	// Abuse Where to report abuse from the address, from our IP Abuse Contact
+	// database. Paid plans. Every key is present whenever the object is: empty
+	// strings where no record covers the address.
+	Abuse *AbuseContact `json:"abuse,omitempty"`
+
 	// Asn The autonomous system that announces the address. Every answer, with or
 	// without a key.
 	// Each field is present whenever the object is: `asn` is 0 and the rest
 	// empty where no announcement covers the address.
 	Asn *Asn `json:"asn,omitempty"`
+
+	// Bittorrent Detail for `is_bittorrent`. Empty when false. Paid plans.
+	Bittorrent *BitTorrentDetail `json:"bittorrent,omitempty"`
 
 	// CapReached On every answer to a key on a paid plan, and on no other: `false`
 	// while the answer has every field, `true` once its organization's
@@ -757,30 +1017,58 @@ type LookupResponse struct {
 	// Billing turns it `false` again.
 	CapReached *bool `json:"cap_reached,omitempty"`
 
+	// Carrier Detail for `is_carrier`. Empty when false. Paid plans.
+	Carrier *CarrierDetail `json:"carrier,omitempty"`
+
 	// Cdn Detail for `is_cdn`. Empty when false. Paid plans.
 	Cdn *ClassDetail `json:"cdn,omitempty"`
+
+	// Company Who uses the address, from our IP Company database. Paid plans. Every
+	// key is present whenever the object is: empty strings where no record
+	// covers the address.
+	Company *Company `json:"company,omitempty"`
 
 	// Dcproxy Detail for `is_dcproxy`. Empty when false. Paid plans.
 	Dcproxy *ProxyDetail `json:"dcproxy,omitempty"`
 
+	// DNSResolver Detail for `is_dns_resolver`. Empty when false. Paid plans.
+	DNSResolver *DNSResolverDetail `json:"dns_resolver,omitempty"`
+
 	// Hosting Detail for `is_hosting`. Empty when false. Paid plans.
 	Hosting *ClassDetail `json:"hosting,omitempty"`
+
+	// Hostname The name the address's reverse DNS (PTR) record points to, from our IP RDNS database; an empty string when it has none. Every answer, with or without a key.
+	//
+	// Example:
+	Hostname *string `json:"hostname,omitempty"`
 
 	// IP The address that was looked up, normalized.
 	//
 	// Example: 1.1.1.1
 	IP string `json:"ip"`
 
+	// IsAnycast Whether the address is announced from many places at once, as a public DNS resolver's or a CDN's edge is. Every answer, with or without a key.
+	IsAnycast *bool `json:"is_anycast,omitempty"`
+
+	// IsBittorrent Whether a BitTorrent client was seen on the address in the last 90 days. Paid plans.
+	IsBittorrent *bool `json:"is_bittorrent,omitempty"`
+
 	// IsBogon Whether the address is reserved space (RFC 1918, loopback, link-local,
 	// documentation ranges and their IPv6 equivalents), answered from the
 	// address alone. Every answer, with or without a key.
 	IsBogon *bool `json:"is_bogon,omitempty"`
+
+	// IsCarrier Whether the address is a mobile carrier's, where many phones can share one address. Paid plans.
+	IsCarrier *bool `json:"is_carrier,omitempty"`
 
 	// IsCdn Whether the address belongs to a CDN. Paid plans.
 	IsCdn *bool `json:"is_cdn,omitempty"`
 
 	// IsDcproxy Whether the address is one a datacenter proxy service sells or runs on, a proxy company's own ranges included. Paid plans.
 	IsDcproxy *bool `json:"is_dcproxy,omitempty"`
+
+	// IsDNSResolver Whether an open DNS resolver answered on the address. Paid plans.
+	IsDNSResolver *bool `json:"is_dns_resolver,omitempty"`
 
 	// IsHosting Whether the address belongs to a hosting or cloud provider. Paid plans.
 	IsHosting *bool `json:"is_hosting,omitempty"`
@@ -797,6 +1085,15 @@ type LookupResponse struct {
 	// IsResproxy Whether the address was seen in a residential proxy pool. Paid plans.
 	IsResproxy *bool `json:"is_resproxy,omitempty"`
 
+	// IsSatellite Whether the address is a satellite operator's. Paid plans.
+	IsSatellite *bool `json:"is_satellite,omitempty"`
+
+	// IsSMTP Whether a mail server answered on the address. Paid plans.
+	IsSMTP *bool `json:"is_smtp,omitempty"`
+
+	// IsSSH Whether an SSH server answered on the address. Paid plans.
+	IsSSH *bool `json:"is_ssh,omitempty"`
+
 	// IsTor Whether the address is a Tor node. Every answer, with or without a key.
 	IsTor *bool `json:"is_tor,omitempty"`
 
@@ -805,10 +1102,14 @@ type LookupResponse struct {
 	// `true`.
 	IsVpn bool `json:"is_vpn"`
 
-	// Location Where the address is, to the country: the fields of our IP Country
-	// database. Every answer, with or without a key. Each field is present
-	// whenever the object is, so an address in no country, or a private one,
-	// answers empty strings.
+	// IsWeb Whether a web server answered on the address, on port 80 or 443. Paid plans.
+	IsWeb *bool `json:"is_web,omitempty"`
+
+	// Location Where the address is: the fields of our IP Country database on every
+	// answer, with or without a key, and our IP Geolocation database's finer
+	// ones on a paid plan. Each field your plan includes is present whenever
+	// the object is, so an address in no country, or a private one, answers
+	// empty strings and zeros.
 	Location *Location `json:"location,omitempty"`
 
 	// Mobproxy Detail for `is_mobproxy`. Empty when false. Paid plans.
@@ -823,18 +1124,30 @@ type LookupResponse struct {
 	// Resproxy Detail for `is_resproxy`. Empty when false. Paid plans.
 	Resproxy *ProxyDetail `json:"resproxy,omitempty"`
 
+	// Satellite Detail for `is_satellite`. Empty when false. Paid plans.
+	Satellite *SatelliteDetail `json:"satellite,omitempty"`
+
+	// SMTP Detail for `is_smtp`. Empty when false. Paid plans.
+	SMTP *SMTPDetail `json:"smtp,omitempty"`
+
+	// SSH Detail for `is_ssh`. Empty when false. Paid plans.
+	SSH *SSHDetail `json:"ssh,omitempty"`
+
 	// Tor Detail for `is_tor`. Empty when false. Every answer, with or without a
 	// key. The tor dataset carries no provider, so `provider` and
 	// `provider_name` are always empty strings.
 	Tor *ClassDetail `json:"tor,omitempty"`
 
 	// TrialExpired On every answer to a key on the free plan, and on no other: `false`
-	// while its organization's daily trial lasts (every field for the first
-	// 100 lookups each UTC day), `true` once the answer has Unlimited's.
+	// while its organization's trial of every field lasts, `true` once the
+	// answer has Unlimited's.
 	TrialExpired *bool `json:"trial_expired,omitempty"`
 
 	// Vpn Detail for `is_vpn`. Empty when `is_vpn` is false. Paid plans.
 	Vpn *VpnDetail `json:"vpn,omitempty"`
+
+	// Web Detail for `is_web`: a row per port that answered, lowest first, and `[]` when false. Paid plans.
+	Web *[]WebDetail `json:"web,omitempty"`
 }
 
 // OauthError defines model for OauthError.
@@ -989,6 +1302,111 @@ type RevokeRequest struct {
 	Token string `json:"token"`
 }
 
+// SatelliteDetail The satellite operator whose space the address is, from our Satellite IP
+// database. Every key is present when the object is populated; the object
+// is `{}` when `is_satellite` is false.
+type SatelliteDetail struct {
+	// Asn The AS the operator announces it from.
+	//
+	// Example: 14593
+	Asn *int `json:"asn,omitempty"`
+
+	// Confidence `high`, `medium` or `low`.
+	//
+	// Example: high
+	Confidence *string `json:"confidence,omitempty"`
+
+	// Country ISO 3166 country code.
+	//
+	// Example: US
+	Country *string `json:"country,omitempty"`
+
+	// Orbit The orbit: `leo`, `meo` or `geo`.
+	//
+	// Example: leo
+	Orbit *string `json:"orbit,omitempty"`
+
+	// Provider The operator's ID in Satellite IP Provider.
+	//
+	// Example: starlink
+	Provider *string `json:"provider,omitempty"`
+
+	// ProviderName The operator's name.
+	//
+	// Example: Starlink
+	ProviderName *string `json:"provider_name,omitempty"`
+
+	// Segment Who the space serves, such as consumer or maritime.
+	//
+	// Example: consumer
+	Segment *string `json:"segment,omitempty"`
+}
+
+// SMTPDetail The mail server that answered on the address, from our SMTP IP database.
+// Every key is present when the object is populated; the object is `{}`
+// when `is_smtp` is false.
+type SMTPDetail struct {
+	// Banner Its banner.
+	//
+	// Example: 220 mail.example.com ESMTP Postfix
+	Banner *string `json:"banner,omitempty"`
+
+	// FirstSeen The first day it answered.
+	//
+	// Example: 2026-08-04
+	FirstSeen *string `json:"first_seen,omitempty"`
+
+	// LastSeen The last day it did.
+	//
+	// Example: 2026-11-15
+	LastSeen *string `json:"last_seen,omitempty"`
+
+	// Port The port the server answered on.
+	//
+	// Example: 25
+	Port *int `json:"port,omitempty"`
+
+	// SessionOk A session was set up.
+	//
+	// Example: true
+	SessionOk *bool `json:"session_ok,omitempty"`
+}
+
+// SSHDetail The SSH server that answered on the address, from our SSH IP database.
+// Every key is present when the object is populated; the object is `{}`
+// when `is_ssh` is false.
+type SSHDetail struct {
+	// Banner Its banner.
+	//
+	// Example: SSH-2.0-OpenSSH_9.6p1 Ubuntu-3ubuntu13.5
+	Banner *string `json:"banner,omitempty"`
+
+	// FirstSeen The first day it answered.
+	//
+	// Example: 2026-08-04
+	FirstSeen *string `json:"first_seen,omitempty"`
+
+	// HostKeyFp Its host key's fingerprint.
+	//
+	// Example: SHA256:9Bq3Jrm6pVJ7QqV2c8l0pE6f8wJ4sZ4u5tYyH9cXo1E
+	HostKeyFp *string `json:"host_key_fp,omitempty"`
+
+	// LastSeen The last day it did.
+	//
+	// Example: 2026-11-15
+	LastSeen *string `json:"last_seen,omitempty"`
+
+	// Port The port the server answered on.
+	//
+	// Example: 22
+	Port *int `json:"port,omitempty"`
+
+	// SessionOk A session was set up.
+	//
+	// Example: true
+	SessionOk *bool `json:"session_ok,omitempty"`
+}
+
 // Standing Where your license for a database family stands today. `licensed` is a
 // live grant, `expired` one whose term has ended, and `unlicensed` a
 // database published but never bought.
@@ -1086,6 +1504,79 @@ type VpnDetail struct {
 	//
 	// Example: Mullvad
 	ProviderName *string `json:"provider_name,omitempty"`
+}
+
+// WebDetail One port of the address that answered as a web server, from our Web IP database.
+type WebDetail struct {
+	// CertBrowserTrusted Browsers trust it.
+	//
+	// Example: true
+	CertBrowserTrusted bool `json:"cert_browser_trusted"`
+
+	// CertIssuerDn Its issuer.
+	//
+	// Example: CN=R11,O=Let's Encrypt,C=US
+	CertIssuerDn string `json:"cert_issuer_dn"`
+
+	// CertSubjectCn The certificate's subject common name.
+	//
+	// Example: example.com
+	CertSubjectCn string `json:"cert_subject_cn"`
+
+	// CertSubjectO Its subject organization.
+	//
+	// Example:
+	CertSubjectO string `json:"cert_subject_o"`
+
+	// FirstSeen The first day the port was open.
+	//
+	// Example: 2026-08-04
+	FirstSeen string `json:"first_seen"`
+
+	// LastSeen The last day it was.
+	//
+	// Example: 2026-11-15
+	LastSeen string `json:"last_seen"`
+
+	// Location Where it redirected.
+	//
+	// Example:
+	Location string `json:"location"`
+
+	// Port 80 or 443.
+	//
+	// Example: 443
+	Port int `json:"port"`
+
+	// Server Its `Server` header.
+	//
+	// Example: nginx
+	Server string `json:"server"`
+
+	// SessionOk An HTTP response came back.
+	//
+	// Example: true
+	SessionOk bool `json:"session_ok"`
+
+	// StatusCode Its status, 0 where none came.
+	//
+	// Example: 200
+	StatusCode int `json:"status_code"`
+
+	// Title The page's title.
+	//
+	// Example: Welcome to nginx!
+	Title string `json:"title"`
+
+	// TLSOk A TLS handshake completed.
+	//
+	// Example: true
+	TLSOk bool `json:"tls_ok"`
+
+	// TLSVersion The TLS version negotiated, empty without TLS.
+	//
+	// Example: TLS 1.3
+	TLSVersion string `json:"tls_version"`
 }
 
 // ApikeyIDParam defines model for ApikeyIdParam.
@@ -1692,7 +2183,7 @@ type ClientInterface interface {
 	// Answers what is known about a single IPv4 or IPv6 address. Which fields
 	// come back is decided by the presented key; with no key, on Unlimited,
 	// the free plan, the answer is `ip`, `is_vpn`, the Tor and relay members,
-	// `location` and `asn`.
+	// `is_anycast`, `hostname`, `location` and `asn`.
 	//
 	// Corresponds with GET /{ip} (the `LookupIP` operationId).
 	LookupIP(ctx context.Context, ip string, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -2403,7 +2894,7 @@ func (c *Client) OauthTokenWithFormdataBody(ctx context.Context, body OauthToken
 // Answers what is known about a single IPv4 or IPv6 address. Which fields
 // come back is decided by the presented key; with no key, on Unlimited,
 // the free plan, the answer is `ip`, `is_vpn`, the Tor and relay members,
-// `location` and `asn`.
+// `is_anycast`, `hostname`, `location` and `asn`.
 //
 // Corresponds with GET /{ip} (the `LookupIP` operationId).
 func (c *Client) LookupIP(ctx context.Context, ip string, reqEditors ...RequestEditorFn) (*http.Response, error) {
@@ -3861,7 +4352,7 @@ type ClientWithResponsesInterface interface {
 	// Answers what is known about a single IPv4 or IPv6 address. Which fields
 	// come back is decided by the presented key; with no key, on Unlimited,
 	// the free plan, the answer is `ip`, `is_vpn`, the Tor and relay members,
-	// `location` and `asn`.
+	// `is_anycast`, `hostname`, `location` and `asn`.
 	//
 	// Returns a wrapper object for the known response body format(s).
 	//
@@ -5903,7 +6394,7 @@ func (c *ClientWithResponses) OauthTokenWithFormdataBodyWithResponse(ctx context
 // Answers what is known about a single IPv4 or IPv6 address. Which fields
 // come back is decided by the presented key; with no key, on Unlimited,
 // the free plan, the answer is `ip`, `is_vpn`, the Tor and relay members,
-// `location` and `asn`.
+// `is_anycast`, `hostname`, `location` and `asn`.
 //
 // Returns a wrapper object for the known response body format(s).
 //

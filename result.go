@@ -9,17 +9,28 @@ import (
 // The wire shapes a lookup answers with, re-exported so a consumer never has to
 // name an internal package.
 type (
-	LookupResponse = api.LookupResponse
-	VpnDetail      = api.VpnDetail
-	ClassDetail    = api.ClassDetail
-	ProxyDetail    = api.ProxyDetail
-	PubproxyDetail = api.PubproxyDetail
-	// Location is where the address is, on every answer, with or without a key:
-	// every field set, empty where it is not known.
+	LookupResponse    = api.LookupResponse
+	VpnDetail         = api.VpnDetail
+	ClassDetail       = api.ClassDetail
+	ProxyDetail       = api.ProxyDetail
+	PubproxyDetail    = api.PubproxyDetail
+	CarrierDetail     = api.CarrierDetail
+	SatelliteDetail   = api.SatelliteDetail
+	SSHDetail         = api.SSHDetail
+	SMTPDetail        = api.SMTPDetail
+	WebDetail         = api.WebDetail
+	DNSResolverDetail = api.DNSResolverDetail
+	BitTorrentDetail  = api.BitTorrentDetail
+	// Location is where the address is, on every answer, with or without a
+	// key. The finer members, Region down to AccuracyRadius, are a paid plan's.
 	Location = api.Location
 	// Asn is the AS announcing the address, on every answer, with or without a
 	// key: Asn is 0 where none does.
 	Asn = api.Asn
+	// Company is who uses the address, on a paid plan.
+	Company = api.Company
+	// AbuseContact is where to report abuse from the address, on a paid plan.
+	AbuseContact = api.AbuseContact
 	// Date is a calendar date with no time of day, as `last_seen` and
 	// `first_seen` carry.
 	Date = types.Date
@@ -30,10 +41,12 @@ type (
 // A pointer member is one your plan does not include. It never means "we could
 // not check", so nil and false are genuinely different answers: nil is "not in
 // your plan", false is "checked, and no". BoolValue collapses the two for
-// callers who only want to know whether an address is flagged.
+// callers who only want to know whether an address is flagged. The same holds
+// inside a shared object, so Location.City is nil on Unlimited.
 //
 // A detail object that is present but empty means the flag above it is false. A
 // populated one always carries every one of its keys, empty values included.
+// Web is a list of the services seen, empty when IsWeb is false.
 type Result struct {
 	// The answer as it was served, with the wire's own optionality intact. Its
 	// fields are promoted, so r.IsVpn and r.Vpn read straight off the Result.
