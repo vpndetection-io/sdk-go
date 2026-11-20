@@ -2,6 +2,18 @@
 
 What each release changed for you, newest first. Each line is a commit's summary, linked to its full description and diff. Releases before 5.3.2 are described by their release commits.
 
+## 5.18.0 - 2026-11-20
+
+### Features
+
+- Read the network, service, company and abuse members of a paid answer ([`adf3e16`](https://github.com/vpndetection-io/sdk-go/commit/adf3e167186730bbdee061096a56d53ca92f3a66))
+- Answer a bogon with every new member, as the API does ([`b942793`](https://github.com/vpndetection-io/sdk-go/commit/b942793c996639c62b52bcaf0cbe6556f5782541))
+
+### Fixes
+
+- Cache a spent trial's or a reached cap's answer for a minute at most ([`982ed11`](https://github.com/vpndetection-io/sdk-go/commit/982ed11c2b7c083a4868232bd4628bf63a041383))
+- Describe the free plan's usage as its trial, with no period ([`0224129`](https://github.com/vpndetection-io/sdk-go/commit/02241297540b5692e8d9e8c427a7c9f3a32015d6))
+
 ## 5.17.1 - 2026-11-19
 
 ### Fixes
