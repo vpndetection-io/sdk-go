@@ -6,6 +6,7 @@ package integration
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"net/url"
@@ -31,14 +32,39 @@ const (
 // detail object carries on every tier; optional is the max-only remainder, which
 // is absent rather than empty on a lower plan.
 var members = map[string]detail{
-	"vpn":      {required: []string{"provider", "provider_name", "last_seen"}, optional: []string{"confidence", "method"}},
-	"hosting":  {required: classKeys},
-	"relay":    {required: classKeys},
-	"tor":      {required: classKeys},
-	"cdn":      {required: classKeys},
-	"resproxy": {required: proxyKeys},
-	"dcproxy":  {required: proxyKeys},
-	"mobproxy": {required: proxyKeys},
+	"vpn":          {required: []string{"provider", "provider_name", "last_seen"}, optional: []string{"confidence", "method"}},
+	"hosting":      {required: classKeys},
+	"relay":        {required: classKeys},
+	"tor":          {required: classKeys},
+	"cdn":          {required: classKeys},
+	"resproxy":     {required: proxyKeys},
+	"dcproxy":      {required: proxyKeys},
+	"mobproxy":     {required: proxyKeys},
+	"carrier":      {required: []string{"name", "mcc", "mnc", "country", "confidence"}},
+	"satellite":    {required: []string{"provider", "provider_name", "asn", "orbit", "segment", "country", "confidence"}},
+	"ssh":          {required: []string{"port", "banner", "host_key_fp", "session_ok", "first_seen", "last_seen"}},
+	"smtp":         {required: []string{"port", "banner", "session_ok", "first_seen", "last_seen"}},
+	"dns_resolver": {required: []string{"port", "rcode", "answer_correct", "recursion_available", "first_seen", "last_seen"}},
+	"bittorrent": {required: []string{"clients", "days_seen", "first_seen", "last_seen", "last_reachable",
+		"num_ports", "peak_num_ports", "id_matches_ip", "indexer", "verified"}},
+}
+
+// A dataset the API answers as a LIST of rows, one per service seen, empty when
+// its flag is false. Each row carries every documented key.
+var listMembers = map[string]detail{
+	"web": {required: []string{"port", "tls_ok", "session_ok", "status_code", "server", "location", "title",
+		"cert_subject_cn", "cert_subject_o", "cert_issuer_dn", "cert_browser_trusted", "tls_version",
+		"first_seen", "last_seen"}},
+}
+
+// A flag with no detail object behind it.
+var bareFlags = []string{"is_anycast"}
+
+// An object with no flag above it. Where the plan answers it, every key is
+// present, empty where no record covers the address.
+var sharedObjects = map[string]detail{
+	"company": {required: []string{"name", "domain", "type", "country"}},
+	"abuse":   {required: []string{"email", "name", "phone", "address", "country", "network", "validated", "unvalidated_since"}},
 }
 
 var (
@@ -166,6 +192,57 @@ func assertShape(t *testing.T, tier string, r *vpndetection.Result, raw map[stri
 		}
 		assertDetail(t, tier, name, spec, object, raw[flag])
 	}
+
+	for _, flag := range bareFlags {
+		if value, present := raw[flag]; present {
+			if _, ok := value.(bool); !ok {
+				t.Errorf("%s: %s is present, so it must be a real boolean, not %v", tier, flag, value)
+			}
+		}
+	}
+	for name, spec := range listMembers {
+		flag := "is_" + name
+		value, present := raw[name]
+		if !present {
+			continue
+		}
+		if _, ok := raw[flag]; !ok {
+			t.Errorf("%s: %s is served without %s", tier, name, flag)
+		}
+		rows, ok := value.([]any)
+		if !ok {
+			t.Errorf("%s: %s must be a list when present, got %v", tier, name, value)
+			continue
+		}
+		if len(rows) == 0 && raw[flag] != false {
+			t.Errorf("%s: %s is empty, so %s must be false, not %v", tier, name, flag, raw[flag])
+		}
+		for i, row := range rows {
+			fields, ok := row.(map[string]any)
+			if !ok {
+				t.Errorf("%s: %s[%d] must be an object, got %v", tier, name, i, row)
+				continue
+			}
+			assertDocumentedKeys(t, tier, fmt.Sprintf("%s[%d]", name, i), spec, fields)
+		}
+	}
+	for name, spec := range sharedObjects {
+		object, present := raw[name]
+		if !present {
+			continue
+		}
+		fields, ok := object.(map[string]any)
+		if !ok {
+			t.Errorf("%s: %s must be an object when present, got %v", tier, name, object)
+			continue
+		}
+		assertDocumentedKeys(t, tier, name, spec, fields)
+	}
+	if hostname, present := raw["hostname"]; present {
+		if _, ok := hostname.(string); !ok {
+			t.Errorf("%s: hostname is present, so it must be a string, not %v", tier, hostname)
+		}
+	}
 }
 
 func assertDetail(t *testing.T, tier, name string, spec detail, object, flag any) {
@@ -181,6 +258,11 @@ func assertDetail(t *testing.T, tier, name string, spec detail, object, flag any
 		}
 		return
 	}
+	assertDocumentedKeys(t, tier, name, spec, fields)
+}
+
+func assertDocumentedKeys(t *testing.T, tier, name string, spec detail, fields map[string]any) {
+	t.Helper()
 	for _, key := range spec.required {
 		if _, ok := fields[key]; !ok {
 			t.Errorf("%s: %s is populated but carries no %s", tier, name, key)
@@ -188,7 +270,7 @@ func assertDetail(t *testing.T, tier, name string, spec detail, object, flag any
 	}
 	for key := range fields {
 		if !slices.Contains(spec.required, key) && !slices.Contains(spec.optional, key) {
-			t.Errorf("%s: %s.%s is not a documented key of this detail object", tier, name, key)
+			t.Errorf("%s: %s.%s is not a documented key of this object", tier, name, key)
 		}
 	}
 }

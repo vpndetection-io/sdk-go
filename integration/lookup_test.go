@@ -90,8 +90,9 @@ func TestAFreePlanKeysAnswerIsAPaidOneOrUnlimitedsAndSaysWhich(t *testing.T) {
 	if !ok {
 		t.Fatalf("a free-plan key's answer carries trial_expired %v, want a boolean", raw["trial_expired"])
 	}
-	// The organization's first 100 lookups of the UTC day are answered in full,
-	// and the rest as Unlimited's: which half a run sees depends on the day.
+	// The organization's trial of every field is answered in full, and the
+	// lookups past it as Unlimited's: which half a run sees depends on how much
+	// of the trial the other runs have used.
 	if _, hosting := raw["is_hosting"]; hosting == expired {
 		t.Errorf("is_hosting served: %v, trial_expired: %v; one must be the other's opposite", hosting, expired)
 	}
@@ -229,6 +230,27 @@ func TestABogonIsAnsweredWithoutTouchingTheNetwork(t *testing.T) {
 		if !reflect.DeepEqual(object.Elem().Interface(), empty) {
 			t.Errorf("%s must be present and EMPTY on a bogon, got %+v", name, object.Elem().Interface())
 		}
+	}
+	for _, flag := range bareFlags {
+		if value, served := servedField(t, r, flag); !served || boolOf(value) {
+			t.Errorf("%s must be present and false on a bogon", flag)
+		}
+	}
+	for name := range listMembers {
+		if flag, served := servedField(t, r, "is_"+name); !served || boolOf(flag) {
+			t.Errorf("is_%s must be present and false on a bogon", name)
+		}
+		if rows, served := servedField(t, r, name); !served || rows.Elem().Len() != 0 {
+			t.Errorf("%s must be present and an empty list on a bogon", name)
+		}
+	}
+	for name := range sharedObjects {
+		if _, served := servedField(t, r, name); !served {
+			t.Errorf("%s must be present on a bogon, every key empty", name)
+		}
+	}
+	if hostname, served := servedField(t, r, "hostname"); !served || hostname.Elem().String() != "" {
+		t.Errorf("hostname must be present and empty on a bogon")
 	}
 }
 

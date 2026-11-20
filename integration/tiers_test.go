@@ -20,9 +20,9 @@ import (
 // whichever observable rung sits below it: the first paid tier serves strictly
 // more than no key; every paid plan answers the same fields, so a higher paid
 // tier only keeps what the one under it serves. The trial rung's key is on the
-// free plan: its answer is a paid one for its organization's daily trial, the
-// first 100 lookups of the UTC day, and Unlimited's after, so it promises
-// nothing and is never the rung a later one is compared against.
+// free plan: its answer is a paid one while its organization's trial of every
+// field lasts, and Unlimited's after, so it promises nothing and is never the
+// rung a later one is compared against.
 //
 // Field COUNTS are deliberately absent. Pinning "starter answers seven fields"
 // turns a pricing change into a red SDK build; the relation between the tiers is
@@ -80,7 +80,7 @@ func unauthRung() rung {
 	return rungs[0]
 }
 
-// A key on the free plan, with its daily trial.
+// A key on the free plan, with its trial of every field.
 func trialRung() rung {
 	return rungs[1]
 }
