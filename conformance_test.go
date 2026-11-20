@@ -103,8 +103,9 @@ func TestBogonIsAnsweredLocallyInTheFullMaxShape(t *testing.T) {
 	for _, name := range data.BogonResponse.EmptyObjects {
 		assertEmptyObject(t, result, name)
 	}
-	assertObject(t, result, "location", data.BogonResponse.Location)
-	assertObject(t, result, "asn", data.BogonResponse.Asn)
+	for name, want := range data.BogonResponse.Members {
+		assertObject(t, result, name, want)
+	}
 	if stub.count() != 0 {
 		t.Errorf("a bogon must not reach the network, got %d request(s)", stub.count())
 	}
@@ -144,12 +145,9 @@ func TestLookupPreservesAbsentVersusFalseAcrossEveryPlanShape(t *testing.T) {
 			for _, name := range c.Expect.EmptyPresent {
 				assertEmptyObject(t, result, name)
 			}
-			assertObject(t, result, "vpn", c.Expect.Vpn)
-			assertObject(t, result, "hosting", c.Expect.Hosting)
-			assertObject(t, result, "dcproxy", c.Expect.Dcproxy)
-			assertObject(t, result, "pubproxy", c.Expect.Pubproxy)
-			assertObject(t, result, "location", c.Expect.Location)
-			assertObject(t, result, "asn", c.Expect.Asn)
+			for name, want := range c.Expect.Members {
+				assertObject(t, result, name, want)
+			}
 		})
 	}
 }
@@ -520,29 +518,12 @@ type corpusData struct {
 		Expect  bool   `json:"expect"`
 		Why     string `json:"why"`
 	} `json:"ipv4Mapped"`
-	BogonResponse struct {
-		FlagsFalse   []string        `json:"flagsFalse"`
-		EmptyObjects []string        `json:"emptyObjects"`
-		Location     json.RawMessage `json:"location"`
-		Asn          json.RawMessage `json:"asn"`
-	} `json:"bogonResponse"`
-	Lookup []struct {
+	BogonResponse corpusBogon `json:"bogonResponse"`
+	Lookup        []struct {
 		Name   string          `json:"name"`
 		Status int             `json:"status"`
 		Body   json.RawMessage `json:"body"`
-		Expect struct {
-			IP           string          `json:"ip"`
-			IsBogon      bool            `json:"isBogon"`
-			Present      map[string]bool `json:"present"`
-			Absent       []string        `json:"absent"`
-			EmptyPresent []string        `json:"emptyPresent"`
-			Vpn          json.RawMessage `json:"vpn"`
-			Hosting      json.RawMessage `json:"hosting"`
-			Dcproxy      json.RawMessage `json:"dcproxy"`
-			Pubproxy     json.RawMessage `json:"pubproxy"`
-			Location     json.RawMessage `json:"location"`
-			Asn          json.RawMessage `json:"asn"`
-		} `json:"expect"`
+		Expect corpusExpect    `json:"expect"`
 	} `json:"lookup"`
 	Errors []struct {
 		Name    string            `json:"name"`
@@ -569,6 +550,60 @@ type corpusData struct {
 		V4 []string `json:"v4"`
 		V6 []string `json:"v6"`
 	} `json:"bogons"`
+}
+
+// The bogon answer's lists, and in Members every other key the corpus gives it
+// (location, asn, web, hostname, company, abuse and whatever it gains), each a
+// wire member the answer must hold as written.
+type corpusBogon struct {
+	FlagsFalse   []string                   `json:"flagsFalse"`
+	EmptyObjects []string                   `json:"emptyObjects"`
+	Members      map[string]json.RawMessage `json:"-"`
+}
+
+func (b *corpusBogon) UnmarshalJSON(raw []byte) error {
+	type lists corpusBogon
+	if err := json.Unmarshal(raw, (*lists)(b)); err != nil {
+		return err
+	}
+	var err error
+	b.Members, err = membersBeyond(raw, "why", "flagsFalse", "emptyObjects")
+	return err
+}
+
+// A lookup case's expectation: the keys naming a role, and in Members every
+// other key, each a wire member the answer must hold as written. Reading them
+// all, rather than a list of the ones known when this was written, is what
+// keeps a member the corpus gains from passing unasserted: one the answer has
+// no field for fails in wireField.
+type corpusExpect struct {
+	IP           string                     `json:"ip"`
+	IsBogon      bool                       `json:"isBogon"`
+	Present      map[string]bool            `json:"present"`
+	Absent       []string                   `json:"absent"`
+	EmptyPresent []string                   `json:"emptyPresent"`
+	Members      map[string]json.RawMessage `json:"-"`
+}
+
+func (e *corpusExpect) UnmarshalJSON(raw []byte) error {
+	type roles corpusExpect
+	if err := json.Unmarshal(raw, (*roles)(e)); err != nil {
+		return err
+	}
+	var err error
+	e.Members, err = membersBeyond(raw, "ip", "isBogon", "present", "absent", "emptyPresent")
+	return err
+}
+
+func membersBeyond(raw []byte, roles ...string) (map[string]json.RawMessage, error) {
+	var members map[string]json.RawMessage
+	if err := json.Unmarshal(raw, &members); err != nil {
+		return nil, err
+	}
+	for _, role := range roles {
+		delete(members, role)
+	}
+	return members, nil
 }
 
 type corpusBatch struct {
