@@ -3,10 +3,14 @@ package vpndetection
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"net/http"
+	"os"
+	"regexp"
+	"slices"
 	"sync"
 	"testing"
 	"time"
@@ -327,6 +331,69 @@ func TestAnAnswerMissingARequiredMemberIsUnreadable(t *testing.T) {
 				t.Errorf("sent %d requests, want 2", got)
 			}
 		})
+	}
+}
+
+// The AS's country and RPKI status are on every answer the API serves, so one
+// without either, or with either null, is unreadable, though overlay.yaml keeps
+// both pointers in the public Asn. The members are read off overlay.yaml, so a
+// member it holds that way that the decoder does not refuse fails here.
+func TestAnAnswerWithoutTheASsCountryOrRPKIStatusIsUnreadable(t *testing.T) {
+	overlay, err := os.ReadFile("overlay.yaml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var held []string
+	for _, m := range regexp.MustCompile(`schemas\.Asn\.required\[\?\(@ == '(\w+)'\)\]`).FindAllStringSubmatch(string(overlay), -1) {
+		held = append(held, m[1])
+	}
+	if !slices.Equal(held, []string{"country", "rpki_status"}) {
+		t.Fatalf("overlay.yaml holds Asn's %v as optional, want country and rpki_status", held)
+	}
+	answer := func(member string, value any) string {
+		asn := map[string]any{"asn": 9009, "name": "M247 Europe SRL", "domain": "m247.com", "type": "hosting",
+			"prefix": "45.83.91.0/24", "country": "RO", "rpki_status": "valid"}
+		switch value {
+		case "absent":
+			delete(asn, member)
+		default:
+			asn[member] = value
+		}
+		body, err := json.Marshal(map[string]any{"ip": "45.83.91.1", "is_vpn": false, "asn": asn})
+		if err != nil {
+			t.Fatal(err)
+		}
+		return string(body)
+	}
+	for _, call := range []string{"Lookup", "MyIP"} {
+		transport := &fixedTransport{status: http.StatusOK, contentType: "application/json", body: answer("country", "RO")}
+		if err := answeringCalls[call](t.Context(), fixedClient(t, transport)); err != nil {
+			t.Fatalf("%s of a whole AS: %v", call, err)
+		}
+	}
+	for _, member := range held {
+		for _, value := range []any{"absent", nil} {
+			body := answer(member, value)
+			t.Run(fmt.Sprintf("%s %v", member, value), func(t *testing.T) {
+				for _, call := range []string{"Lookup", "MyIP"} {
+					transport := &fixedTransport{status: http.StatusOK, contentType: "application/json", body: body}
+					assertKind(t, answeringCalls[call](t.Context(), fixedClient(t, transport)), KindServerError, http.StatusOK)
+					if got := transport.sent(); got != 2 {
+						t.Errorf("%s sent %d requests, want 2", call, got)
+					}
+				}
+				transport := &fixedTransport{status: http.StatusOK, contentType: "application/json", body: `{"results":{` +
+					`"45.83.91.1":` + body + `,"45.83.91.2":` + answer("country", "RO") + `},"errors":{}}`}
+				answers, err := fixedClient(t, transport).LookupBatch(t.Context(), []string{"45.83.91.1", "45.83.91.2"})
+				if err != nil {
+					t.Fatalf("LookupBatch: %v", err)
+				}
+				assertKind(t, answers["45.83.91.1"].Err, KindServerError, http.StatusOK)
+				if got := answers["45.83.91.2"]; got.Err != nil || *got.Result.Asn.Country != "RO" {
+					t.Errorf("45.83.91.2 = %+v, want its answer", got)
+				}
+			})
+		}
 	}
 }
 
