@@ -2,6 +2,18 @@
 
 What each release changed for you, newest first. Each line is a commit's summary, linked to its full description and diff. Releases before 5.3.2 are described by their release commits.
 
+## 5.19.0 - 2026-11-22
+
+### Features
+
+- Read is_bot and bot on every answer ([`eea5a70`](https://github.com/vpndetection-io/sdk-go/commit/eea5a70f1b7e34e9db09db06d5f17f12fd64b42d))
+- README: is_bot on every plan, and bot on a paid one ([`9b13b86`](https://github.com/vpndetection-io/sdk-go/commit/9b13b86c38ad7e2fa04ad376770ad549fe7128af))
+
+### Fixes
+
+- Refuse an answer without the AS's country or RPKI status ([`b51eaf1`](https://github.com/vpndetection-io/sdk-go/commit/b51eaf11617d5385843174d42622462befc60683))
+- Re-pin the spec to 2026.11.22, keeping every public type as it was ([`c620a1b`](https://github.com/vpndetection-io/sdk-go/commit/c620a1b8cefaedac6181ba261c7fc1361994b1b3))
+
 ## 5.18.0 - 2026-11-20
 
 ### Features
