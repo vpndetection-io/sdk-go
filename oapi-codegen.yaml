@@ -8,3 +8,6 @@ generate:
   client: true
 output-options:
   name-normalizer: ToCamelCaseWithInitialisms
+  # Strict, the default: an edit the pin no longer matches fails generation.
+  overlay:
+    path: overlay.yaml

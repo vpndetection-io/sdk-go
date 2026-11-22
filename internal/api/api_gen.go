@@ -135,6 +135,30 @@ func (e Standing) Valid() bool {
 	}
 }
 
+// Defines values for UserAgentVerdictVerdict.
+const (
+	NotBot       UserAgentVerdictVerdict = "not_bot"
+	Spoofed      UserAgentVerdictVerdict = "spoofed"
+	Unverifiable UserAgentVerdictVerdict = "unverifiable"
+	Verified     UserAgentVerdictVerdict = "verified"
+)
+
+// Valid indicates whether the value is a known member of the UserAgentVerdictVerdict enum.
+func (e UserAgentVerdictVerdict) Valid() bool {
+	switch e {
+	case NotBot:
+		return true
+	case Spoofed:
+		return true
+	case Unverifiable:
+		return true
+	case Verified:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for OauthAuthorizeParamsResponseType.
 const (
 	Code OauthAuthorizeParamsResponseType = "code"
@@ -360,6 +384,14 @@ type BatchLookupRequest struct {
 	//
 	// Example: ["1.1.1.1","2606:4700:4700::1111"]
 	Ips []string `json:"ips"`
+
+	// UserAgents Each address's `User-Agent`, keyed by the string it is sent as in
+	// `ips`. With every field, that address's answer then carries
+	// `user_agent`, as a single lookup's does. Never kept.
+	//
+	//
+	// Example: {"66.249.66.1":"Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)"}
+	UserAgents *map[string]string `json:"user_agents,omitempty"`
 }
 
 // BatchLookupResponse defines model for BatchLookupResponse.
@@ -427,6 +459,39 @@ type BitTorrentDetail struct {
 	//
 	// Example: true
 	Verified *bool `json:"verified,omitempty"`
+}
+
+// BotDetail Bot IP's row: whose bot uses the address, the bots it serves or claimed to be, what they do, and how that is known.
+type BotDetail struct {
+	// Agents The bots the address serves, as their user agents name them (`Googlebot`, `GPTBot`); for an address that is not verified, the bots it claimed to be. One address can serve several, and `[]` means none is named.
+	Agents *[]string `json:"agents,omitempty"`
+
+	// Categories What those bots do: `search_engine`, `ai_training`, `ai_search`, `ai_assistant`, `ai_agent`, `seo`, `ads`, `preview`, `feed`, `monitoring`, `archiver`, `scanner`, `link_security`, `webhook` or `other`; `[]` where unknown.
+	Categories *[]string `json:"categories,omitempty"`
+
+	// Confidence `high`, `medium` or `low`: how sure we are the address is what the row says.
+	Confidence *string `json:"confidence,omitempty"`
+
+	// FirstSeen The first day the address was seen as such.
+	FirstSeen *string `json:"first_seen,omitempty"`
+
+	// Identity `verified` (the operator vouches for the address), `declared` (it names itself a bot that cannot be verified), `spoofed` (it claimed a bot whose operator vouches for other addresses) or `undeclared` (it hides as a browser and behaves as automation).
+	Identity *string `json:"identity,omitempty"`
+
+	// LastSeen The last day it was.
+	LastSeen *string `json:"last_seen,omitempty"`
+
+	// Provider The bot operator's ID; for an address that is not verified, the operator its claim named. Empty where no operator is known.
+	Provider *string `json:"provider,omitempty"`
+
+	// ProviderName That operator's name, empty where no operator is known.
+	ProviderName *string `json:"provider_name,omitempty"`
+
+	// Verified Whether the operator vouches for the address, so the bots in `agents` really are its.
+	Verified *bool `json:"verified,omitempty"`
+
+	// VerifiedBy How a verified address verified: `list` (the operator publishes it), `rdns` (its reverse DNS name ends in a suffix the operator documents and resolves back) or `owner` (the operator's own space, seen claiming its bot); empty when not verified.
+	VerifiedBy *string `json:"verified_by,omitempty"`
 }
 
 // CarrierDetail The mobile network whose space the address is, from our Carrier IP
@@ -1010,6 +1075,9 @@ type LookupResponse struct {
 	// Bittorrent Detail for `is_bittorrent`. Empty when false. Paid plans.
 	Bittorrent *BitTorrentDetail `json:"bittorrent,omitempty"`
 
+	// Bot Detail for `is_bot`. Empty when false. Paid plans.
+	Bot *BotDetail `json:"bot,omitempty"`
+
 	// CapReached On every answer to a key on a paid plan, and on no other: `false`
 	// while the answer has every field, `true` once its organization's
 	// overage cap is reached and the answer has Unlimited's. Lookups
@@ -1057,6 +1125,9 @@ type LookupResponse struct {
 	// documentation ranges and their IPv6 equivalents), answered from the
 	// address alone. Every answer, with or without a key.
 	IsBogon *bool `json:"is_bogon,omitempty"`
+
+	// IsBot Whether an automated client uses the address, such as a search engine's or an AI company's crawler, an uptime monitor, an internet scanner or a webhook sender. `bot` says whose, what it does and whether its operator vouches for the address. Every answer, with or without a key.
+	IsBot *bool `json:"is_bot,omitempty"`
 
 	// IsCarrier Whether the address is a mobile carrier's, where many phones can share one address. Paid plans.
 	IsCarrier *bool `json:"is_carrier,omitempty"`
@@ -1142,6 +1213,10 @@ type LookupResponse struct {
 	// while its organization's trial of every field lasts, `true` once the
 	// answer has Unlimited's.
 	TrialExpired *bool `json:"trial_expired,omitempty"`
+
+	// UserAgent When the request sent `user_agent`, with every field: the agent it
+	// names and whether this address bears it out. Absent otherwise.
+	UserAgent *UserAgentVerdict `json:"user_agent,omitempty"`
 
 	// Vpn Detail for `is_vpn`. Empty when `is_vpn` is false. Paid plans.
 	Vpn *VpnDetail `json:"vpn,omitempty"`
@@ -1473,6 +1548,42 @@ type TokenResponse struct {
 	TokenType string `json:"token_type"`
 }
 
+// UserAgentVerdict defines model for UserAgentVerdict.
+type UserAgentVerdict struct {
+	// Agent The agent the user agent names, such as `Googlebot` or `Chrome`; `Unknown` where it names none.
+	//
+	// Example: Googlebot
+	Agent string `json:"agent"`
+
+	// Kind `browser`, `inapp`, `automation`, `bot`, `ai-bot`, `http-client` or
+	// `unknown`: what kind of client the user agent says it is.
+	//
+	//
+	// Example: bot
+	Kind string `json:"kind"`
+
+	// Verdict `verified`: the agent's operator vouches for this address as it.
+	// `spoofed`: the operator of a bot that publishes its addresses, or
+	// whose registered space it uses, does not vouch for this one, or this
+	// address posed as the bot before. `unverifiable`: a bot no published
+	// list or registered space can confirm. `not_bot`: a browser, an app or
+	// a script.
+	//
+	//
+	// Example: verified
+	Verdict UserAgentVerdictVerdict `json:"verdict"`
+}
+
+// UserAgentVerdictVerdict `verified`: the agent's operator vouches for this address as it.
+// `spoofed`: the operator of a bot that publishes its addresses, or
+// whose registered space it uses, does not vouch for this one, or this
+// address posed as the bot before. `unverifiable`: a bot no published
+// list or registered space can confirm. `not_bot`: a browser, an app or
+// a script.
+//
+// Example: verified
+type UserAgentVerdictVerdict string
+
 // VpnDetail What is known about the VPN attribution. Every key is present when the
 // object is populated, empty values included; the object is `{}` when
 // `is_vpn` is false.
@@ -1639,6 +1750,15 @@ type DatabaseMetadataParams struct {
 	ID string `form:"id" json:"id"`
 }
 
+// LookupMyIPParams defines parameters for LookupMyIP.
+type LookupMyIPParams struct {
+	// UserAgent The `User-Agent` header of the request you are deciding on. With
+	// every field, on a paid plan or the trial, the answer then carries
+	// `user_agent`: the agent it names, and whether this address bears
+	// that out. Never kept, and nothing sent with a lookup feeds our data.
+	UserAgent *string `form:"user_agent,omitempty" json:"user_agent,omitempty"`
+}
+
 // OauthAuthorizeParams defines parameters for OauthAuthorize.
 type OauthAuthorizeParams struct {
 	ClientID      string                           `form:"client_id" json:"client_id"`
@@ -1665,6 +1785,15 @@ type OauthAuthorizeParamsResponseType string
 
 // OauthAuthorizeParamsCodeChallengeMethod defines parameters for OauthAuthorize.
 type OauthAuthorizeParamsCodeChallengeMethod string
+
+// LookupIPParams defines parameters for LookupIP.
+type LookupIPParams struct {
+	// UserAgent The `User-Agent` header of the request you are deciding on. With
+	// every field, on a paid plan or the trial, the answer then carries
+	// `user_agent`: the agent it names, and whether this address bears
+	// that out. Never kept, and nothing sent with a lookup feeds our data.
+	UserAgent *string `form:"user_agent,omitempty" json:"user_agent,omitempty"`
+}
 
 // AccountCreateApikeyJSONRequestBody defines body for AccountCreateApikey for application/json ContentType.
 type AccountCreateApikeyJSONRequestBody = AccountCreateApikeyRequest
@@ -1830,6 +1959,8 @@ type ClientInterface interface {
 	// kept, so `reveal` will refuse it permanently; rotating produces one
 	// that can be read.
 	//
+	// Needs the `apikeys.read` scope.
+	//
 	// Corresponds with GET /api/v1/iam/apikeys (the `AccountListApikeys` operationId).
 	AccountListApikeys(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -1839,6 +1970,8 @@ type ClientInterface interface {
 	//
 	// Store the secret now. Reading it back later takes `reveal` and the
 	// `apikeys.reveal` scope.
+	//
+	// Needs the `apikeys.manage` scope.
 	//
 	// Takes any type of body and a specified content type.
 	//
@@ -1851,6 +1984,8 @@ type ClientInterface interface {
 	//
 	// Store the secret now. Reading it back later takes `reveal` and the
 	// `apikeys.reveal` scope.
+	//
+	// Needs the `apikeys.manage` scope.
 	//
 	// Takes a body of the `application/json` content type.
 	//
@@ -1867,6 +2002,8 @@ type ClientInterface interface {
 	// Refused with `NOT_RETRIEVABLE` for a key issued before we kept secrets.
 	// Rotate that key instead.
 	//
+	// Needs the `apikeys.reveal` scope.
+	//
 	// Corresponds with POST /api/v1/iam/apikeys/{id}/reveal (the `AccountRevealApikey` operationId).
 	AccountRevealApikey(ctx context.Context, id ApikeyIDParam, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -1875,6 +2012,8 @@ type ClientInterface interface {
 	// Stops the key working. Revocation is soft: the key stays listed with a
 	// `revoked_at`, because the organization still owns whatever it did while
 	// it was alive.
+	//
+	// Needs the `apikeys.manage` scope.
 	//
 	// Corresponds with POST /api/v1/iam/apikeys/{id}/revoke (the `AccountRevokeApikey` operationId).
 	AccountRevokeApikey(ctx context.Context, id ApikeyIDParam, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -1902,6 +2041,8 @@ type ClientInterface interface {
 	// `scopes` is what the credential may do now, so a client can check
 	// before it calls.
 	//
+	// Needs the `account.read` scope.
+	//
 	// Corresponds with GET /api/v1/iam/identity (the `AccountIdentity` operationId).
 	AccountIdentity(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -1911,6 +2052,8 @@ type ClientInterface interface {
 	//
 	// A credential belongs to one organization, so this takes no ID.
 	//
+	// Needs the `org.read` scope.
+	//
 	// Corresponds with GET /api/v1/iam/org (the `AccountOrg` operationId).
 	AccountOrg(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -1919,6 +2062,8 @@ type ClientInterface interface {
 	// The members of the organization this credential is scoped to.
 	//
 	// Read-only. Members are invited by email from the console.
+	//
+	// Needs the `org.read` scope.
 	//
 	// Corresponds with GET /api/v1/iam/org/members (the `AccountOrgMembers` operationId).
 	AccountOrgMembers(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -1993,7 +2138,7 @@ type ClientInterface interface {
 	// made it. That is usually the point of asking.
 	//
 	// Corresponds with GET /myip (the `LookupMyIP` operationId).
-	LookupMyIP(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+	LookupMyIP(ctx context.Context, params *LookupMyIPParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// OauthAuthorize Authorize
 	//
@@ -2186,7 +2331,7 @@ type ClientInterface interface {
 	// `is_anycast`, `hostname`, `location` and `asn`.
 	//
 	// Corresponds with GET /{ip} (the `LookupIP` operationId).
-	LookupIP(ctx context.Context, ip string, reqEditors ...RequestEditorFn) (*http.Response, error)
+	LookupIP(ctx context.Context, ip string, params *LookupIPParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 }
 
 // OauthMetadata Discovery
@@ -2331,6 +2476,8 @@ func (c *Client) MyEntitlement(ctx context.Context, reqEditors ...RequestEditorF
 // kept, so `reveal` will refuse it permanently; rotating produces one
 // that can be read.
 //
+// Needs the `apikeys.read` scope.
+//
 // Corresponds with GET /api/v1/iam/apikeys (the `AccountListApikeys` operationId).
 func (c *Client) AccountListApikeys(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewAccountListApikeysRequest(c.Server)
@@ -2350,6 +2497,8 @@ func (c *Client) AccountListApikeys(ctx context.Context, reqEditors ...RequestEd
 //
 // Store the secret now. Reading it back later takes `reveal` and the
 // `apikeys.reveal` scope.
+//
+// Needs the `apikeys.manage` scope.
 //
 // Takes any type of body and a specified content type.
 //
@@ -2372,6 +2521,8 @@ func (c *Client) AccountCreateApikeyWithBody(ctx context.Context, contentType st
 //
 // Store the secret now. Reading it back later takes `reveal` and the
 // `apikeys.reveal` scope.
+//
+// Needs the `apikeys.manage` scope.
 //
 // Takes a body of the `application/json` content type.
 //
@@ -2398,6 +2549,8 @@ func (c *Client) AccountCreateApikey(ctx context.Context, body AccountCreateApik
 // Refused with `NOT_RETRIEVABLE` for a key issued before we kept secrets.
 // Rotate that key instead.
 //
+// Needs the `apikeys.reveal` scope.
+//
 // Corresponds with POST /api/v1/iam/apikeys/{id}/reveal (the `AccountRevealApikey` operationId).
 func (c *Client) AccountRevealApikey(ctx context.Context, id ApikeyIDParam, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewAccountRevealApikeyRequest(c.Server, id)
@@ -2416,6 +2569,8 @@ func (c *Client) AccountRevealApikey(ctx context.Context, id ApikeyIDParam, reqE
 // Stops the key working. Revocation is soft: the key stays listed with a
 // `revoked_at`, because the organization still owns whatever it did while
 // it was alive.
+//
+// Needs the `apikeys.manage` scope.
 //
 // Corresponds with POST /api/v1/iam/apikeys/{id}/revoke (the `AccountRevokeApikey` operationId).
 func (c *Client) AccountRevokeApikey(ctx context.Context, id ApikeyIDParam, reqEditors ...RequestEditorFn) (*http.Response, error) {
@@ -2463,6 +2618,8 @@ func (c *Client) AccountRotateApikey(ctx context.Context, id ApikeyIDParam, reqE
 // `scopes` is what the credential may do now, so a client can check
 // before it calls.
 //
+// Needs the `account.read` scope.
+//
 // Corresponds with GET /api/v1/iam/identity (the `AccountIdentity` operationId).
 func (c *Client) AccountIdentity(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewAccountIdentityRequest(c.Server)
@@ -2482,6 +2639,8 @@ func (c *Client) AccountIdentity(ctx context.Context, reqEditors ...RequestEdito
 //
 // A credential belongs to one organization, so this takes no ID.
 //
+// Needs the `org.read` scope.
+//
 // Corresponds with GET /api/v1/iam/org (the `AccountOrg` operationId).
 func (c *Client) AccountOrg(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewAccountOrgRequest(c.Server)
@@ -2500,6 +2659,8 @@ func (c *Client) AccountOrg(ctx context.Context, reqEditors ...RequestEditorFn) 
 // The members of the organization this credential is scoped to.
 //
 // Read-only. Members are invited by email from the console.
+//
+// Needs the `org.read` scope.
 //
 // Corresponds with GET /api/v1/iam/org/members (the `AccountOrgMembers` operationId).
 func (c *Client) AccountOrgMembers(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
@@ -2604,8 +2765,8 @@ func (c *Client) LookupBatch(ctx context.Context, body LookupBatchJSONRequestBod
 // made it. That is usually the point of asking.
 //
 // Corresponds with GET /myip (the `LookupMyIP` operationId).
-func (c *Client) LookupMyIP(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewLookupMyIPRequest(c.Server)
+func (c *Client) LookupMyIP(ctx context.Context, params *LookupMyIPParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewLookupMyIPRequest(c.Server, params)
 	if err != nil {
 		return nil, err
 	}
@@ -2897,8 +3058,8 @@ func (c *Client) OauthTokenWithFormdataBody(ctx context.Context, body OauthToken
 // `is_anycast`, `hostname`, `location` and `asn`.
 //
 // Corresponds with GET /{ip} (the `LookupIP` operationId).
-func (c *Client) LookupIP(ctx context.Context, ip string, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewLookupIPRequest(c.Server, ip)
+func (c *Client) LookupIP(ctx context.Context, ip string, params *LookupIPParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewLookupIPRequest(c.Server, ip, params)
 	if err != nil {
 		return nil, err
 	}
@@ -3513,7 +3674,7 @@ func NewLookupBatchRequestWithBody(server string, contentType string, body io.Re
 }
 
 // NewLookupMyIPRequest constructs an http.Request for the LookupMyIP method
-func NewLookupMyIPRequest(server string) (*http.Request, error) {
+func NewLookupMyIPRequest(server string, params *LookupMyIPParams) (*http.Request, error) {
 	var err error
 
 	serverURL, err := url.Parse(server)
@@ -3529,6 +3690,33 @@ func NewLookupMyIPRequest(server string) (*http.Request, error) {
 	queryURL, err := serverURL.Parse(operationPath)
 	if err != nil {
 		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if params.UserAgent != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "user_agent", *params.UserAgent, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
 	}
 
 	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
@@ -3818,7 +4006,7 @@ func NewOauthTokenRequestWithBody(server string, contentType string, body io.Rea
 }
 
 // NewLookupIPRequest constructs an http.Request for the LookupIP method
-func NewLookupIPRequest(server string, ip string) (*http.Request, error) {
+func NewLookupIPRequest(server string, ip string, params *LookupIPParams) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -3841,6 +4029,33 @@ func NewLookupIPRequest(server string, ip string) (*http.Request, error) {
 	queryURL, err := serverURL.Parse(operationPath)
 	if err != nil {
 		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if params.UserAgent != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "user_agent", *params.UserAgent, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
 	}
 
 	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
@@ -3981,6 +4196,8 @@ type ClientWithResponsesInterface interface {
 	// kept, so `reveal` will refuse it permanently; rotating produces one
 	// that can be read.
 	//
+	// Needs the `apikeys.read` scope.
+	//
 	// Returns a wrapper object for the known response body format(s).
 	//
 	// Corresponds with GET /api/v1/iam/apikeys (the `AccountListApikeys` operationId).
@@ -3993,6 +4210,8 @@ type ClientWithResponsesInterface interface {
 	// Store the secret now. Reading it back later takes `reveal` and the
 	// `apikeys.reveal` scope.
 	//
+	// Needs the `apikeys.manage` scope.
+	//
 	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
 	//
 	// Corresponds with POST /api/v1/iam/apikeys (the `AccountCreateApikey` operationId).
@@ -4004,6 +4223,8 @@ type ClientWithResponsesInterface interface {
 	//
 	// Store the secret now. Reading it back later takes `reveal` and the
 	// `apikeys.reveal` scope.
+	//
+	// Needs the `apikeys.manage` scope.
 	//
 	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 	//
@@ -4020,6 +4241,8 @@ type ClientWithResponsesInterface interface {
 	// Refused with `NOT_RETRIEVABLE` for a key issued before we kept secrets.
 	// Rotate that key instead.
 	//
+	// Needs the `apikeys.reveal` scope.
+	//
 	// Returns a wrapper object for the known response body format(s).
 	//
 	// Corresponds with POST /api/v1/iam/apikeys/{id}/reveal (the `AccountRevealApikey` operationId).
@@ -4030,6 +4253,8 @@ type ClientWithResponsesInterface interface {
 	// Stops the key working. Revocation is soft: the key stays listed with a
 	// `revoked_at`, because the organization still owns whatever it did while
 	// it was alive.
+	//
+	// Needs the `apikeys.manage` scope.
 	//
 	// Returns a wrapper object for the known response body format(s).
 	//
@@ -4061,6 +4286,8 @@ type ClientWithResponsesInterface interface {
 	// `scopes` is what the credential may do now, so a client can check
 	// before it calls.
 	//
+	// Needs the `account.read` scope.
+	//
 	// Returns a wrapper object for the known response body format(s).
 	//
 	// Corresponds with GET /api/v1/iam/identity (the `AccountIdentity` operationId).
@@ -4072,6 +4299,8 @@ type ClientWithResponsesInterface interface {
 	//
 	// A credential belongs to one organization, so this takes no ID.
 	//
+	// Needs the `org.read` scope.
+	//
 	// Returns a wrapper object for the known response body format(s).
 	//
 	// Corresponds with GET /api/v1/iam/org (the `AccountOrg` operationId).
@@ -4082,6 +4311,8 @@ type ClientWithResponsesInterface interface {
 	// The members of the organization this credential is scoped to.
 	//
 	// Read-only. Members are invited by email from the console.
+	//
+	// Needs the `org.read` scope.
 	//
 	// Returns a wrapper object for the known response body format(s).
 	//
@@ -4160,7 +4391,7 @@ type ClientWithResponsesInterface interface {
 	// Returns a wrapper object for the known response body format(s).
 	//
 	// Corresponds with GET /myip (the `LookupMyIP` operationId).
-	LookupMyIPWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*LookupMyIPResponse, error)
+	LookupMyIPWithResponse(ctx context.Context, params *LookupMyIPParams, reqEditors ...RequestEditorFn) (*LookupMyIPResponse, error)
 
 	// OauthAuthorizeWithResponse Authorize
 	//
@@ -4357,7 +4588,7 @@ type ClientWithResponsesInterface interface {
 	// Returns a wrapper object for the known response body format(s).
 	//
 	// Corresponds with GET /{ip} (the `LookupIP` operationId).
-	LookupIPWithResponse(ctx context.Context, ip string, reqEditors ...RequestEditorFn) (*LookupIPResponse, error)
+	LookupIPWithResponse(ctx context.Context, ip string, params *LookupIPParams, reqEditors ...RequestEditorFn) (*LookupIPResponse, error)
 }
 
 type OauthMetadataResponse struct {
@@ -5897,6 +6128,8 @@ func (c *ClientWithResponses) MyEntitlementWithResponse(ctx context.Context, req
 // kept, so `reveal` will refuse it permanently; rotating produces one
 // that can be read.
 //
+// Needs the `apikeys.read` scope.
+//
 // Returns a wrapper object for the known response body format(s).
 //
 // Corresponds with GET /api/v1/iam/apikeys (the `AccountListApikeys` operationId).
@@ -5915,6 +6148,8 @@ func (c *ClientWithResponses) AccountListApikeysWithResponse(ctx context.Context
 // Store the secret now. Reading it back later takes `reveal` and the
 // `apikeys.reveal` scope.
 //
+// Needs the `apikeys.manage` scope.
+//
 // Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
 //
 // Corresponds with POST /api/v1/iam/apikeys (the `AccountCreateApikey` operationId).
@@ -5932,6 +6167,8 @@ func (c *ClientWithResponses) AccountCreateApikeyWithBodyWithResponse(ctx contex
 //
 // Store the secret now. Reading it back later takes `reveal` and the
 // `apikeys.reveal` scope.
+//
+// Needs the `apikeys.manage` scope.
 //
 // Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 //
@@ -5954,6 +6191,8 @@ func (c *ClientWithResponses) AccountCreateApikeyWithResponse(ctx context.Contex
 // Refused with `NOT_RETRIEVABLE` for a key issued before we kept secrets.
 // Rotate that key instead.
 //
+// Needs the `apikeys.reveal` scope.
+//
 // Returns a wrapper object for the known response body format(s).
 //
 // Corresponds with POST /api/v1/iam/apikeys/{id}/reveal (the `AccountRevealApikey` operationId).
@@ -5970,6 +6209,8 @@ func (c *ClientWithResponses) AccountRevealApikeyWithResponse(ctx context.Contex
 // Stops the key working. Revocation is soft: the key stays listed with a
 // `revoked_at`, because the organization still owns whatever it did while
 // it was alive.
+//
+// Needs the `apikeys.manage` scope.
 //
 // Returns a wrapper object for the known response body format(s).
 //
@@ -6013,6 +6254,8 @@ func (c *ClientWithResponses) AccountRotateApikeyWithResponse(ctx context.Contex
 // `scopes` is what the credential may do now, so a client can check
 // before it calls.
 //
+// Needs the `account.read` scope.
+//
 // Returns a wrapper object for the known response body format(s).
 //
 // Corresponds with GET /api/v1/iam/identity (the `AccountIdentity` operationId).
@@ -6030,6 +6273,8 @@ func (c *ClientWithResponses) AccountIdentityWithResponse(ctx context.Context, r
 //
 // A credential belongs to one organization, so this takes no ID.
 //
+// Needs the `org.read` scope.
+//
 // Returns a wrapper object for the known response body format(s).
 //
 // Corresponds with GET /api/v1/iam/org (the `AccountOrg` operationId).
@@ -6046,6 +6291,8 @@ func (c *ClientWithResponses) AccountOrgWithResponse(ctx context.Context, reqEdi
 // The members of the organization this credential is scoped to.
 //
 // Read-only. Members are invited by email from the console.
+//
+// Needs the `org.read` scope.
 //
 // Returns a wrapper object for the known response body format(s).
 //
@@ -6142,8 +6389,8 @@ func (c *ClientWithResponses) LookupBatchWithResponse(ctx context.Context, body 
 // Returns a wrapper object for the known response body format(s).
 //
 // Corresponds with GET /myip (the `LookupMyIP` operationId).
-func (c *ClientWithResponses) LookupMyIPWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*LookupMyIPResponse, error) {
-	rsp, err := c.LookupMyIP(ctx, reqEditors...)
+func (c *ClientWithResponses) LookupMyIPWithResponse(ctx context.Context, params *LookupMyIPParams, reqEditors ...RequestEditorFn) (*LookupMyIPResponse, error) {
+	rsp, err := c.LookupMyIP(ctx, params, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -6399,8 +6646,8 @@ func (c *ClientWithResponses) OauthTokenWithFormdataBodyWithResponse(ctx context
 // Returns a wrapper object for the known response body format(s).
 //
 // Corresponds with GET /{ip} (the `LookupIP` operationId).
-func (c *ClientWithResponses) LookupIPWithResponse(ctx context.Context, ip string, reqEditors ...RequestEditorFn) (*LookupIPResponse, error) {
-	rsp, err := c.LookupIP(ctx, ip, reqEditors...)
+func (c *ClientWithResponses) LookupIPWithResponse(ctx context.Context, ip string, params *LookupIPParams, reqEditors ...RequestEditorFn) (*LookupIPResponse, error) {
+	rsp, err := c.LookupIP(ctx, ip, params, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
