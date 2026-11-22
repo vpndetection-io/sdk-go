@@ -21,6 +21,10 @@ type (
 	WebDetail         = api.WebDetail
 	DNSResolverDetail = api.DNSResolverDetail
 	BitTorrentDetail  = api.BitTorrentDetail
+	// BotDetail is whose bot uses the address, on a paid plan: its operator,
+	// its bots as their user agents name them, what they do, and whether the
+	// operator vouches for the address. Empty when IsBot is false.
+	BotDetail = api.BotDetail
 	// Location is where the address is, on every answer, with or without a
 	// key. The finer members, Region down to AccuracyRadius, are a paid plan's.
 	Location = api.Location

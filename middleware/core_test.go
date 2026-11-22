@@ -70,6 +70,35 @@ func TestNewSendsToTheBaseURL(t *testing.T) {
 	}
 }
 
+// is_bot is on every plan, so a condition on it decides on any answer: a bot's
+// address from a public peer is blocked and another passes.
+func TestAnIsBotConditionBlocksABotsAddressAndPassesAnother(t *testing.T) {
+	for isBot, blocked := range map[string]bool{"true": true, "false": false} {
+		origin := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = io.WriteString(w, `{"ip":"9.9.9.9","is_vpn":false,"is_bot":`+isBot+`}`)
+		}))
+		core, err := middleware.New(middleware.Options[string]{
+			BaseURL:        origin.URL,
+			BlockCondition: middleware.Conditions{{"is_bot": true}},
+		}, selectorOf(publicIP))
+		if err != nil {
+			t.Fatalf("New: %v", err)
+		}
+		lookup, err := core.Evaluate(t.Context(), "request")
+		origin.Close()
+		if err != nil || lookup.Err != nil {
+			t.Fatalf("is_bot %s: Evaluate: %v, %v", isBot, err, lookup.Err)
+		}
+		if lookup.Result.IsBot == nil || *lookup.Result.IsBot != blocked {
+			t.Errorf("is_bot %s: attached IsBot = %v, want %v", isBot, lookup.Result.IsBot, blocked)
+		}
+		if lookup.Blocked != blocked {
+			t.Errorf("is_bot %s: Blocked = %v, want %v", isBot, lookup.Blocked, blocked)
+		}
+	}
+}
+
 func TestNewRefusesABaseURLWithNoScheme(t *testing.T) {
 	if _, err := middleware.New(middleware.Options[string]{BaseURL: "api.vpndetection.io"}, selectorOf(publicIP)); err == nil {
 		t.Error("New accepted a base URL with no scheme")
