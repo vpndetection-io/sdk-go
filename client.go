@@ -4,7 +4,8 @@
 //
 // Start with New and Client.Lookup. No API key is needed: without one a lookup
 // is on Unlimited, the free plan, answering ip, is_vpn, the Tor and relay
-// members, is_anycast, hostname, location and asn with no daily or monthly cap.
+// members, is_bot, is_anycast, hostname, location and asn with no daily or
+// monthly cap.
 // A batch needs a paid plan.
 package vpndetection
 
