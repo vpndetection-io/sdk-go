@@ -47,6 +47,8 @@ var members = map[string]detail{
 	"dns_resolver": {required: []string{"port", "rcode", "answer_correct", "recursion_available", "first_seen", "last_seen"}},
 	"bittorrent": {required: []string{"clients", "days_seen", "first_seen", "last_seen", "last_reachable",
 		"num_ports", "peak_num_ports", "id_matches_ip", "indexer", "verified"}},
+	"bot": {required: []string{"provider", "provider_name", "agents", "categories", "verified", "identity",
+		"verified_by", "confidence", "first_seen", "last_seen"}},
 }
 
 // A dataset the API answers as a LIST of rows, one per service seen, empty when
