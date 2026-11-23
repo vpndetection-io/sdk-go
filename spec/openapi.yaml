@@ -1292,7 +1292,7 @@ paths:
                     A key of an organization on the free plan, Unlimited: its usage is its trial,
                     the lookups answered with every field, out of the quota the trial has. Nothing
                     stops it past them, its lookups answering with Unlimited's fields, so there is
-                    no hard limit.
+                    no hard limit
                   value:
                     org_id: f32191d0-ef02-450e-a505-eb5814c35cab
                     apikey:
@@ -1307,8 +1307,8 @@ paths:
                       requests: 37
                       quota: 100
                       hard_limit: null
-                      window_start: '2026-11-11T00:00:00Z'
-                      window_end: '2026-11-12T00:00:00Z'
+                      window_start: '2026-11-01T00:00:00Z'
+                      window_end: '2026-12-01T00:00:00Z'
         '401':
           description: No key was presented, or it is unknown, revoked or expired.
           content:
