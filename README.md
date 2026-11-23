@@ -116,6 +116,23 @@ results, err := client.LookupBatch(ctx, manyIPs,
 
 Every request names the SDK in its `User-Agent`, `vpndetection-go/<version>`, object storage's included. A program built on the SDK can put its own name first in the transport it passes to `WithHTTPClient`, which sees that header already set.
 
+### A visitor's user agent
+
+Pass the `User-Agent` of the request you are deciding on, and with every field (a paid plan or the trial) the answer says whose bot it names and whether this address bears that out, so a real crawler can be told from one forging its agent:
+
+```go
+result, err := client.Lookup(ctx, ip, vpndetection.UserAgent(r.UserAgent()))
+if result.UserAgent != nil && result.UserAgent.Verdict == vpndetection.VerdictVerified {
+    // Googlebot, from one of Google's own addresses.
+}
+
+results, err := client.LookupBatch(ctx, ips, vpndetection.UserAgents(map[string]string{
+    "66.249.66.1": "Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)",
+}))
+```
+
+The verdict is `VerdictVerified`, `VerdictSpoofed`, `VerdictUnverifiable` or `VerdictNotBot`. `UserAgent` works on `MyIP` too, and on a batch it is every address's agent except one `UserAgents` names. An empty agent sends none, and `UserAgent` is nil without a key, on a free key past its trial, and for a private or reserved address. An answer for an address and an agent is cached apart from that address's plain answer.
+
 ### Caching
 
 Answers are cached by default, so repeat lookups of the same address are free:
