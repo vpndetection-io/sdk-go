@@ -49,6 +49,8 @@ var members = map[string]detail{
 		"num_ports", "peak_num_ports", "id_matches_ip", "indexer", "verified"}},
 	"bot": {required: []string{"provider", "provider_name", "agents", "categories", "verified", "identity",
 		"verified_by", "confidence", "first_seen", "last_seen"}},
+	"pubproxy": {required: []string{"entry", "exit", "protocols", "num_ports", "num_proxies", "last_seen",
+		"last_usable"}},
 }
 
 // A dataset the API answers as a LIST of rows, one per service seen, empty when
