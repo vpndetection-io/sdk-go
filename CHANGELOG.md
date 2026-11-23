@@ -2,6 +2,18 @@
 
 What each release changed for you, newest first. Each line is a commit's summary, linked to its full description and diff. Releases before 5.3.2 are described by their release commits.
 
+## 5.20.0 - 2026-11-23
+
+### Features
+
+- Send a visitor's user agent with a lookup or a batch ([`c026ecd`](https://github.com/vpndetection-io/sdk-go/commit/c026ecd71a4ea557aa5a5a323a0000ae55fbcb1e))
+- Middleware: AllowBots lets a verified crawler through ([`78d48c6`](https://github.com/vpndetection-io/sdk-go/commit/78d48c6596ca8d45286556509aed314571751f14))
+- README: send a visitor's user agent, and read whose bot it names ([`a0eb48b`](https://github.com/vpndetection-io/sdk-go/commit/a0eb48b7f689d0402bfd5a2d2580cb23ad76e0b2))
+
+### Fixes
+
+- Re-pin the spec to 2026.11.22's published copy ([`2743133`](https://github.com/vpndetection-io/sdk-go/commit/2743133260fde526db3993911c18180574799ddb))
+
 ## 5.19.0 - 2026-11-22
 
 ### Features
