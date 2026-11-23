@@ -38,6 +38,27 @@ type (
 	// Date is a calendar date with no time of day, as `last_seen` and
 	// `first_seen` carry.
 	Date = types.Date
+	// UserAgentVerdict is whose bot the user agent sent with a lookup names,
+	// and whether this address bears that out. Only an answer to a lookup
+	// sent with UserAgent carries one, with every field.
+	UserAgentVerdict = api.UserAgentVerdict
+	// Verdict is UserAgentVerdict.Verdict: VerdictVerified, VerdictSpoofed,
+	// VerdictUnverifiable or VerdictNotBot.
+	Verdict = api.UserAgentVerdictVerdict
+)
+
+// The verdicts a UserAgentVerdict carries.
+const (
+	// VerdictVerified is an agent whose operator vouches for this address as it.
+	VerdictVerified = api.Verified
+	// VerdictSpoofed is a bot whose operator does not vouch for this address,
+	// or an address that posed as the bot before.
+	VerdictSpoofed = api.Spoofed
+	// VerdictUnverifiable is a bot no published list or registered space can
+	// confirm.
+	VerdictUnverifiable = api.Unverifiable
+	// VerdictNotBot is a browser, an app or a script.
+	VerdictNotBot = api.NotBot
 )
 
 // Result is what a lookup answers.
