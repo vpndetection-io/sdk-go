@@ -183,6 +183,17 @@ func matchesStruct(condition BlockCondition, value reflect.Value) bool {
 // match rather than pass it. A new branch that skips that check would silently
 // let an unserved member block a request.
 func matchesValue(want any, got reflect.Value) bool {
+	// A term on a member the answer holds as a list (pubproxy.protocols, the
+	// web rows) matches when any element matches it; compared against the list
+	// itself it would never fire, and a block condition would do nothing.
+	if got.Kind() == reflect.Slice || got.Kind() == reflect.Array {
+		for i := 0; i < got.Len(); i++ {
+			if matchesValue(want, deref(got.Index(i))) {
+				return true
+			}
+		}
+		return false
+	}
 	switch w := want.(type) {
 	case anyOf:
 		for _, entry := range w {
