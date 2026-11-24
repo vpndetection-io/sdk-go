@@ -10,6 +10,8 @@ import (
 	"slices"
 	"strings"
 	"time"
+
+	"github.com/oapi-codegen/runtime/types"
 )
 
 // Reads the JSON answer a call returns. Anything but a 2xx is classified by its
@@ -70,6 +72,26 @@ var (
 // refused absent or null, as any required member is.
 var heldRequired = map[reflect.Type][]string{
 	reflect.TypeFor[Asn](): {"country", "rpki_status"},
+}
+
+// The spec's dates overlay.yaml keeps as v5's strings, read as Date reads
+// ProxyDetail's days; through v5.20.0 any string was read.
+var heldDates = map[reflect.Type][]string{
+	reflect.TypeFor[BotDetail]():         {"first_seen", "last_seen"},
+	reflect.TypeFor[SSHDetail]():         {"first_seen", "last_seen"},
+	reflect.TypeFor[SMTPDetail]():        {"first_seen", "last_seen"},
+	reflect.TypeFor[WebDetail]():         {"first_seen", "last_seen"},
+	reflect.TypeFor[DNSResolverDetail](): {"first_seen", "last_seen"},
+	reflect.TypeFor[BitTorrentDetail]():  {"first_seen", "last_seen"},
+}
+
+func isDay(raw any) bool {
+	value, ok := raw.(string)
+	if !ok {
+		return false
+	}
+	_, err := time.Parse(types.DateFormat, value)
+	return err == nil
 }
 
 // RFC 3339's date-time, its T and Z in either case. time.Time reads a one-digit
@@ -141,6 +163,9 @@ func complete(t reflect.Type, raw any) (any, bool) {
 			}
 			if present {
 				if object[name], ok = complete(field.Type, value); !ok {
+					return raw, false
+				}
+				if value != nil && slices.Contains(heldDates[t], name) && !isDay(value) {
 					return raw, false
 				}
 			}
