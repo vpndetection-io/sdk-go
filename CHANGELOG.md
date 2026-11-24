@@ -2,6 +2,12 @@
 
 What each release changed for you, newest first. Each line is a commit's summary, linked to its full description and diff. Releases before 5.3.2 are described by their release commits.
 
+## 5.21.0 - 2026-11-24
+
+### Fixes
+
+- Middleware: a condition on a list member matches any element ([`1f6d02e`](https://github.com/vpndetection-io/sdk-go/commit/1f6d02ee04d999aa00c411b9a1f51f11428a32da))
+
 ## 5.20.1 - 2026-11-24
 
 ### Fixes
