@@ -7,7 +7,10 @@
 # stop being an int and Asn.Country and Asn.RpkiStatus would stop being
 # pointers, so every caller reading them would stop compiling. The decoder
 # still refuses an answer without either member (heldRequired, decode.go).
-# SatelliteDetail.Asn stays an *int the same way. Drop this file at v6.
+# SatelliteDetail.Asn stays an *int the same way. Spec 2026.11.23 gave the
+# first_seen and last_seen of the bot, SSH, SMTP, web, DNS resolver and
+# BitTorrent details format: date; they stay strings, each read as a day
+# (heldDates, decode.go). Drop this file at v6.
 overlay: 1.0.0
 info:
   title: Public types held at their v5 shape
@@ -20,4 +23,28 @@ actions:
   - target: $.components.schemas.Asn.properties.asn.format
     remove: true
   - target: $.components.schemas.SatelliteDetail.properties.asn.format
+    remove: true
+  - target: $.components.schemas.BotDetail.properties.first_seen.format
+    remove: true
+  - target: $.components.schemas.BotDetail.properties.last_seen.format
+    remove: true
+  - target: $.components.schemas.SshDetail.properties.first_seen.format
+    remove: true
+  - target: $.components.schemas.SshDetail.properties.last_seen.format
+    remove: true
+  - target: $.components.schemas.SmtpDetail.properties.first_seen.format
+    remove: true
+  - target: $.components.schemas.SmtpDetail.properties.last_seen.format
+    remove: true
+  - target: $.components.schemas.WebDetail.properties.first_seen.format
+    remove: true
+  - target: $.components.schemas.WebDetail.properties.last_seen.format
+    remove: true
+  - target: $.components.schemas.DnsResolverDetail.properties.first_seen.format
+    remove: true
+  - target: $.components.schemas.DnsResolverDetail.properties.last_seen.format
+    remove: true
+  - target: $.components.schemas.BitTorrentDetail.properties.first_seen.format
+    remove: true
+  - target: $.components.schemas.BitTorrentDetail.properties.last_seen.format
     remove: true
