@@ -2,6 +2,13 @@
 
 What each release changed for you, newest first. Each line is a commit's summary, linked to its full description and diff. Releases before 5.3.2 are described by their release commits.
 
+## 5.21.1 - 2026-11-25
+
+### Fixes
+
+- Spec 2026.11.25: doc comments name a paid plan, the entitlement example the Data plan ([`706b27d`](https://github.com/vpndetection-io/sdk-go/commit/706b27d50ab6e0481903dd27f30fe3142470d113))
+- README: one paid plan, Data; the entitlement example names it ([`3f94ed4`](https://github.com/vpndetection-io/sdk-go/commit/3f94ed49b4eef4214e58f356e022c05bc28ba831))
+
 ## 5.21.0 - 2026-11-24
 
 ### Fixes
