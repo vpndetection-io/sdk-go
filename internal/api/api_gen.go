@@ -190,7 +190,7 @@ func (e OauthAuthorizeParamsCodeChallengeMethod) Valid() bool {
 }
 
 // AbuseContact Where to report abuse from the address, from our IP Abuse Contact
-// database. Paid plans. Every key is present whenever the object is: empty
+// database. On a paid plan. Every key is present whenever the object is: empty
 // strings where no record covers the address.
 type AbuseContact struct {
 	// Address Its postal address.
@@ -591,7 +591,7 @@ type ClientRegistrationRequest struct {
 	TokenEndpointAuthMethod *string `json:"token_endpoint_auth_method,omitempty"`
 }
 
-// Company Who uses the address, from our IP Company database. Paid plans. Every
+// Company Who uses the address, from our IP Company database. On a paid plan. Every
 // key is present whenever the object is: empty strings where no record
 // covers the address.
 type Company struct {
@@ -871,10 +871,11 @@ type EntitlementPlan struct {
 	// Key The plan the organization is on, as an identifier that is never
 	// renamed or reused: `free` for the free plan, or a paid plan's key.
 	// Compare against it and show `name`. On `free`, usage counts its
-	// trial, the lookups answered with every field.
+	// trial, the lookups answered with every field. The Data plan is a key
+	// per quota, `data_1` to `data_7`, each named Data.
 	//
 	//
-	// Example: max
+	// Example: data_4
 	Key string `json:"key"`
 
 	// Name The plan's name, as the site and console show it: `Unlimited` for
@@ -882,7 +883,7 @@ type EntitlementPlan struct {
 	// plan's name can change, and its key never does.
 	//
 	//
-	// Example: Max
+	// Example: Data
 	Name string `json:"name"`
 
 	// Tier The field tier, which decides how much of a lookup answer comes
@@ -917,10 +918,12 @@ type EntitlementUsage struct {
 	// API gates on, and it can lag by a few seconds.
 	Requests int64 `json:"requests"`
 
-	// WindowEnd When the allowance next resets.
+	// WindowEnd When the allowance next resets. On the free plan, when its trial
+	// ends, which it does once.
 	WindowEnd time.Time `json:"window_end"`
 
-	// WindowStart When the current allowance period began.
+	// WindowStart When the current allowance period began. On the free plan, when
+	// its trial began, or now before a first lookup starts it.
 	WindowStart time.Time `json:"window_start"`
 }
 
@@ -945,12 +948,12 @@ type Identity struct {
 // the object is, so an address in no country, or a private one, answers
 // empty strings and zeros.
 type Location struct {
-	// AccuracyRadius Radius in km holding the true location with 67% confidence; 20000 for an address announced everywhere, as an anycast one is. Paid plans.
+	// AccuracyRadius Radius in km holding the true location with 67% confidence; 20000 for an address announced everywhere, as an anycast one is. On a paid plan.
 	//
 	// Example: 10
 	AccuracyRadius *int `json:"accuracy_radius,omitempty"`
 
-	// City City. Paid plans.
+	// City City. On a paid plan.
 	//
 	// Example: Vienna
 	City *string `json:"city,omitempty"`
@@ -990,7 +993,7 @@ type Location struct {
 	// Example: €
 	CurrencySymbol string `json:"currency_symbol"`
 
-	// DmaCode US TV market (DMA) code, empty outside the US. Paid plans.
+	// DmaCode US TV market (DMA) code, empty outside the US. On a paid plan.
 	//
 	// Example:
 	DmaCode *string `json:"dma_code,omitempty"`
@@ -1005,37 +1008,37 @@ type Location struct {
 	// Example: U+1F1E6 U+1F1F9
 	FlagUnicode string `json:"flag_unicode"`
 
-	// GeonameID GeoNames ID of the city. Paid plans.
+	// GeonameID GeoNames ID of the city. On a paid plan.
 	//
 	// Example: 2761369
 	GeonameID *string `json:"geoname_id,omitempty"`
 
-	// LastChanged The day the range's location last changed. Paid plans.
+	// LastChanged The day the range's location last changed. On a paid plan.
 	//
 	// Example: 2026-10-06
 	LastChanged *string `json:"last_changed,omitempty"`
 
-	// Latitude Latitude of the city. Paid plans.
+	// Latitude Latitude of the city. On a paid plan.
 	//
 	// Example: 48.20849
 	Latitude *float32 `json:"latitude,omitempty"`
 
-	// Longitude Longitude of the city. Paid plans.
+	// Longitude Longitude of the city. On a paid plan.
 	//
 	// Example: 16.37208
 	Longitude *float32 `json:"longitude,omitempty"`
 
-	// PostalCode Postal code. Paid plans.
+	// PostalCode Postal code. On a paid plan.
 	//
 	// Example: 1230
 	PostalCode *string `json:"postal_code,omitempty"`
 
-	// Region Region (state or province). Paid plans.
+	// Region Region (state or province). On a paid plan.
 	//
 	// Example: Vienna
 	Region *string `json:"region,omitempty"`
 
-	// RegionCode ISO 3166-2 region code. Paid plans.
+	// RegionCode ISO 3166-2 region code. On a paid plan.
 	//
 	// Example: AT-9
 	RegionCode *string `json:"region_code,omitempty"`
@@ -1062,7 +1065,7 @@ type LookupError struct {
 // flag as unknown rather than as `false`.
 type LookupResponse struct {
 	// Abuse Where to report abuse from the address, from our IP Abuse Contact
-	// database. Paid plans. Every key is present whenever the object is: empty
+	// database. On a paid plan. Every key is present whenever the object is: empty
 	// strings where no record covers the address.
 	Abuse *AbuseContact `json:"abuse,omitempty"`
 
@@ -1072,10 +1075,10 @@ type LookupResponse struct {
 	// empty where no announcement covers the address.
 	Asn *Asn `json:"asn,omitempty"`
 
-	// Bittorrent Detail for `is_bittorrent`. Empty when false. Paid plans.
+	// Bittorrent Detail for `is_bittorrent`. Empty when false. On a paid plan.
 	Bittorrent *BitTorrentDetail `json:"bittorrent,omitempty"`
 
-	// Bot Detail for `is_bot`. Empty when false. Paid plans.
+	// Bot Detail for `is_bot`. Empty when false. On a paid plan.
 	Bot *BotDetail `json:"bot,omitempty"`
 
 	// CapReached On every answer to a key on a paid plan, and on no other: `false`
@@ -1085,24 +1088,24 @@ type LookupResponse struct {
 	// Billing turns it `false` again.
 	CapReached *bool `json:"cap_reached,omitempty"`
 
-	// Carrier Detail for `is_carrier`. Empty when false. Paid plans.
+	// Carrier Detail for `is_carrier`. Empty when false. On a paid plan.
 	Carrier *CarrierDetail `json:"carrier,omitempty"`
 
-	// Cdn Detail for `is_cdn`. Empty when false. Paid plans.
+	// Cdn Detail for `is_cdn`. Empty when false. On a paid plan.
 	Cdn *ClassDetail `json:"cdn,omitempty"`
 
-	// Company Who uses the address, from our IP Company database. Paid plans. Every
+	// Company Who uses the address, from our IP Company database. On a paid plan. Every
 	// key is present whenever the object is: empty strings where no record
 	// covers the address.
 	Company *Company `json:"company,omitempty"`
 
-	// Dcproxy Detail for `is_dcproxy`. Empty when false. Paid plans.
+	// Dcproxy Detail for `is_dcproxy`. Empty when false. On a paid plan.
 	Dcproxy *ProxyDetail `json:"dcproxy,omitempty"`
 
-	// DNSResolver Detail for `is_dns_resolver`. Empty when false. Paid plans.
+	// DNSResolver Detail for `is_dns_resolver`. Empty when false. On a paid plan.
 	DNSResolver *DNSResolverDetail `json:"dns_resolver,omitempty"`
 
-	// Hosting Detail for `is_hosting`. Empty when false. Paid plans.
+	// Hosting Detail for `is_hosting`. Empty when false. On a paid plan.
 	Hosting *ClassDetail `json:"hosting,omitempty"`
 
 	// Hostname The name the address's reverse DNS (PTR) record points to, from our IP RDNS database; an empty string when it has none. Every answer, with or without a key.
@@ -1118,7 +1121,7 @@ type LookupResponse struct {
 	// IsAnycast Whether the address is announced from many places at once, as a public DNS resolver's or a CDN's edge is. Every answer, with or without a key.
 	IsAnycast *bool `json:"is_anycast,omitempty"`
 
-	// IsBittorrent Whether a BitTorrent client was seen on the address in the last 90 days. Paid plans.
+	// IsBittorrent Whether a BitTorrent client was seen on the address in the last 90 days. On a paid plan.
 	IsBittorrent *bool `json:"is_bittorrent,omitempty"`
 
 	// IsBogon Whether the address is reserved space (RFC 1918, loopback, link-local,
@@ -1129,40 +1132,40 @@ type LookupResponse struct {
 	// IsBot Whether an automated client uses the address, such as a search engine's or an AI company's crawler, an uptime monitor, an internet scanner or a webhook sender. `bot` says whose, what it does and whether its operator vouches for the address. Every answer, with or without a key.
 	IsBot *bool `json:"is_bot,omitempty"`
 
-	// IsCarrier Whether the address is a mobile carrier's, where many phones can share one address. Paid plans.
+	// IsCarrier Whether the address is a mobile carrier's, where many phones can share one address. On a paid plan.
 	IsCarrier *bool `json:"is_carrier,omitempty"`
 
-	// IsCdn Whether the address belongs to a CDN. Paid plans.
+	// IsCdn Whether the address belongs to a CDN. On a paid plan.
 	IsCdn *bool `json:"is_cdn,omitempty"`
 
-	// IsDcproxy Whether the address is one a datacenter proxy service sells or runs on, a proxy company's own ranges included. Paid plans.
+	// IsDcproxy Whether the address is one a datacenter proxy service sells or runs on, a proxy company's own ranges included. On a paid plan.
 	IsDcproxy *bool `json:"is_dcproxy,omitempty"`
 
-	// IsDNSResolver Whether an open DNS resolver answered on the address. Paid plans.
+	// IsDNSResolver Whether an open DNS resolver answered on the address. On a paid plan.
 	IsDNSResolver *bool `json:"is_dns_resolver,omitempty"`
 
-	// IsHosting Whether the address belongs to a hosting or cloud provider. Paid plans.
+	// IsHosting Whether the address belongs to a hosting or cloud provider. On a paid plan.
 	IsHosting *bool `json:"is_hosting,omitempty"`
 
-	// IsMobproxy Whether the address was seen in a mobile proxy pool. Paid plans.
+	// IsMobproxy Whether the address was seen in a mobile proxy pool. On a paid plan.
 	IsMobproxy *bool `json:"is_mobproxy,omitempty"`
 
-	// IsPubproxy Whether a public proxy, one anyone can connect through, listens on the address or sends its traffic out from it. Paid plans.
+	// IsPubproxy Whether a public proxy, one anyone can connect through, listens on the address or sends its traffic out from it. On a paid plan.
 	IsPubproxy *bool `json:"is_pubproxy,omitempty"`
 
 	// IsRelay Whether the address is privacy relay or enterprise web gateway egress, such as iCloud Private Relay or Zscaler. Every answer, with or without a key.
 	IsRelay *bool `json:"is_relay,omitempty"`
 
-	// IsResproxy Whether the address was seen in a residential proxy pool. Paid plans.
+	// IsResproxy Whether the address was seen in a residential proxy pool. On a paid plan.
 	IsResproxy *bool `json:"is_resproxy,omitempty"`
 
-	// IsSatellite Whether the address is a satellite operator's. Paid plans.
+	// IsSatellite Whether the address is a satellite operator's. On a paid plan.
 	IsSatellite *bool `json:"is_satellite,omitempty"`
 
-	// IsSMTP Whether a mail server answered on the address. Paid plans.
+	// IsSMTP Whether a mail server answered on the address. On a paid plan.
 	IsSMTP *bool `json:"is_smtp,omitempty"`
 
-	// IsSSH Whether an SSH server answered on the address. Paid plans.
+	// IsSSH Whether an SSH server answered on the address. On a paid plan.
 	IsSSH *bool `json:"is_ssh,omitempty"`
 
 	// IsTor Whether the address is a Tor node. Every answer, with or without a key.
@@ -1173,7 +1176,7 @@ type LookupResponse struct {
 	// `true`.
 	IsVpn bool `json:"is_vpn"`
 
-	// IsWeb Whether a web server answered on the address, on port 80 or 443. Paid plans.
+	// IsWeb Whether a web server answered on the address, on port 80 or 443. On a paid plan.
 	IsWeb *bool `json:"is_web,omitempty"`
 
 	// Location Where the address is: the fields of our IP Country database on every
@@ -1183,25 +1186,25 @@ type LookupResponse struct {
 	// empty strings and zeros.
 	Location *Location `json:"location,omitempty"`
 
-	// Mobproxy Detail for `is_mobproxy`. Empty when false. Paid plans.
+	// Mobproxy Detail for `is_mobproxy`. Empty when false. On a paid plan.
 	Mobproxy *ProxyDetail `json:"mobproxy,omitempty"`
 
-	// Pubproxy Detail for `is_pubproxy`. Empty when false. Paid plans.
+	// Pubproxy Detail for `is_pubproxy`. Empty when false. On a paid plan.
 	Pubproxy *PubproxyDetail `json:"pubproxy,omitempty"`
 
 	// Relay Detail for `is_relay`. Empty when false. Every answer, with or without a key.
 	Relay *ClassDetail `json:"relay,omitempty"`
 
-	// Resproxy Detail for `is_resproxy`. Empty when false. Paid plans.
+	// Resproxy Detail for `is_resproxy`. Empty when false. On a paid plan.
 	Resproxy *ProxyDetail `json:"resproxy,omitempty"`
 
-	// Satellite Detail for `is_satellite`. Empty when false. Paid plans.
+	// Satellite Detail for `is_satellite`. Empty when false. On a paid plan.
 	Satellite *SatelliteDetail `json:"satellite,omitempty"`
 
-	// SMTP Detail for `is_smtp`. Empty when false. Paid plans.
+	// SMTP Detail for `is_smtp`. Empty when false. On a paid plan.
 	SMTP *SMTPDetail `json:"smtp,omitempty"`
 
-	// SSH Detail for `is_ssh`. Empty when false. Paid plans.
+	// SSH Detail for `is_ssh`. Empty when false. On a paid plan.
 	SSH *SSHDetail `json:"ssh,omitempty"`
 
 	// Tor Detail for `is_tor`. Empty when false. Every answer, with or without a
@@ -1218,10 +1221,10 @@ type LookupResponse struct {
 	// names and whether this address bears it out. Absent otherwise.
 	UserAgent *UserAgentVerdict `json:"user_agent,omitempty"`
 
-	// Vpn Detail for `is_vpn`. Empty when `is_vpn` is false. Paid plans.
+	// Vpn Detail for `is_vpn`. Empty when `is_vpn` is false. On a paid plan.
 	Vpn *VpnDetail `json:"vpn,omitempty"`
 
-	// Web Detail for `is_web`: a row per port that answered, lowest first, and `[]` when false. Paid plans.
+	// Web Detail for `is_web`: a row per port that answered, lowest first, and `[]` when false. On a paid plan.
 	Web *[]WebDetail `json:"web,omitempty"`
 }
 
