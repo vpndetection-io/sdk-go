@@ -44,7 +44,7 @@ if asn := result.Asn; asn != nil {
 
 ### With an API key
 
-Every paid plan answers every field: `is_hosting`, `is_cdn` and the four proxy flags as well, and the provider (its ID and its name), confidence and last-seen detail behind each flag; `is_carrier`, `is_satellite`, `is_ssh`, `is_smtp`, `is_web`, `is_dns_resolver` and `is_bittorrent`, with the detail behind each (`web` is a list, one row per web service seen); `bot` (whose bot it is and whether its operator vouches for the address); the `company` using the address and its `abuse` contact; and `location` down to the city, postal code and coordinates. The plans differ only in how many lookups they include, and a free account tries every field. Create a key in the [console](https://app.vpndetection.io), then pass it in:
+A paid plan answers every field: `is_hosting`, `is_cdn` and the four proxy flags as well, and the provider (its ID and its name), confidence and last-seen detail behind each flag; `is_carrier`, `is_satellite`, `is_ssh`, `is_smtp`, `is_web`, `is_dns_resolver` and `is_bittorrent`, with the detail behind each (`web` is a list, one row per web service seen); `bot` (whose bot it is and whether its operator vouches for the address); the `company` using the address and its `abuse` contact; and `location` down to the city, postal code and coordinates. Its quotas differ only in how many lookups they include, and a free account tries every field. Create a key in the [console](https://app.vpndetection.io), then pass it in:
 
 ```go
 client, err := vpndetection.New(vpndetection.WithAPIKey(os.Getenv("VPNDETECTION_API_KEY")))
@@ -77,8 +77,8 @@ Same answer `Lookup` would give for that address, and the same cost against your
 
 ```go
 acct, err := client.MyEntitlement(ctx)
-fmt.Println(acct.Plan.Name)        // Max, what to show
-fmt.Println(acct.Plan.Key)         // max, what to compare against
+fmt.Println(acct.Plan.Name)        // Data, what to show
+fmt.Println(acct.Plan.Key)         // data_4, what to compare against
 fmt.Println(acct.Usage.Requests)   // 580
 fmt.Println(acct.Usage.WindowEnd)  // when the allowance resets
 ```
