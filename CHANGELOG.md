@@ -2,6 +2,12 @@
 
 What each release changed for you, newest first. Each line is a commit's summary, linked to its full description and diff. Releases before 5.3.2 are described by their release commits.
 
+## 5.22.0 - 2026-11-26
+
+### Features
+
+- Middleware: AllowBots sends only a crawler's User-Agent, at most four an address ([`f34e1c1`](https://github.com/vpndetection-io/sdk-go/commit/f34e1c1df7d80aa59729d2ae0ea94db380646c48))
+
 ## 5.21.1 - 2026-11-25
 
 ### Fixes
