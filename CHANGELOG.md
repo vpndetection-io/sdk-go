@@ -2,6 +2,12 @@
 
 What each release changed for you, newest first. Each line is a commit's summary, linked to its full description and diff. Releases before 5.3.2 are described by their release commits.
 
+## 5.22.1 - 2026-11-26
+
+### Fixes
+
+- Middleware: a condition on the verdict is no plan gap for a request that sent no agent ([`0b52097`](https://github.com/vpndetection-io/sdk-go/commit/0b5209795fa6ad8dfcb981dfb866602aaec13304))
+
 ## 5.22.0 - 2026-11-26
 
 ### Features
