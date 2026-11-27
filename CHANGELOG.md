@@ -2,6 +2,13 @@
 
 What each release changed for you, newest first. Each line is a commit's summary, linked to its full description and diff. Releases before 5.3.2 are described by their release commits.
 
+## 5.23.1 - 2026-11-27
+
+### Fixes
+
+- Refuse a cache TTL under 100ns instead of crashing ([`be3876c`](https://github.com/vpndetection-io/sdk-go/commit/be3876ca6d2a6c870a58e9e38f91c7635bd424f8))
+- Middleware: a bogon's answer reports no missing member ([`93700e6`](https://github.com/vpndetection-io/sdk-go/commit/93700e6cd9480b79a1e4e597128e1cc25406ec9e))
+
 ## 5.23.0 - 2026-11-27
 
 ### Features
