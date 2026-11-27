@@ -10,12 +10,21 @@
 # SatelliteDetail.Asn stays an *int the same way. Spec 2026.11.23 gave the
 # first_seen and last_seen of the bot, SSH, SMTP, web, DNS resolver and
 # BitTorrent details format: date; they stay strings, each read as a day
-# (heldDates, decode.go). Drop this file at v6.
+# (heldDates, decode.go). Spec 2026.11.26 took the AS's type out of Asn.required
+# (Unlimited's answer no longer carries it); generated as served, Asn.Type would
+# become a *string and every caller reading it would stop compiling. The update
+# below puts it back in required, which generates the string it was, and the
+# decoder accepts an answer without it (heldOptional, decode.go), reading it as
+# empty, while a type that is present is checked as any other. Drop the update
+# when the spec requires it again, and this file at v6.
 overlay: 1.0.0
 info:
   title: Public types held at their v5 shape
   version: 1.0.0
 actions:
+  - target: $.components.schemas.Asn.required
+    update:
+      - type
   - target: $.components.schemas.Asn.required[?(@ == 'country')]
     remove: true
   - target: $.components.schemas.Asn.required[?(@ == 'rpki_status')]

@@ -450,6 +450,18 @@ func assertObject(t *testing.T, result *Result, wire string, want json.RawMessag
 	if err := json.Unmarshal(want, &wantAny); err != nil {
 		t.Fatalf("%s fixture: %v", wire, err)
 	}
+	// A member the answer left out reads as its empty value at the public type
+	// it keeps (asn.type, a string), which the result records as unserved.
+	if object, ok := gotAny.(map[string]any); ok {
+		for _, path := range result.unserved {
+			if member, ok := strings.CutPrefix(path, wire+"."); ok {
+				if object[member] != "" {
+					t.Errorf("%s is held at its public type, so an absent one must read empty, not %v", path, object[member])
+				}
+				delete(object, member)
+			}
+		}
+	}
 	if !reflect.DeepEqual(gotAny, wantAny) {
 		t.Errorf("%s = %s, want %s", wire, got, want)
 	}

@@ -4,6 +4,7 @@ import (
 	"github.com/oapi-codegen/runtime/types"
 
 	"github.com/vpndetection-io/sdk-go/v5/internal/api"
+	"github.com/vpndetection-io/sdk-go/v5/internal/held"
 )
 
 // The wire shapes a lookup answers with, re-exported so a consumer never has to
@@ -29,7 +30,8 @@ type (
 	// key. The finer members, Region down to AccuracyRadius, are a paid plan's.
 	Location = api.Location
 	// Asn is the AS announcing the address, on every answer, with or without a
-	// key: Asn is 0 where none does.
+	// key: Asn is 0 where none does. Its Type, the kind of network, is a paid
+	// plan's, and reads empty on Unlimited.
 	Asn = api.Asn
 	// Company is who uses the address, on a paid plan.
 	Company = api.Company
@@ -72,6 +74,10 @@ const (
 // A detail object that is present but empty means the flag above it is false. A
 // populated one always carries every one of its keys, empty values included.
 // Web is a list of the services seen, empty when IsWeb is false.
+//
+// Asn.Type, on a paid plan or the trial, keeps the non-optional string it had
+// until the next major: on Unlimited it reads "", which is absent as well,
+// though never nil. The middleware package reads it as absent.
 type Result struct {
 	// The answer as it was served, with the wire's own optionality intact. Its
 	// fields are promoted, so r.IsVpn and r.Vpn read straight off the Result.
@@ -81,6 +87,20 @@ type Result struct {
 	// which this package answers locally without a request. A served answer
 	// carries the API's own is_bogon, and this reads it.
 	IsBogon bool `json:"is_bogon"`
+
+	// The wire paths of the members the answer left out that LookupResponse
+	// cannot show as nil, which the middleware package reads through held. A
+	// Result built by hand has none, so all of them read as served.
+	unserved []string
+}
+
+func init() {
+	held.Unserved = func(result any) []string {
+		if r, ok := result.(*Result); ok && r != nil {
+			return r.unserved
+		}
+		return nil
+	}
 }
 
 // BoolValue returns the value of the bool pointer passed in, or false if the

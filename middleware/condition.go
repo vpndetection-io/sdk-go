@@ -12,6 +12,7 @@ import (
 	"strings"
 
 	vpndetection "github.com/vpndetection-io/sdk-go/v5"
+	"github.com/vpndetection-io/sdk-go/v5/internal/held"
 )
 
 // BlockCondition is what makes a request worth blocking, written in the shape
@@ -76,16 +77,28 @@ type anyOf []any
 // therefore be blocked.
 func Matches(conditions Conditions, result *vpndetection.Result) bool {
 	value := reflect.ValueOf(result).Elem()
+	unserved := unservedBy(result)
 	for _, one := range conditions {
-		if matchesStruct(one, value) {
+		if matchesStruct(one, value, "", unserved) {
 			return true
 		}
 	}
 	return false
 }
 
+// The wire paths the answer left out although the member's Go type is not
+// optional (asn.type on Unlimited), which are absent whatever the value reads.
+func unservedBy(result *vpndetection.Result) map[string]bool {
+	paths := map[string]bool{}
+	for _, path := range held.Unserved(result) {
+		paths[path] = true
+	}
+	return paths
+}
+
 // MissingMembers names the top-level members a condition asks about that this
-// answer did not carry.
+// answer did not carry, and by its path (asn.type) a member inside an object
+// every plan gets that the answer left out.
 //
 // A field your plan does not include is absent rather than false, so a
 // condition naming one can never match and the block would silently never fire.
@@ -93,25 +106,45 @@ func Matches(conditions Conditions, result *vpndetection.Result) bool {
 // checked: a detail object present but empty is a real answer meaning the flag
 // is false, not a plan gap.
 //
+// The AS's type is the one member that is absent without being nil: its Go
+// type stays a string until the next major, so it reads empty on Unlimited,
+// and what tells that from a served empty string is what the answer carried.
+//
 // A locally answered bogon needs no special case: it is synthesized in the
 // widest shape, so every member is present and nothing reads as missing.
 func MissingMembers(conditions Conditions, result *vpndetection.Result) []string {
 	value := reflect.ValueOf(result).Elem()
+	unserved := unservedBy(result)
 	seen := map[string]bool{}
 	var missing []string
 	for _, one := range conditions {
-		for member, want := range one {
-			if ConstraintCount(want) == 0 || seen[member] {
-				continue
-			}
-			field, ok := fieldFor(value, member)
-			if !ok || isAbsent(field) {
-				seen[member] = true
-				missing = append(missing, member)
+		collectMissing(one, value, "", unserved, seen, &missing)
+	}
+	return missing
+}
+
+// Reports a top-level member the answer lacks, and below it only what unserved
+// names: gating is per top-level member, so a member missing inside an object
+// the answer carries is no plan gap.
+func collectMissing(condition BlockCondition, value reflect.Value, prefix string, unserved, seen map[string]bool,
+	missing *[]string) {
+	for member, want := range condition {
+		path := prefix + member
+		if ConstraintCount(want) == 0 || seen[path] {
+			continue
+		}
+		field, ok := fieldFor(value, member)
+		if unserved[path] || prefix == "" && (!ok || isAbsent(field)) {
+			seen[path] = true
+			*missing = append(*missing, path)
+			continue
+		}
+		if nested, isObject := want.(BlockCondition); isObject {
+			if got := deref(field); got.Kind() == reflect.Struct {
+				collectMissing(nested, got, path+".", unserved, seen, missing)
 			}
 		}
 	}
-	return missing
 }
 
 // Validate refuses a condition that constrains nothing.
@@ -164,13 +197,13 @@ func ConstraintCount(condition any) int {
 	}
 }
 
-func matchesStruct(condition BlockCondition, value reflect.Value) bool {
+func matchesStruct(condition BlockCondition, value reflect.Value, prefix string, unserved map[string]bool) bool {
 	for member, want := range condition {
 		if ConstraintCount(want) == 0 {
 			continue
 		}
 		field, ok := fieldFor(value, member)
-		if !ok || !matchesValue(want, deref(field)) {
+		if !ok || unserved[prefix+member] || !matchesValue(want, deref(field), prefix+member+".", unserved) {
 			return false
 		}
 	}
@@ -182,13 +215,13 @@ func matchesStruct(condition BlockCondition, value reflect.Value) bool {
 // whose Kind does not match, which is what makes "not in your plan" fail a
 // match rather than pass it. A new branch that skips that check would silently
 // let an unserved member block a request.
-func matchesValue(want any, got reflect.Value) bool {
+func matchesValue(want any, got reflect.Value, prefix string, unserved map[string]bool) bool {
 	// A term on a member the answer holds as a list (pubproxy.protocols, the
 	// web rows) matches when any element matches it; compared against the list
 	// itself it would never fire, and a block condition would do nothing.
 	if got.Kind() == reflect.Slice || got.Kind() == reflect.Array {
 		for i := 0; i < got.Len(); i++ {
-			if matchesValue(want, deref(got.Index(i))) {
+			if matchesValue(want, deref(got.Index(i)), prefix, unserved) {
 				return true
 			}
 		}
@@ -197,7 +230,7 @@ func matchesValue(want any, got reflect.Value) bool {
 	switch w := want.(type) {
 	case anyOf:
 		for _, entry := range w {
-			if matchesValue(entry, got) {
+			if matchesValue(entry, got, prefix, unserved) {
 				return true
 			}
 		}
@@ -208,7 +241,7 @@ func matchesValue(want any, got reflect.Value) bool {
 		if got.Kind() != reflect.Struct {
 			return false
 		}
-		return matchesStruct(w, got)
+		return matchesStruct(w, got, prefix, unserved)
 	case string:
 		// Providers are lowercase slugs on the wire and a caller should not
 		// have to know that, so a string compares without case.

@@ -7,6 +7,8 @@ package middleware_test
 
 import (
 	"encoding/json"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"slices"
 	"testing"
@@ -86,11 +88,23 @@ func resultFor(t *testing.T, bogon string, body json.RawMessage) *vpndetection.R
 		}
 		return result
 	}
-	var response vpndetection.LookupResponse
-	if err := json.Unmarshal(body, &response); err != nil {
-		t.Fatalf("parsing the fixture body: %v", err)
+	// Served and read by the client, since what an answer left out of a member
+	// whose Go type cannot say so (asn.type, a string) is known to the decoder
+	// alone.
+	origin := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write(body)
+	}))
+	t.Cleanup(origin.Close)
+	client, err := vpndetection.New(vpndetection.WithBaseURL(origin.URL), vpndetection.WithRetries(0))
+	if err != nil {
+		t.Fatalf("New: %v", err)
 	}
-	return &vpndetection.Result{LookupResponse: response}
+	result, err := client.Lookup(t.Context(), publicIP)
+	if err != nil {
+		t.Fatalf("Lookup: %v (the fixture body must be an answer the client reads)", err)
+	}
+	return result
 }
 
 // The corpus is language-neutral JSON, so a bound arrives as an object with

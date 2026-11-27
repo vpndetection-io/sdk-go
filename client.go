@@ -185,11 +185,7 @@ func (c *Client) fly(ctx context.Context, key answerKey, fl *flight, retries int
 func (c *Client) serve(ctx context.Context, key answerKey, retries int) (*Result, error) {
 	params := &api.LookupIPParams{UserAgent: agentParam(key.agent)}
 	return withRetry(ctx, retries, func() (*Result, error) {
-		answer, err := decodeAnswer[api.LookupResponse](c.api.LookupIP(ctx, key.ip, params))
-		if err != nil {
-			return nil, err
-		}
-		return &Result{LookupResponse: *answer, IsBogon: BoolValue(answer.IsBogon)}, nil
+		return decodeLookup(c.api.LookupIP(ctx, key.ip, params))
 	})
 }
 
@@ -214,11 +210,7 @@ func (c *Client) MyIP(ctx context.Context, opts ...LookupOption) (*Result, error
 	ctx = call.carry(ctx)
 	params := &api.LookupMyIPParams{UserAgent: agentParam(call.agent)}
 	return withRetry(ctx, call.retries, func() (*Result, error) {
-		answer, err := decodeAnswer[api.LookupResponse](c.api.LookupMyIP(ctx, params))
-		if err != nil {
-			return nil, err
-		}
-		return &Result{LookupResponse: *answer, IsBogon: BoolValue(answer.IsBogon)}, nil
+		return decodeLookup(c.api.LookupMyIP(ctx, params))
 	})
 }
 
@@ -457,12 +449,11 @@ func (c *Client) lookupChunk(ctx context.Context, keys []answerKey, retries int)
 	for _, key := range keys {
 		ip := key.ip
 		if raw, ok := body.Results[ip]; ok {
-			served, ok := decodeComplete[api.LookupResponse](raw)
+			result, ok := lookupResult(raw)
 			if !ok {
 				out[key] = BatchResult{Err: unreadable(body.status, "the batch answer for "+ip+" was not a lookup answer")}
 				continue
 			}
-			result := &Result{LookupResponse: *served, IsBogon: BoolValue(served.IsBogon)}
 			if c.cache != nil {
 				c.cache.Add(key, *result)
 			}
@@ -470,7 +461,7 @@ func (c *Client) lookupChunk(ctx context.Context, keys []answerKey, retries int)
 			continue
 		}
 		if raw, ok := body.Errors[ip]; ok {
-			failed, ok := decodeComplete[api.BatchLookupError](raw)
+			failed, _, ok := decodeComplete[api.BatchLookupError](raw)
 			if !ok {
 				out[key] = BatchResult{Err: unreadable(body.status, "the batch error for "+ip+" was not one")}
 				continue

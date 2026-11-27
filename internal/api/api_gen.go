@@ -354,7 +354,7 @@ type Asn struct {
 	// Example: not_found
 	RpkiStatus *string `json:"rpki_status,omitempty"`
 
-	// Type The kind of network the AS runs: isp, hosting, education, government or business.
+	// Type The kind of network the AS runs: isp, hosting, education, government or business. On a paid plan.
 	//
 	// Example: hosting
 	Type string `json:"type"`
@@ -1129,7 +1129,7 @@ type LookupResponse struct {
 	// address alone. Every answer, with or without a key.
 	IsBogon *bool `json:"is_bogon,omitempty"`
 
-	// IsBot Whether an automated client uses the address, such as a search engine's or an AI company's crawler, an uptime monitor, an internet scanner or a webhook sender. `bot` says whose, what it does and whether its operator vouches for the address. Every answer, with or without a key.
+	// IsBot Whether an automated client uses the address, such as a search engine's or an AI company's crawler, an uptime monitor, an internet scanner or a webhook sender. `bot` says whose, what it does and whether its operator vouches for the address. On a paid plan.
 	IsBot *bool `json:"is_bot,omitempty"`
 
 	// IsCarrier Whether the address is a mobile carrier's, where many phones can share one address. On a paid plan.
