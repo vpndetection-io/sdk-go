@@ -2,6 +2,12 @@
 
 What each release changed for you, newest first. Each line is a commit's summary, linked to its full description and diff. Releases before 5.3.2 are described by their release commits.
 
+## 5.23.0 - 2026-11-27
+
+### Features
+
+- Read a keyless answer without the AS's type ([`28686c1`](https://github.com/vpndetection-io/sdk-go/commit/28686c1b008feeb952a095833557be3109a251bc))
+
 ## 5.22.1 - 2026-11-26
 
 ### Fixes
