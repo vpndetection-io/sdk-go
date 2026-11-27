@@ -110,9 +110,13 @@ func unservedBy(result *vpndetection.Result) map[string]bool {
 // type stays a string until the next major, so it reads empty on Unlimited,
 // and what tells that from a served empty string is what the answer carried.
 //
-// A locally answered bogon needs no special case: it is synthesized in the
-// widest shape, so every member is present and nothing reads as missing.
+// A bogon's answer reports nothing missing: it is synthesized in the widest
+// shape, so every member is present but a user agent's verdict, which the API
+// answers for a bogon and the client does not, and which no plan gap explains.
 func MissingMembers(conditions Conditions, result *vpndetection.Result) []string {
+	if result.IsBogon {
+		return nil
+	}
 	value := reflect.ValueOf(result).Elem()
 	unserved := unservedBy(result)
 	seen := map[string]bool{}
