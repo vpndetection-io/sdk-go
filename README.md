@@ -21,7 +21,7 @@ import vpndetection "github.com/vpndetection-io/sdk-go/v5"
 
 ## Usage
 
-**No API key needed to start.** Unlimited, the free plan, answers `ip`, `is_vpn`, Tor and relay detection, `is_bot` (whether a bot such as a crawler uses the address), `is_anycast`, `hostname`, `location` and `asn`, the AS's country and RPKI status included, with no daily or monthly cap, with a key or without one.
+**No API key needed to start.** Unlimited, the free plan, answers `ip`, `is_vpn`, Tor and relay detection, `is_anycast`, `hostname`, `location` and `asn`, the AS's country and RPKI status included, with no daily or monthly cap, with a key or without one.
 
 ```go
 client, err := vpndetection.New()
@@ -44,7 +44,7 @@ if asn := result.Asn; asn != nil {
 
 ### With an API key
 
-A paid plan answers every field: `is_hosting`, `is_cdn` and the four proxy flags as well, and the provider (its ID and its name), confidence and last-seen detail behind each flag; `is_carrier`, `is_satellite`, `is_ssh`, `is_smtp`, `is_web`, `is_dns_resolver` and `is_bittorrent`, with the detail behind each (`web` is a list, one row per web service seen); `bot` (whose bot it is and whether its operator vouches for the address); the `company` using the address and its `abuse` contact; and `location` down to the city, postal code and coordinates. Its quotas differ only in how many lookups they include, and a free account tries every field. Create a key in the [console](https://app.vpndetection.io), then pass it in:
+A paid plan answers every field: `is_hosting`, `is_cdn` and the four proxy flags as well, and the provider (its ID and its name), confidence and last-seen detail behind each flag; `is_carrier`, `is_satellite`, `is_ssh`, `is_smtp`, `is_web`, `is_dns_resolver` and `is_bittorrent`, with the detail behind each (`web` is a list, one row per web service seen); `is_bot` (whether a bot such as a crawler uses the address) and `bot` (whose bot it is and whether its operator vouches for the address); the AS's `type`; the `company` using the address and its `abuse` contact; and `location` down to the city, postal code and coordinates. Its quotas differ only in how many lookups they include, and a free account tries every field. Create a key in the [console](https://app.vpndetection.io), then pass it in:
 
 ```go
 client, err := vpndetection.New(vpndetection.WithAPIKey(os.Getenv("VPNDETECTION_API_KEY")))
@@ -283,7 +283,7 @@ Each redirect URI must be https on a public host name, or http on a loopback add
 
 ### Absent is not false
 
-Every field beyond `IP` and `IsVpn` is a pointer, because your key decides which of them the API sends, and so is each paid field inside a shared object, such as `Location.City`. Unlimited answers `IsBot` without `Bot`, and leaves out `IsHosting`, `IsCdn`, the four proxy flags and the carrier, satellite, SSH, SMTP, web, DNS resolver and BitTorrent flags, of the detail behind each flag it answers only Tor's and relay's, and it leaves out `Company`, `Abuse` and the finer `Location` members; a free-plan key's answer carries `TrialExpired`, true once its trial is spent, and a paid key's carries `CapReached`, true once its organization's overage cap is reached and the answer has Unlimited's. A `nil` pointer means "not in your plan", not "checked, and no".
+Every field beyond `IP` and `IsVpn` is a pointer, because your key decides which of them the API sends, and so is each paid field inside a shared object, such as `Location.City`. Unlimited leaves out `IsBot`, `IsHosting`, `IsCdn`, the four proxy flags and the carrier, satellite, SSH, SMTP, web, DNS resolver and BitTorrent flags, of the detail behind each flag it answers only Tor's and relay's, and it leaves out `Company`, `Abuse`, the finer `Location` members and the AS's `Type`; a free-plan key's answer carries `TrialExpired`, true once its trial is spent, and a paid key's carries `CapReached`, true once its organization's overage cap is reached and the answer has Unlimited's. A `nil` pointer means "not in your plan", not "checked, and no". `Asn.Type` keeps the plain string it had until the next major, so on Unlimited it reads empty, which is "not in your plan" as well; the `middleware` package reads it as absent.
 
 ```go
 vpndetection.BoolValue(result.IsHosting)  // when you only want the flag
