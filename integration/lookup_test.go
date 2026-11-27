@@ -34,6 +34,32 @@ func TestALookupWithoutAKeyAnswersIPAndIsVpnAtTheLeast(t *testing.T) {
 	t.Logf("testing against %s", staging)
 }
 
+// The AS's type and is_bot are a paid plan's, which the API serves to Unlimited
+// until it stops: either way the answer is read, a type that was not served
+// reads empty, and is_bot is nil unless the wire carried it.
+func TestAKeylessAnswerIsReadWhetherOrNotItCarriesTheASsTypeOrIsBot(t *testing.T) {
+	f := answerFor(t, unauthRung())
+
+	asn, ok := f.raw["asn"].(map[string]any)
+	if !ok {
+		t.Fatalf("asn is %v, want an object", f.raw["asn"])
+	}
+	if served, present := asn["type"]; present {
+		if kind, ok := served.(string); !ok || f.result.Asn == nil || f.result.Asn.Type != kind {
+			t.Errorf("the wire served the AS's type %v, the result reads %+v", served, f.result.Asn)
+		}
+	} else if f.result.Asn == nil || f.result.Asn.Type != "" {
+		t.Errorf("the wire served no AS type, the result reads %+v, want an empty one", f.result.Asn)
+	}
+	if served, present := f.raw["is_bot"]; present {
+		if flag, ok := served.(bool); !ok || f.result.IsBot == nil || *f.result.IsBot != flag {
+			t.Errorf("the wire served is_bot %v, the result reads %v", served, f.result.IsBot)
+		}
+	} else if f.result.IsBot != nil {
+		t.Errorf("the wire served no is_bot, the result reads %v, want nil", *f.result.IsBot)
+	}
+}
+
 func TestAKeyReachesTheWireAndItsAnswerKeepsItsShape(t *testing.T) {
 	for _, r := range rungs {
 		if r.secret == "" {

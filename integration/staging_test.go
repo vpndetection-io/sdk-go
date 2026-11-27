@@ -67,6 +67,9 @@ var bareFlags = []string{"is_anycast"}
 // An object with no flag above it. Where the plan answers it, every key is
 // present, empty where no record covers the address.
 var sharedObjects = map[string]detail{
+	// The AS's type is a paid plan's: served today without a key, and about to
+	// stop, so it is accepted present or absent.
+	"asn":     {required: []string{"asn", "name", "domain", "prefix", "country", "rpki_status"}, optional: []string{"type"}},
 	"company": {required: []string{"name", "domain", "type", "country"}},
 	"abuse":   {required: []string{"email", "name", "phone", "address", "country", "network", "validated", "unvalidated_since"}},
 }
