@@ -15,9 +15,9 @@ const minCacheTTL = 100 * time.Nanosecond
 const reducedTTL = time.Minute
 
 // answerCache holds each address's answer for the client's TTL. A reduced answer,
-// a spent trial's or a reached cap's, changes as soon as the trial is renewed
-// or the cap raised, so it stays a minute at most. It is still cached, or a busy
-// process would send every repeat of an address to the API.
+// a spent trial's or a reached cap's, changes as soon as the free plan's trial
+// window renews or the cap is raised, so it stays a minute at most. It is still
+// cached, or a busy process would send every repeat of an address to the API.
 //
 // An answer is held under the address and the user agent sent with it: one
 // with an agent carries that agent's verdict, so it is kept apart from the
