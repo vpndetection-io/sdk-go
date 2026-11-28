@@ -232,3 +232,198 @@ func TestAClientWithoutACacheSharesNothing(t *testing.T) {
 		t.Errorf("sent %d requests, want 5", n)
 	}
 }
+
+// Answers 429 with a Retry-After for its first requests, then serves what the
+// stub does: an origin that is throttling and then recovers.
+type throttle struct {
+	*stubTransport
+	mu         sync.Mutex
+	left       int
+	retryAfter string
+}
+
+func (th *throttle) RoundTrip(req *http.Request) (*http.Response, error) {
+	th.mu.Lock()
+	throttled := th.left > 0
+	th.left--
+	th.mu.Unlock()
+	if !throttled {
+		return th.stubTransport.RoundTrip(req)
+	}
+	th.enter(req.URL.String())
+	th.leave()
+	return th.respond(req, stubRoute{
+		status:  http.StatusTooManyRequests,
+		body:    map[string]string{"error": "slow down"},
+		headers: map[string]string{"Retry-After": th.retryAfter},
+	}), nil
+}
+
+func (th *throttle) recover() {
+	th.mu.Lock()
+	defer th.mu.Unlock()
+	th.left = 0
+}
+
+// The longest Retry-After the client waits out as given, in whole seconds.
+const longestRetryAfter = "2147483"
+
+func newThrottledClient(t *testing.T, th *throttle) *Client {
+	t.Helper()
+	client, err := New(WithHTTPClient(&http.Client{Transport: th}))
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+	return client
+}
+
+// A request retrying on a long Retry-After sleeps detached from every caller,
+// so once the one awaiting it gives up nobody is left to wake it: the next
+// caller for the address joined a sleep of days, and timed out however fast the
+// origin had recovered.
+func TestAFlightNobodyAwaitsStopsWaitingOutARetryAfter(t *testing.T) {
+	const ip = "45.83.91.1"
+	for _, second := range []string{"Lookup", "LookupBatch"} {
+		t.Run(second, func(t *testing.T) {
+			th := &throttle{stubTransport: newStub(okRoutes(ip)), left: 1 << 30, retryAfter: longestRetryAfter}
+			client := newThrottledClient(t, th)
+
+			short, cancel := context.WithTimeout(t.Context(), stagger/2)
+			defer cancel()
+			if _, err := client.Lookup(short, ip); !errors.Is(err, context.DeadlineExceeded) {
+				t.Fatalf("the first caller got %v, want its own deadline", err)
+			}
+			th.recover()
+
+			ctx, cancelSecond := context.WithTimeout(t.Context(), 3*time.Second)
+			defer cancelSecond()
+			start := time.Now()
+			var err error
+			if second == "Lookup" {
+				var result *Result
+				result, err = client.Lookup(ctx, ip)
+				if err == nil && result.IP != ip {
+					err = errors.New("answered " + result.IP)
+				}
+			} else {
+				var got map[string]BatchResult
+				got, err = client.LookupBatch(ctx, []string{ip})
+				if err == nil {
+					err = got[ip].Err
+				}
+			}
+			if err != nil {
+				t.Fatalf("%s after the origin recovered: %v", second, err)
+			}
+			if took := time.Since(start); took > 2*time.Second {
+				t.Errorf("%s took %s once the origin had recovered", second, took)
+			}
+			if _, err := client.Lookup(t.Context(), ip); err != nil {
+				t.Errorf("Lookup of the cached answer: %v", err)
+			}
+			if n := th.count(); n != 2 {
+				t.Errorf("sent %d requests, want the throttled one and the recovered one", n)
+			}
+		})
+	}
+}
+
+// A batch's chunk sleeps the same way, and a lookup joining one of its
+// addresses is the caller that finds it asleep.
+func TestAChunkNobodyAwaitsStopsWaitingOutARetryAfter(t *testing.T) {
+	routes := okRoutes("45.83.91.1", "45.83.91.2")
+	th := &throttle{stubTransport: newStub(routes), left: 1 << 30, retryAfter: longestRetryAfter}
+	client := newThrottledClient(t, th)
+
+	short, cancel := context.WithTimeout(t.Context(), stagger/2)
+	defer cancel()
+	if _, err := client.LookupBatch(short, []string{"45.83.91.1", "45.83.91.2"}); !errors.Is(err, context.DeadlineExceeded) {
+		t.Fatalf("the batch returned %v, want its own deadline", err)
+	}
+	th.recover()
+
+	ctx, cancelLookup := context.WithTimeout(t.Context(), 3*time.Second)
+	defer cancelLookup()
+	result, err := client.Lookup(ctx, "45.83.91.2")
+	if err != nil || result.IP != "45.83.91.2" {
+		t.Fatalf("Lookup after the origin recovered: %v %v", result, err)
+	}
+	if n := th.count(); n != 2 {
+		t.Errorf("sent %d requests, want the throttled batch and the lookup", n)
+	}
+}
+
+// A request given up on is stopped, not left asleep to send its retry a Retry-After
+// later for an address nobody is waiting on.
+func TestAGivenUpFlightSendsNoRetry(t *testing.T) {
+	const ip = "45.83.91.1"
+	th := &throttle{stubTransport: newStub(okRoutes(ip)), left: 1, retryAfter: "1"}
+	client := newThrottledClient(t, th)
+
+	short, cancel := context.WithTimeout(t.Context(), stagger/2)
+	defer cancel()
+	if _, err := client.Lookup(short, ip); !errors.Is(err, context.DeadlineExceeded) {
+		t.Fatalf("the caller got %v, want its own deadline", err)
+	}
+	time.Sleep(1300 * time.Millisecond)
+
+	if n := th.count(); n != 1 {
+		t.Errorf("sent %d requests, want the throttled one alone: the given up request retried", n)
+	}
+}
+
+// One caller still waiting keeps the request retrying, whoever led it.
+func TestACallerStillWaitingKeepsTheRetryOfAFlightItJoined(t *testing.T) {
+	const ip = "45.83.91.1"
+	th := &throttle{stubTransport: newStub(okRoutes(ip)), left: 1, retryAfter: "1"}
+	client := newThrottledClient(t, th)
+
+	short, cancel := context.WithTimeout(t.Context(), stagger/2)
+	defer cancel()
+	var wg sync.WaitGroup
+	var result *Result
+	var err error
+	start := time.Now()
+	wg.Go(func() {
+		time.Sleep(stagger / 8)
+		result, err = client.Lookup(t.Context(), ip)
+	})
+	if _, gaveUp := client.Lookup(short, ip); !errors.Is(gaveUp, context.DeadlineExceeded) {
+		t.Errorf("the leader got %v, want its own deadline", gaveUp)
+	}
+	wg.Wait()
+
+	if err != nil || result.IP != ip {
+		t.Fatalf("the caller still waiting got %v %v, want the answer after the retry", result, err)
+	}
+	if took := time.Since(start); took < 900*time.Millisecond {
+		t.Errorf("answered after %s, want the Retry-After of 1s waited out", took)
+	}
+	if n := th.count(); n != 2 {
+		t.Errorf("sent %d requests, want the throttled one and its retry", n)
+	}
+}
+
+// Only a wait is given up on: a request under way when its one caller leaves
+// finishes and is cached, so the next call is answered without sending.
+func TestARequestUnderWayWhenItsCallerLeavesIsStillCached(t *testing.T) {
+	const ip = "45.83.91.1"
+	stub := newStub(okRoutes(ip))
+	stub.delay = stagger
+	client := newTestClient(t, stub)
+
+	short, cancel := context.WithTimeout(t.Context(), stagger/4)
+	defer cancel()
+	if _, err := client.Lookup(short, ip); !errors.Is(err, context.DeadlineExceeded) {
+		t.Fatalf("the caller got %v, want its own deadline", err)
+	}
+	time.Sleep(stagger)
+
+	result, err := client.Lookup(t.Context(), ip)
+	if err != nil || result.IP != ip {
+		t.Fatalf("Lookup: %v %v", result, err)
+	}
+	if n := stub.count(); n != 1 {
+		t.Errorf("sent %d requests, want the one the first caller left running", n)
+	}
+}

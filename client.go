@@ -123,7 +123,9 @@ func New(opts ...Option) (*Client, error) {
 // batch's included, await that request rather than sending their own, and take
 // its answer, sent under the options of the call that led it. The request runs
 // detached from any one caller's context, so a caller giving up fails nobody
-// else: it returns at once, and the answer is cached for the next.
+// else: it returns at once, and the answer is cached for the next. A request
+// waiting out a Retry-After or a backoff is given up once no caller awaits it,
+// so the next call for the address sends its own.
 //
 // An IPv4-mapped address (::ffff:8.8.8.8) is the IPv4 address it carries:
 // judged, sent and cached as that, so the answer names 8.8.8.8.
@@ -155,7 +157,11 @@ func (c *Client) Lookup(ctx context.Context, ip string, opts ...LookupOption) (*
 	led, joined := c.flights.board([]answerKey{key})
 	fl, leads := led[key]
 	if leads {
-		go c.fly(context.WithoutCancel(ctx), key, fl, call.retries)
+		flyCtx, done := c.flights.send(context.WithoutCancel(ctx), led, []answerKey{key})
+		go func() {
+			defer done()
+			c.fly(flyCtx, key, fl, call.retries)
+		}()
 	} else {
 		fl = joined[key]
 	}
@@ -163,6 +169,7 @@ func (c *Client) Lookup(ctx context.Context, ip string, opts ...LookupOption) (*
 	case <-fl.done:
 		return fl.answer()
 	case <-ctx.Done():
+		c.flights.leave(fl)
 		return nil, errorFromTransport(ctx.Err())
 	}
 }
@@ -393,7 +400,9 @@ func (c *Client) shareBatch(
 		group.SetLimit(call.concurrency)
 		for _, addrs := range chunk(send, batchMax) {
 			group.Go(func() error {
-				for key, answer := range c.lookupChunk(detached, addrs, call.retries) {
+				sendCtx, done := c.flights.send(detached, led, addrs)
+				defer done()
+				for key, answer := range c.lookupChunk(sendCtx, addrs, call.retries) {
 					c.flights.land(key, led[key], answer.Result, answer.Err)
 				}
 				return nil
@@ -412,6 +421,7 @@ func (c *Client) shareBatch(
 			result, err := fl.answer()
 			results[key] = BatchResult{Result: result, Err: err}
 		case <-ctx.Done():
+			c.flights.leave(fl)
 			results[key] = BatchResult{Err: errorFromTransport(ctx.Err())}
 		}
 	}
@@ -863,6 +873,9 @@ func withRetry[T any](ctx context.Context, retries int, attempt func() (T, error
 }
 
 func sleep(ctx context.Context, d time.Duration) error {
+	if s, ok := ctx.Value(senderKey{}).(*sender); ok {
+		defer s.rest()()
+	}
 	timer := time.NewTimer(d)
 	defer timer.Stop()
 	select {
