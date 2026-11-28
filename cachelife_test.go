@@ -57,13 +57,13 @@ func TestEachAnswerIsCachedAsLongAsItsFlagsAllow(t *testing.T) {
 				t.Fatalf("%s(%s): %v", how, tc.ip, err)
 			}
 
-			expires, ok := client.cache.expiry(answerKey{ip: tc.ip})
+			held, ok := client.cache.lru.Peek(answerKey{ip: tc.ip})
 			if !ok {
 				t.Fatalf("%s: %s under a %s TTL was not cached", how, tc.ip, tc.ttl)
 			}
-			if expires.Before(before.Add(tc.want)) || expires.After(after.Add(tc.want)) {
+			if held.expires.Before(before.Add(tc.want)) || held.expires.After(after.Add(tc.want)) {
 				t.Errorf("%s: %s under a %s TTL expires %s after the call, want %s",
-					how, tc.ip, tc.ttl, expires.Sub(before), tc.want)
+					how, tc.ip, tc.ttl, held.expires.Sub(before), tc.want)
 			}
 		}
 	}

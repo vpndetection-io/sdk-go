@@ -61,12 +61,6 @@ func (c *answerCache) Add(key answerKey, result Result) {
 	c.lru.Add(key, cachedAnswer{result: result, expires: time.Now().Add(c.lifeOf(result))})
 }
 
-// expiry is when the answer held for key goes stale.
-func (c *answerCache) expiry(key answerKey) (time.Time, bool) {
-	held, ok := c.lru.Peek(key)
-	return held.expires, ok
-}
-
 func (c *answerCache) lifeOf(result Result) time.Duration {
 	if BoolValue(result.TrialExpired) || BoolValue(result.CapReached) {
 		return min(c.ttl, reducedTTL)
