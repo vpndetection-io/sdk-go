@@ -1,10 +1,10 @@
 package vpndetection
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	"io"
+	"math"
 	"net/http"
 	"os"
 
@@ -233,26 +233,61 @@ func (d *DatabaseAPI) downloadBytes(
 	if res.ContentLength < 0 {
 		return io.ReadAll(res.Body)
 	}
-	// Allocated once from the declared length, up to maxPrealloc: io.ReadAll
-	// grows by doubling, so on a large dataset the final grow alone costs twice
-	// the file. Past it the buffer grows as bytes arrive, because the length is
-	// the server's word: make([]byte, 1<<62) panicked with "makeslice: len out
-	// of range" in the caller's goroutine (v5.3.2, measured 2026-09-26), and a
-	// length the machine cannot hold is a fatal out of memory, which nothing
-	// recovers from.
-	buf := bytes.NewBuffer(make([]byte, 0, min(res.ContentLength, maxPrealloc)))
-	n, err := buf.ReadFrom(res.Body)
-	if err != nil {
-		return nil, err
-	}
-	if n != res.ContentLength {
-		return nil, io.ErrUnexpectedEOF
-	}
-	return buf.Bytes(), nil
+	return readDeclared(res.Body, res.ContentLength, maxPrealloc)
 }
 
-// The most DownloadBytes allocates up front from a declared Content-Length.
-const maxPrealloc = 64 << 20
+const (
+	// The most DownloadBytes allocates up front from a declared Content-Length.
+	maxPrealloc = 64 << 20
+	// What a full buffer grows by, at most, past what has arrived.
+	growFactor = 8
+)
+
+// readDeclared reads a body of the length its server declared into one buffer of
+// exactly that length, so a dataset is held once: io.ReadAll's last grow alone
+// costs twice the file, and a Buffer sized to the length grows again before it
+// sees the end when a body hands over its last bytes and its end in two reads,
+// as HTTP/2 does.
+//
+// The length is the server's word, so the first allocation stops at prealloc:
+// make([]byte, 1<<62) panicked with "makeslice: len out of range", and a length
+// the machine cannot hold is a fatal out of memory that nothing recovers. A
+// buffer that fills grows to the declared length, by at most growFactor times
+// what has arrived, so a length the server cannot back costs a bounded
+// allocation.
+func readDeclared(body io.Reader, declared, prealloc int64) ([]byte, error) {
+	if declared > math.MaxInt {
+		return nil, fmt.Errorf("vpndetection: a %d byte download is past what this platform can hold", declared)
+	}
+	buf := make([]byte, 0, min(declared, prealloc))
+	for int64(len(buf)) < declared {
+		if len(buf) == cap(buf) {
+			grown := make([]byte, len(buf), grownCapacity(len(buf), declared))
+			copy(grown, buf)
+			buf = grown
+		}
+		n, err := body.Read(buf[len(buf):cap(buf)])
+		buf = buf[:len(buf)+n]
+		if err != nil && int64(len(buf)) < declared {
+			if err == io.EOF {
+				err = io.ErrUnexpectedEOF
+			}
+			return nil, err
+		}
+	}
+	// A body that goes on past its length is not the object that was declared.
+	var extra [1]byte
+	if n, err := io.ReadFull(body, extra[:]); n > 0 {
+		return nil, io.ErrUnexpectedEOF
+	} else if err != io.EOF {
+		return nil, err
+	}
+	return buf, nil
+}
+
+func grownCapacity(arrived int, declared int64) int64 {
+	return min(declared, int64(arrived)*growFactor)
+}
 
 // The 302 is followed as a SECOND, unauthenticated request rather than by
 // loosening the redirect guard: the presigned URL authorizes itself, so

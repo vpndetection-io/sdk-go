@@ -210,6 +210,40 @@ func TestALargeBodyIsStreamedNotBuffered(t *testing.T) {
 	}
 }
 
+// A known-size body is held once: filled into a buffer of its declared length
+// and handed back. Sized to it, a Buffer grew again before it could see the end
+// of a body that hands its end over apart from its last bytes, as HTTP/2 does,
+// and a body past the pre-size doubled on the way. TotalAlloc counts every byte
+// allocated, which is what a doubling spends and a single buffer does not.
+func TestDownloadBytesAllocatesNearTheBody(t *testing.T) {
+	for _, size := range []int64{48 << 20, 200 << 20} {
+		for _, apart := range []bool{false, true} {
+			t.Run(fmt.Sprintf("%d MiB, end apart %v", size>>20, apart), func(t *testing.T) {
+				origin := newOrigin(t, originConfig{blobBytes: size, endsSeparately: apart})
+
+				var before, after runtime.MemStats
+				runtime.GC()
+				runtime.ReadMemStats(&before)
+				got, err := origin.client.Database.DownloadBytes(t.Context(), "vpn_ip_extended_v1", FormatMMDB)
+				runtime.ReadMemStats(&after)
+				if err != nil {
+					t.Fatalf("DownloadBytes: %v", err)
+				}
+				if int64(len(got)) != size {
+					t.Fatalf("DownloadBytes returned %d byte(s) of a %d byte body", len(got), size)
+				}
+
+				allocated := int64(after.TotalAlloc - before.TotalAlloc)
+				grew := int64(after.HeapSys) - int64(before.HeapSys)
+				t.Logf("a %d MiB body allocated %d MiB, HeapSys grew %d MiB", size>>20, allocated>>20, grew>>20)
+				if allocated > size*3/2 {
+					t.Errorf("a %d MiB body allocated %d MiB, want under %d MiB", size>>20, allocated>>20, size*3/2>>20)
+				}
+			})
+		}
+	}
+}
+
 func TestObjectStorageRefusingTheLinkIsNotReportedAsALookupFailure(t *testing.T) {
 	origin := newOrigin(t, originConfig{storageStatus: http.StatusForbidden})
 
@@ -373,6 +407,9 @@ type originConfig struct {
 	retries           int
 	// A build the API answers 410 for, as it does once a build is pruned.
 	goneBuild string
+	// Serves the body the way HTTP/2 hands one over: the last bytes in one
+	// Read, and the end in the next.
+	endsSeparately bool
 }
 
 // Serves the API's 302 and the object storage it points at, on one origin, and
@@ -396,7 +433,11 @@ func newOrigin(t *testing.T, cfg originConfig) *testOrigin {
 	}))
 	t.Cleanup(server.Close)
 
-	client, err := New(WithBaseURL(server.URL), WithAPIKey(testKey), WithRetries(cfg.retries), WithoutCache())
+	options := []Option{WithBaseURL(server.URL), WithAPIKey(testKey), WithRetries(cfg.retries), WithoutCache()}
+	if cfg.endsSeparately {
+		options = append(options, WithHTTPClient(&http.Client{Transport: endsSeparately{http.DefaultTransport}}))
+	}
+	client, err := New(options...)
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}
@@ -504,6 +545,26 @@ func (o *testOrigin) request(t *testing.T, path string) *http.Request {
 	}
 	t.Fatalf("the origin was never asked for %q, it saw %v", path, o.pathsLocked())
 	return nil
+}
+
+type endsSeparately struct{ http.RoundTripper }
+
+func (e endsSeparately) RoundTrip(req *http.Request) (*http.Response, error) {
+	res, err := e.RoundTripper.RoundTrip(req)
+	if err == nil {
+		res.Body = separateEnd{res.Body}
+	}
+	return res, err
+}
+
+type separateEnd struct{ io.ReadCloser }
+
+func (b separateEnd) Read(p []byte) (int, error) {
+	n, err := b.ReadCloser.Read(p)
+	if n > 0 && err == io.EOF {
+		err = nil
+	}
+	return n, err
 }
 
 // A reader with no end, so a multi-gigabyte body costs the server nothing to
