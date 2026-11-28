@@ -1,5 +1,5 @@
-// A spent trial's or a reached cap's answer changes as soon as the trial is
-// renewed or the cap raised, so it is cached for a minute at most rather than
+// A spent trial's or a reached cap's answer changes when the organization's plan
+// changes or its cap is raised, so it is cached for a minute at most rather than
 // for the client's TTL.
 
 package vpndetection
