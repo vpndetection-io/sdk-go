@@ -2,6 +2,19 @@
 
 What each release changed for you, newest first. Each line is a commit's summary, linked to its full description and diff. Releases before 5.3.2 are described by their release commits.
 
+## 5.24.0 - 2026-11-28
+
+### Features
+
+- Middleware: read a list of terms as any-of, refuse a term no answer can match ([`a67d447`](https://github.com/vpndetection-io/sdk-go/commit/a67d4472494c176ef8a6c5d1d167811c639b5556))
+
+### Fixes
+
+- Re-pin the spec to 2026.11.27, and drop a stale word from the cache comment ([`dda95d7`](https://github.com/vpndetection-io/sdk-go/commit/dda95d719d34e6c4043898c99c8b211997021fb6))
+- Give up a shared request waiting out a Retry-After once no caller awaits it ([`4969cb8`](https://github.com/vpndetection-io/sdk-go/commit/4969cb80a4a4116bed00e901de8b4e2128cc27d0))
+- DownloadBytes holds a known-size body once ([`2543336`](https://github.com/vpndetection-io/sdk-go/commit/25433366ebfe0d02c5dfd92e0edbc2e1a791d587))
+- Read a null in an OAuth list as an unreadable answer ([`c341e98`](https://github.com/vpndetection-io/sdk-go/commit/c341e98f19474ad1b7b9bfda51286c93f21a5f30))
+
 ## 5.23.1 - 2026-11-27
 
 ### Fixes
