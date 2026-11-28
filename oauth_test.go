@@ -208,6 +208,79 @@ func TestOauthAnAnswerMissingARequiredMemberFails(t *testing.T) {
 	}
 }
 
+// encoding/json reads a null inside a list of strings as an empty string, so a
+// list with one in it would come back holding "": a member of the wrong type,
+// unreadable like any other.
+func TestOauthAListHoldingANullIsAnUnreadableAnswer(t *testing.T) {
+	calls := map[string]struct {
+		status  int
+		members []string
+		call    func(*Client) error
+	}{
+		"metadata": {200, []string{
+			"scopes_supported", "response_types_supported", "grant_types_supported",
+			"code_challenge_methods_supported", "token_endpoint_auth_methods_supported",
+		}, func(c *Client) error {
+			_, err := c.Oauth.Metadata(t.Context())
+			return err
+		}},
+		"register": {201, []string{"redirect_uris", "grant_types", "response_types"}, func(c *Client) error {
+			_, err := c.Oauth.Register(t.Context(), []string{"http://127.0.0.1/cb"}, RegisterOptions{})
+			return err
+		}},
+	}
+	for operation, tc := range calls {
+		for _, member := range tc.members {
+			for _, list := range []string{`[null]`, `["a",null]`, `[null,"a"]`, `[ null ]`} {
+				t.Run(operation+"/"+member+list, func(t *testing.T) {
+					var body map[string]json.RawMessage
+					if err := json.Unmarshal([]byte(everyRequiredMember), &body); err != nil {
+						t.Fatal(err)
+					}
+					body[member] = json.RawMessage(list)
+					raw, _ := json.Marshal(body)
+					stub := &oauthStub{replies: []oauthReply{{Status: tc.status, Body: raw}}}
+					err := tc.call(newOauthClient(t, stub, WithRetries(0)))
+
+					var apiErr *Error
+					var refused *OauthError
+					if !errors.As(err, &apiErr) || errors.As(err, &refused) {
+						t.Fatalf("error was %v, want the ordinary *Error", err)
+					}
+					if apiErr.Kind != KindServerError || apiErr.StatusCode != tc.status {
+						t.Errorf("Kind %q, StatusCode %d, want server_error and %d", apiErr.Kind, apiErr.StatusCode, tc.status)
+					}
+				})
+			}
+		}
+	}
+}
+
+// What the refusal above must not take with it: a list of strings, and an
+// optional member sent as null, which reads as absent.
+func TestOauthAListOfStringsAndAnOptionalNullStillRead(t *testing.T) {
+	var body map[string]json.RawMessage
+	if err := json.Unmarshal([]byte(everyRequiredMember), &body); err != nil {
+		t.Fatal(err)
+	}
+	body["scopes_supported"] = json.RawMessage(`["account.read","keys.read"]`)
+	body["grant_types_supported"] = json.RawMessage(`null`)
+	body["revocation_endpoint"] = json.RawMessage(`null`)
+	raw, _ := json.Marshal(body)
+	stub := &oauthStub{replies: []oauthReply{{Status: 200, Body: raw}}}
+
+	got, err := newOauthClient(t, stub, WithRetries(0)).Oauth.Metadata(t.Context())
+	if err != nil {
+		t.Fatalf("Metadata: %v", err)
+	}
+	if got.ScopesSupported == nil || len(*got.ScopesSupported) != 2 {
+		t.Errorf("ScopesSupported = %v, want the two scopes", got.ScopesSupported)
+	}
+	if got.GrantTypesSupported != nil || got.RevocationEndpoint != nil {
+		t.Errorf("a null optional member read as %v and %v, want absent", got.GrantTypesSupported, got.RevocationEndpoint)
+	}
+}
+
 func TestOauthErrorsAreClassified(t *testing.T) {
 	for _, ec := range oauthCorpusData(t).Errors.Cases {
 		t.Run(ec.Name, func(t *testing.T) {

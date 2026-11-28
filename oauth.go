@@ -13,6 +13,7 @@ import (
 	"math"
 	"net/http"
 	"net/url"
+	"slices"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -486,11 +487,29 @@ func decodeOauth[T any](res *http.Response, err error, required ...string) (*T, 
 			return nil, unreadable(res.StatusCode, "the answer carried no "+name)
 		}
 	}
+	// encoding/json reads a null in a list of strings as "", so it is looked
+	// for in the raw member, in required and optional lists alike.
+	for name, value := range members {
+		if holdsNull(value) {
+			return nil, unreadable(res.StatusCode, "the answer's "+name+" held a null")
+		}
+	}
 	var out T
 	if json.Unmarshal(body, &out) != nil {
 		return nil, unreadable(res.StatusCode, "the response was not the answer this call returns")
 	}
 	return &out, nil
+}
+
+// Whether a member is a list with a null among its elements.
+func holdsNull(member json.RawMessage) bool {
+	var elements []json.RawMessage
+	if json.Unmarshal(member, &elements) != nil {
+		return false
+	}
+	return slices.ContainsFunc(elements, func(element json.RawMessage) bool {
+		return string(element) == "null"
+	})
 }
 
 func readBody(res *http.Response) ([]byte, error) {
