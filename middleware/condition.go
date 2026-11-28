@@ -8,7 +8,10 @@ package middleware
 
 import (
 	"fmt"
+	"maps"
+	"math"
 	"reflect"
+	"slices"
 	"strings"
 
 	vpndetection "github.com/vpndetection-io/sdk-go/v5"
@@ -28,8 +31,10 @@ import (
 //	middleware.BlockCondition{"resproxy": middleware.BlockCondition{"hits": middleware.Gte(5)}}
 //	middleware.BlockCondition{"vpn": middleware.BlockCondition{"confidence": middleware.AnyOf("high", "medium")}}
 //
-// A value may be a scalar (equality, strings without regard to case), an AnyOf,
-// a Bound, or a nested BlockCondition.
+// A value may be a scalar (equality, strings without regard to case; a defined
+// type such as vpndetection.VerdictSpoofed counts as its kind), an AnyOf or any
+// slice of such values (any-of), a Bound with at least one limit, or a nested
+// BlockCondition. Validate refuses any other value, which no answer could match.
 type BlockCondition map[string]any
 
 // Conditions is a list of conditions, any one of which blocking is enough.
@@ -68,7 +73,8 @@ func (b Bound) Lte(v float64) Bound { b.LteV = &v; return b }
 // Lt narrows an existing bound.
 func (b Bound) Lt(v float64) Bound { b.LtV = &v; return b }
 
-// AnyOf matches a member equal to any one of these, for an enum-like field.
+// AnyOf matches a member equal to any one of these, for an enum-like field. A
+// slice, []string{"high", "medium"}, says the same.
 func AnyOf(values ...any) anyOf { return anyOf(values) }
 
 type anyOf []any
@@ -151,12 +157,16 @@ func collectMissing(condition BlockCondition, value reflect.Value, prefix string
 	}
 }
 
-// Validate refuses a condition that constrains nothing.
+// Validate refuses a condition that constrains nothing, and a term no answer
+// could match.
 //
 // Ignoring false means BlockCondition{"is_vpn": false} and an empty one have no
 // terms left to satisfy, so they would match every answer and block all
 // traffic. Nobody writes that on purpose, and failing when the middleware is
-// built beats discovering it in production.
+// built beats discovering it in production. A Bound with no limit is the same
+// mistake in a member, and a term of a type matchesValue cannot compare (a
+// pointer, a plain map, a struct) is the opposite one: it blocks nobody and
+// says nothing.
 func Validate(conditions Conditions) error {
 	if len(conditions) == 0 {
 		return nil
@@ -168,8 +178,68 @@ func Validate(conditions Conditions) error {
 					"request; a member set to false or nil is ignored, so state the positive "+
 					"signals you act on (got %v)", map[string]any(one))
 		}
+		if err := checkMembers(one, ""); err != nil {
+			return err
+		}
 	}
 	return nil
+}
+
+func checkMembers(condition BlockCondition, prefix string) error {
+	for _, member := range slices.Sorted(maps.Keys(condition)) {
+		if err := checkTerm(condition[member], prefix+member, false); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// checkTerm refuses what matchesValue cannot compare. A nil or false member is
+// ignored, but inside a list it is a term that never matches.
+func checkTerm(want any, path string, inList bool) error {
+	switch w := want.(type) {
+	case nil:
+		if !inList {
+			return nil
+		}
+	case BlockCondition:
+		return checkMembers(w, path+".")
+	case Bound:
+		if why := w.refusal(); why != "" {
+			return fmt.Errorf("vpndetection: block condition term %s is a Bound %s, which would match "+
+				"every number; give it a limit with Gte, Gt, Lte or Lt", path, why)
+		}
+		return nil
+	default:
+		if terms, ok := termsOf(want); ok {
+			for _, term := range terms {
+				if err := checkTerm(term, path, true); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+		value := reflect.ValueOf(want)
+		_, isNumber := asFloat(value)
+		if isNumber || value.Kind() == reflect.String || value.Kind() == reflect.Bool {
+			return nil
+		}
+	}
+	return fmt.Errorf("vpndetection: block condition term %s is a %T, which no answer matches; use a "+
+		"string, a number, a bool, a slice or AnyOf of those, a Bound, or a nested BlockCondition", path, want)
+}
+
+// A Bound with no limit holds for every number, and a NaN one for every number
+// whatever the others say.
+func (b Bound) refusal() string {
+	limits := []*float64{b.GteV, b.GtV, b.LteV, b.LtV}
+	if !slices.ContainsFunc(limits, func(limit *float64) bool { return limit != nil }) {
+		return "with no limit"
+	}
+	if slices.ContainsFunc(limits, func(limit *float64) bool { return limit != nil && math.IsNaN(*limit) }) {
+		return "with a NaN limit"
+	}
+	return ""
 }
 
 // ConstraintCount reports how many leaf constraints a condition carries.
@@ -177,11 +247,6 @@ func ConstraintCount(condition any) int {
 	switch v := condition.(type) {
 	case nil:
 		return 0
-	case bool:
-		if !v {
-			return 0
-		}
-		return 1
 	case BlockCondition:
 		n := 0
 		for _, entry := range v {
@@ -194,11 +259,30 @@ func ConstraintCount(condition any) int {
 			n += ConstraintCount(entry)
 		}
 		return n
-	case anyOf:
-		return len(v)
-	default:
-		return 1
 	}
+	if terms, ok := termsOf(condition); ok {
+		return len(terms)
+	}
+	if value := reflect.ValueOf(condition); value.Kind() == reflect.Bool && !value.Bool() {
+		return 0
+	}
+	return 1
+}
+
+// The terms of an any-of: AnyOf's, or those of any slice or array.
+func termsOf(want any) ([]any, bool) {
+	if terms, ok := want.(anyOf); ok {
+		return terms, true
+	}
+	value := reflect.ValueOf(want)
+	if value.Kind() != reflect.Slice && value.Kind() != reflect.Array {
+		return nil, false
+	}
+	terms := make([]any, value.Len())
+	for i := range terms {
+		terms[i] = value.Index(i).Interface()
+	}
+	return terms, true
 }
 
 func matchesStruct(condition BlockCondition, value reflect.Value, prefix string, unserved map[string]bool) bool {
@@ -231,14 +315,15 @@ func matchesValue(want any, got reflect.Value, prefix string, unserved map[strin
 		}
 		return false
 	}
-	switch w := want.(type) {
-	case anyOf:
-		for _, entry := range w {
-			if matchesValue(entry, got, prefix, unserved) {
+	if terms, ok := termsOf(want); ok {
+		for _, term := range terms {
+			if matchesValue(term, got, prefix, unserved) {
 				return true
 			}
 		}
 		return false
+	}
+	switch w := want.(type) {
 	case Bound:
 		return matchesBound(w, got)
 	case BlockCondition:
@@ -246,19 +331,27 @@ func matchesValue(want any, got reflect.Value, prefix string, unserved map[strin
 			return false
 		}
 		return matchesStruct(w, got, prefix, unserved)
-	case string:
+	}
+	return matchesScalar(reflect.ValueOf(want), got)
+}
+
+// Compared by kind, so a defined type (vpndetection.VerdictSpoofed, a named
+// int) is its underlying value.
+func matchesScalar(want, got reflect.Value) bool {
+	switch want.Kind() {
+	case reflect.String:
 		// Providers are lowercase slugs on the wire and a caller should not
 		// have to know that, so a string compares without case.
-		return got.Kind() == reflect.String && strings.EqualFold(w, got.String())
-	case bool:
-		return got.Kind() == reflect.Bool && got.Bool() == w
-	default:
-		if n, ok := asFloat(reflect.ValueOf(want)); ok {
-			m, ok := asFloat(got)
-			return ok && n == m
-		}
+		return got.Kind() == reflect.String && strings.EqualFold(want.String(), got.String())
+	case reflect.Bool:
+		return got.Kind() == reflect.Bool && got.Bool() == want.Bool()
+	}
+	n, ok := asFloat(want)
+	if !ok {
 		return false
 	}
+	m, ok := asFloat(got)
+	return ok && n == m
 }
 
 func matchesBound(bound Bound, got reflect.Value) bool {
